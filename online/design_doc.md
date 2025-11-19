@@ -30,13 +30,20 @@ such that there are less than 2 players remaining, the game ends.
 The server can run on any port, and when a client connects to that port, it
 knows to keep using the same port number for the rest of the game.
 
-When a user joins the game, their session is associated with that game.  If
-they close their browser, they are removed from the game.  If they reload the
-page, they can't rejoin the game - they must start over.
+Every time the server state changes, all clients get a message with an updated
+nonce.
 
-When a user leaves a game, their cards are removed from the game, but the game
-should continue as long as there are at least 2 players.  When the game ends or
-the last player leaves, all state for that game must be purged from the server.
+When a user joins the game, their session is associated with that game. If they
+close their browser or navigate away, they are removed from the game.  If they
+reload the page they can rejoin ONLY if the nonce they last received matches
+the current nonce on the server.  If the nonce does not match, they can't
+rejoin the game - they must start over.
+
+When a user leaves a game, their cards are help in reserve until the server
+nonce changes.  Once it changes, those cards are removed from the game (neither
+in the draw pile nor the discard pile), but the game should continue as long as
+there are at least 2 players.  When the game ends or the last player leaves,
+all state for that game must be purged from the server.
 
 The server should support a URL "/infoz" which produces an HTML page with a
 link to each current game at "/infoz/game/{game-code}".  Clicking the link
@@ -143,6 +150,7 @@ Clients should never have any information about the game except:
   * Whose turn it is now
   * Whose turn is next
   * The reaction timer, when needed
+  * The number of turns the current player must take, when needed
 
 ### Playing the game
 
@@ -302,6 +310,8 @@ Unplayable cards should be rendered as per their image, but slightly faded out.
 
 These rules apply to all time periods.
 
+"Now" cards are playable during other players turns.
+
 If someone tries to drag an unplayable card to the discard pile, it should have
 no effect.  The client should not send a "play" event to the server, and the
 server should ignore any such events if they are sent.  No error message is
@@ -433,15 +443,17 @@ If nothing else is played by any player, the timer expires, the played cards
 are executed (more below) and it becomes the "action" period again.
 
 If, during the reaction period, another player plays a "now" card the timer is
-reset and it becomes the rereaction period.  During rereaction any player,
-including the current player, may play another "now" card.  Every time a card
-is played, the timer is restarted.  If the current player plays it becomes a
-"reaction" period.  If any other player plays it becomes a "rereaction" period.
+reset to 8 seconds and it becomes the rereaction period.  During rereaction any
+player, including the current player, may play another "now" card.  Every time
+a card is played, the timer is restarted.  If the current player plays it
+becomes a "reaction" period.  If any other player plays it becomes a
+"rereaction" period.
 
 When the timer finally expires the played cards are executed and it becomes the
 "action" period again.
 
-That cycle repeats until the player draws a card.
+That cycle repeats until the player draws a card.  Every time the timer is
+restarted, it is set to 8 seconds.
 
 #### Race condition: two players playing at the same time
 
@@ -506,7 +518,7 @@ There are 3 players, A, B, C.
 
   * Player A's turn (again)
 
-##### What can be played in which periods
+##### What cards can be played in which periods
 
 All the cards will be defined in a later section of this doc. This section will
 define when cards can be played.
@@ -913,7 +925,8 @@ EXPLODING CLUSTER cards have already been detailed.
 DEBUG cards have already been detailed.
 
 Playing a NAK card pops 1 extra item off the operations stack, if possible,
-and discards it.  If the stack was empty this card does nothing.
+and discards it.  If the stack was empty this card does nothing.  Playing a NAK
+after a NAK negates the first NAK.
 
 Playing a SHUFFLE card shuffles the draw pile and send a message to all players
 that "The deck was shuffled".
@@ -927,25 +940,21 @@ draw pile in a large overlay, with a "Done" button.  When the player clicks
 deck. A message is sent to all players that "{player} saw the future".
 
 Playing a FAVOR card pops up a dialog asking the current player to choose one
-of the other remaining players, called that the victim.  The victim gets a
-message saying "{player} asked you for a favor" and to all other players saying
-"{player} asked {victim} for a favor".  Victim must choose a card to give to
-the current player, which is moved from victim's hand to the current player's
-hand.
+of the other remaining players, called the victim.  The player may not choose a
+victim with 0 cards in their hand.  The victim gets a message saying "{player}
+asked you for a favor" and to all other players saying "{player} asked {victim}
+for a favor". Victim must choose a card to give to the current player, which is
+moved from victim's hand to the current player's hand.
 
 DEVELOPER cards must be played in pairs.  Playing a DEVELOPER pair pops up a
 dialog asking the current player to choose one of the other remaining players,
-lets call that the victim.  Then they are asked to choose a card from 0 to N-1
-(where N is the number of cards in the victim's hand). The victim gets a
-message saying "{player} stole a card from you" and to all other players saying
-"{player} stole a card from {victim}".  The card in the victim's hand at the
-chosen position flashes 3 times and then disappeard.  It is moved to the
-current player's hand.
-
-Playing a SKIP card immediately ends the current player's turn, without drawing
-a card.  If a SKIP card is used after an ATTACK has been played, it only clears
-1 of the ATTACK card's attacks.  Playing 2 SKIP cards would defend against an
-ATTACK. A mesage is sent to all players saying {player} skipped their turn".
+called the victim.  The player may not choose a victim with 0 cards. in their
+hand.  The player is then asked to choose a card from 0 to N-1 (where N is the
+number of cards in the victim's hand). The victim gets a message saying
+"{player} stole a card from you" and to all other players saying "{player}
+stole a card from {victim}".  The card in the victim's hand at the chosen
+position flashes 3 times and then disappeard.  It is moved to the current
+player's hand.
 
 Playing an ATTACK card ends the current player's turn immediately, without
 drawing a card, and forces the next player to take 2 turns in a row.  A message
@@ -953,10 +962,19 @@ is sent to all players that "{player} attacked {victim} for {n} turns".  If the
 victim of an ATTACK plays another ATTACK card on any of their turns, the
 attacks "stack up" and their turns are transferred to the next victim, who must
 take the attacker's current and untaken turn(s) PLUS 2 more.  For example, if
-the victim of an ATTACK immediately plays another ATTACK, the next player must
-take 4 turns.  If the victim of an ATTACK took one turn and then played ATTACK,
-the next player must take 3 turns.  The victim of an attack should see a
-counter of turns remaining in the timer area.
+player A attacks player B, then player B must take 2 turns.  If on the first of
+those turns, player B attacks player C, then player C must take 4 turns (the
+original 2 from A attacking B, plus 2 more from B attacking C).  Player B's
+ATTACK does not consume one of player B's turns.  If player B first drew a
+card, that would consume one of their turns.  If player B then played ATTACK,
+player C must take 3 turns (the remaining 1 from A attacking B, plus 2 more
+from B attacking C). The victim of an attack should see a counter of turns
+remaining in the timer area.
+
+Playing a SKIP card immediately ends the current player's turn, without drawing
+a card.  If a SKIP card is used after an ATTACK has been played, it only clears
+1 of the ATTACK card's attacks.  Playing 2 SKIP cards would defend against an
+ATTACK. A mesage is sent to all players saying {player} skipped their turn".
 
 When a player draws an UPGRADE CLUSTER card, they must reinsert it into the
 deck, the same as an EXPLODING CLUSTER card, except it goes in face-up.  They
@@ -973,9 +991,11 @@ much as possible, we should automate test cases to ensure no regressions.
 
 ### Critical constraints
 
-This app is to be written in modern Node.js, using Next.js, React, and
+This game is to be written in modern Node.js, using Next.js, React, and
 typescript. It is critical that this code be modern, high quality and have lots
 of great comments.
+
+This game will run on Linux.
 
 It should use all modern best practices.  If you think there is a better way to
 do something, you must ask me, but I want you to tell me what you think is good
@@ -992,6 +1012,12 @@ that relates to a game.  Add a flag or parameter which enables verbose logging,
 which includes logging every message sent and received by the server and
 client.
 
+Always try to make the smallest possible change to implement a feature.  Avoid
+big changes that do many things at once.
+
+Do not generate files that are not needed.  I use `vim` for editing and `git`
+for source control.
+
 ### UI
 
 The web UI for this app must be beautiful and modern, very reactive and
@@ -999,7 +1025,7 @@ interactive, and as simple as possible to use.  Don't use tiny text or buttons.
 Make it beautiful with good sized text and ample spacing.  Use modern web UI
 styles and techniques.
 
-A prototype UI exists in ./prototype -- copy that UI where possible.
+A prototype UI exists in ./prototype -- copy that UI design where possible.
 
 ### Stages
 
@@ -1032,20 +1058,22 @@ Implement drawing cards from the draw pile.
 
 Implement the large overlay for inspecting cards.
 
-#### Stage 2: Turns
+#### Stage 3: Turns
 
 Implement the turn logic, including the action/reaction/rereaction logic.
+
+Implement the operations stack.
 
 Implement playable and unplayable cards and their rendering.
 
 Implement drawing EXPLODING CLUSTER and UPGRADE CLUSTER cards, and re-inserting
 them into the deck.
 
-#### Stage 3: Cards
+#### Stage 4: Cards
 
-Implement the operation stack and card actions.
+Implement the card actions.
 
-#### Stage 4: Everything else
+#### Stage 5: Everything else
 
 Implement the "watch game" logic.
 
