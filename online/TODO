@@ -1,0 +1,13 @@
+write GEMINI.md
+log of plays for fast successions
+per-card rules
+ - need to allow time to NAK
+empty draw pile = shuffle discard pile
+multi-card select and play
+  - what to show when multiple cards are played
+pretty UI
+  - larger images
+  - Click-drag to play?
+  - play button always present?
+Move cards list ot a YAML file
+Swear words / KKK

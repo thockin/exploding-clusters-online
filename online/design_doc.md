@@ -24,14 +24,28 @@ cards are being played.
 
 The server can support many games at once.  Each game must be totally
 independent from all other games.  Each game can support 2 to 5 players.  A
-game cannot be started with less than 2 players, and if player leave the game
+game cannot be started with less than 2 players, and if players leave the game
 such that there are less than 2 players remaining, the game ends.
 
 The server can run on any port, and when a client connects to that port, it
 knows to keep using the same port number for the rest of the game.
 
-Every time the server state changes, all clients get a message with an updated
-nonce.
+Each player gets a unique UUID, and the server tracks the UUID of the game
+owner.  Only the game owner can start the game.
+
+#### Game state
+
+##### Per-game nonce
+
+At startup, each game generates a random, 64 bit unsigned nonce.  Every time
+the game's state changes, such as a new player joining a lobby or a card being
+played, a new nonce is chosen and all connected players get a message with an
+updated nonce value.
+
+The nonces are per-game, not global across all games on the server.
+
+Nonces are always logged as their fixed-width, lower-case, hexadecimal representation,
+without a "0x" prefix.  For example: "0123456789abcdef".
 
 When a user joins the game, their session is associated with that game. If they
 close their browser or navigate away, they are removed from the game.  If they
@@ -39,16 +53,84 @@ reload the page they can rejoin ONLY if the nonce they last received matches
 the current nonce on the server.  If the nonce does not match, they can't
 rejoin the game - they must start over.
 
+A player leaving a game does not change the nonce.  If a player re-joins with
+the correct name, UID, and nonce, the nonce should not be changed. If a net new
+player joins, then the nonce must be changed.  If the game starts or cards are
+played, the nonce must be changed. This should allow multiple players to leave
+the game (e.g. refresh their browser) and rejoin as long as nothing else has
+changed.
+
+Any time the nonce changes, for any reason, all disconnected players must be
+purged.
+
+When a player tries to rejoin a game but is not allowed, show them a dialog
+with a title like "Sorry!" and a message like "The game has changed since you
+left. Rejoining it is not possible.". When they hit OK, take them to the
+landing page.
+
+When the game owner disconnects, randomly choose another player to act as the
+owner.  The new owner should be saved in the server and they should see the
+"Start the game" button. They should also get a dialog with title "You are now the
+game owner" and message "{previous owner} left the game, so you have been
+selected as the new game owner.  Congratulations on your promotion!". The
+original owner can rejoin the game as a regular player, but they are no
+longer the owner.
+
+When the last player leaves a game, all state for that game must be purged from
+the server, whether there are spectators or not.  No new owner needs to be
+chosen - the game is immediately over.
+
+###### Example
+
+Consider a game with 4 connected players: A, B, C, and D.  The nonce is
+currently 12345.
+
+  * Player B navigates their browser away.
+    - The last nonce they know is 12345
+  * The server's game nonce remains 12345.
+  * The player list UI for players A, C, and D is updated to remove B.
+  * Player C navigates their browser away.
+    - The last nonce they know is 12345
+  * The server's game nonce remains 12345.
+  * The player list UI for players A and D is updated to remove C.
+  * Player D navigates their browser away.
+    - The last nonce they know is 12345
+  * The server's game nonce remains 12345.
+  * The player list UI for player A is updated to remove D.
+  * Player B hits their browser's back button to rejoin the game.
+    - They offer the last nonce they knew, which is 12345
+  * That matches the server's nonce, so B is allowed back in.
+  * The player list UI for player A is updated to add B.
+  * The server's game nonce remains 12345.
+  * Player C hits their browser's back button to rejoin the game.
+    - They offer the last nonce they knew, which is 12345
+  * That matches the server's nonce, so C is allowed back in.
+  * The player list UI for players A and B is updated to add C.
+  * The server's game nonce remains 12345.
+  * New player E joins the game.
+  * The server's game nonce changes to 67890.
+  * The player list UI for players A, B, and C is updated to add E.
+  * Player D hits their browser's back button to rejoin the game.
+    - They offer the last nonce they knew, which is 12345
+  * That DOES NOT match the server's nonce, so D is sent to the landing page.
+
+##### Cleanup
+
 When a user leaves a game, their cards are help in reserve until the server
 nonce changes.  Once it changes, those cards are removed from the game (neither
 in the draw pile nor the discard pile), but the game should continue as long as
 there are at least 2 players.  When the game ends or the last player leaves,
 all state for that game must be purged from the server.
 
+If the server is restarted, it should not retain any game state. 
+
+#### Extra URLs
+
 The server should support a URL "/infoz" which produces an HTML page with a
 link to each current game at "/infoz/game/{game-code}".  Clicking the link
 takes you to the info page for a single game which shows:
   * The list of players and their hands (text only)
+  * The current game nonce
   * The draw pile (text only) 
   * The discard pile (text only)
   * Whose turn it is
@@ -69,8 +151,25 @@ choice:
 If they choose "Start a new game", we ask them their name, and then create a
 new game instance on the server.  Each game gets a randomized "game code" which
 is exacty 5 letters, alphabetic, no vowels, upper-case, and  does not contain
-swear words. The player is then taken to the "control panel" screen.  They can
-see the game code and share it with friends. This player is the game creator.
+swear words. The player is then taken to the "lobby" screen.  They can see the
+game code and share it with friends. This player is the game owner.
+
+The lobby screen is the same for all players, except that the game owner sees
+a "Start the game" button, while other players see a "Waiting for the game to
+start" message. Both show a list of the joined players and how many people are
+watching the game.
+
+In the lobby screen for all players, including the game owner, there is a
+"Leave the game" button.  Clicking this button first offers an "Are you sure you
+want to leave the game" dialog, and (if the player confirms) clears all of the
+client state including the game code and nonce, and takes the player back to
+the landing page.  All that player's state is removed from the server, and all
+other players in the lobby are notified and their player lists are updated.
+
+If the user uses the "/forceNewGame" URL path, the client should be forced to
+forget anything it knows, including the game code and nonce, and the server
+should forget my client ID, and take me to the landing page.  It means "I
+really don't want to rejoin a game"
 
 ### Joining a game
 
@@ -97,24 +196,32 @@ list.
 
 ### Watching a game
 
-If the user chooses "Watch a game", we we look for a game with that game code.
-If found, we take them to an "observer" screen.
+If the user chooses "Watch a game", we ask them for a game code.  Before they
+can observer, we must look for a game with that game code on the server.  If no
+such game code is found on the server, we tell the user "Game {code} does not
+exist", and leave them at the landing page.
+
+If the game code is found, take them to an "observer" screen.
+
+If the game is still in the lobby, the observer screen is a simple "Waiting for
+the game to start" screen, showing the player list and how many spectators are
+watching.
+
+When the game owner clicks "Start the game", all spectators should be taken to
+something like the game screen, but without the hand area, and the message area
+fills the bottom part of the screen.
+
+Specators connecting or disconnecting never updates the nonce.
 
 ### Starting a game
 
-The "control panel" and the "lobby" screen are the same, except that the control
-panel shows a "Start game" button, while the lobby shows a "Waiting for the game
-to start" message.  Both show a list of the joined players and how many people
-are watching the game.
-
-The player who created the game can click the start button in the control panel
+The player who created the game can click the start button in the lobby screen
 to begin the game. If there are less than 2 players, the game cannot be
 started. Once a game is started, no more users can join, but more people can
 watch.
 
-When the control panel user starts the game, all players see the lobby screen
-change to the "game" screen. The "observer" screen is the same as the "game"
-screen, but the hand area (which will defined later) is removed.
+When the game owner starts the game, all players see the lobby screen
+change to the "game" screen.
 
 ### Game state
 
@@ -168,7 +275,12 @@ The main "game" screen is split into several areas:
   * To the right of those is the "table" area. It shows the draw pile on the
     left and the discard pile on the right. If either pile is empty, show a
     yellow-orange outline instead. Both piles, and their outlines, should be as
-    large as possible in that area. Both piles are always the same size.
+    large as possible in that area, while following these guidelines:
+    - Prefer the piles to be next to each other horizontally, unless there's
+      more room vertically than horizonally.
+    - Leave a good margin at the edges of the table area
+    - Leaving a good margin of space between the piles
+    - Both piles are always the same size
 
   * Below those, across the whole screen, is the "message" area.  It has two
     parts.
@@ -181,7 +293,15 @@ The main "game" screen is split into several areas:
 
   * Below that, across the whole screen, is the "hand" area, which will show a
     player's cards.  If the player has a lot of cards they can be rendered
-    smaller or wrapped to multiple lines.
+    smaller or wrapped to multiple lines. In the bottom right of the hand area,
+    there is a "Leave the game" button.  Clicking this button first offers an
+    "Are you sure you want to leave the game" dialog, and (if the player
+    confirms) clears all of the client state, including the game code and
+    nonce, and takes the player back to the landing page.  All that player's
+    state is removed from the server, and all other players in the lobby are
+    notified and their player lists are updated. The player's cards are removed
+    (neither in the draw pile nor the discard pile) for the remainder of the
+    game.
 
 #### Turns
 
@@ -291,6 +411,12 @@ game, and it is the next player's turn.  There is no reaction allowed.
 When there is only one player left, that player wins.  Send a message to all
 players that "{player} wins!", and halt the game.
 
+If the next-to-last player leaves the game, either by clicking the button or by
+navigating away, show a dialog to the last remaining player and any observers
+titled "{player} wins!" with a message "Winning by attrition is still
+winning.". When they acknowledge the dialog, take them back to the landing
+page.
+
 #### UI: the "hand" area
 
 ##### Reordering cards
@@ -331,28 +457,42 @@ color as the table, if needed.
 
 ##### Selecting cards
 
-If a player single-clicks a playable card in their hand, that selects the card
-- put a blue outline around it. If they single click an already-selected card a
-second time, it de-selects the card, remove the outline (or change it to the
-background color).
+If the player single-clicks a playable card in their hand, that selects the
+card - put a blue outline around it.
 
-If a player single-clicks an unplayable card in their hand, do nothing.
+If the player single clicks an already-selected card a second time, it
+de-selects the card - remove the outline (or change it to the background
+color).
 
-If a player single-clicks a playable card (making it selected) and then clicks
-another playable card, do not select the second card.  The only exception to
-this is DEVELOPER cards.  If the player selects a DEVELOPER card, and then
-selects a second, identical card (both DEVELOPER cards with the same name), we
-call that a valid combo.  In that case, select (outline) both cards.
+If the player single-clicks an unplayable card in their hand, do nothing.
+
+If the player single-clicks a playable card while a different card is selected,
+deselect the previous card and select the new one.
+
+If the player single-clicks an unplayable card while a different card is selected,
+do nothing.
+
+If a player single-clicks a playable DEVELOPER card (making it selected) and
+then shift-clicks (single-click while pressing the SHIFT key) on another
+identical DEVELOPER card, also select the second card.  This is called a valid
+combo.  Only identical DEVELOPER cards (same class and name) can be selected as
+part of a combo.  Combos can only have 2 cards selected.  Trying to shift-click
+a third card does nothing.  Trying to shift-click any card except DEVELOPER
+cards does nothing.
+
+If there is a valid combo selected, and the player single-clicks a different
+playable card, deselect both cards in the combo and select the new card.
 
 For example:
   * Click NAK - select the card
-  * Click SHUFFLE - do not select the card
-  * Click another NAK - do not select the card
-  * Click the first NAK again - deselect the card
+  * Click SHUFFLE - deselect NAK, select SHUFFLE
+  * Click another NAK - deselect the first NAK, select SHUFFLE
+  * Shift-click another NAK - do nothing
+  * Click the selected NAK again - deselect the card
   * Click DEVELOPER "foo" - select the card
-  * Click SHUFFLE - do not select the card
-  * Click DEVELOPER "bar" - do not select the card (not the same card name)
-  * Click DEVELOPER "foo" - select the second card (valid combo)
+  * Shift-click DEVELOPER "bar" - do not select the card (not identical)
+  * Shift-click DEVELOPER "foo" - select the second card (a valid combo)
+  * Click NAK - deselect both DEVELOPER cards, select NAK
 
 ##### Playing cards
 
@@ -373,9 +513,9 @@ and both cards are played.
 If there is a valid combo of DEVELOPER cards selected and the player clicks and
 drags one of those cards to the discard pile, both cards are played.
 
-If a single DEVELOPER card is played, but that card is required to be in a
-combo (a pair), do not play that card.  Return it to the player's hand with a
-message that "DEVELOPER cards must be played as pairs".
+If a single DEVELOPER card is played, that card is not played.  Return it to
+the player's hand with a message that "DEVELOPER cards must be played in
+pairs".
 
 If there is a valid combo of cards selected and the player clicks and drags a
 different card to the discard pile, that does not play any card, but the
@@ -388,7 +528,7 @@ the discard pile and receive a message about what was played.
 ##### Inspecting cards
 
 If the player double clicks a card in their hand, show that card in a large
-overlay, until the player clicks somewhere or hits the escape key.
+overlay, until the player clicks somewhere or hits the ESCAPE key.
 
 #### UI: The table area
 
@@ -418,11 +558,23 @@ put 2 "UPGRADE CLUSTER" cards in. Shuffle the deck.
 That is the draw pile.  Render it on the table area.  The initial discard pile
 is empty.
 
-The game has an undocumented URL parameter "dev". If it is set to 1 when the
-game is created, then the draw pile should always start with an EXPLODING
-CLUSTER card on top. Make sure that the dev param is passed from the main
-landing page to the create and join pages, an then to the game page.  Do not
-offer the "dev" param through the UI at all.
+If the game server was started with DEVMODE=1 in its environment, then the game
+is in developer mode.  In developer mode, the following things are different:
+
+  * When the game is created, the draw pile starts with an EXPLODING CLUSTER
+    card on top.
+
+  * The player list area shows a "Give me a DEBUG card" button at the bottom.
+    If the player clicks that button, they get a DEBUG card added to their hand
+    from the deck. If there are no DEBUG cards in the deck, disable that
+    button for all players.
+
+  * The player list area shows a "Show me the deck" button at the bottom. If
+    the player clicks that button, they see the entire draw pile as a list of
+    cards in a large overlay.
+
+  * Below the draw pile and the discard pile is the number of cards in each
+    pile, e.g. "(21 cards)".
 
 #### Taking turns
 
@@ -1006,17 +1158,35 @@ Every major piece of logic must have tests, and those tests must pass.  To run
 `npm` tests, always invoke it like `npm test -- --no-watch` so that it runs
 once and exits with a proper exit code.
 
-This app should emit useful debugging logs, which can be used by humans or AIs
-when we hit a problem.  Make sure to include the game code in every log-line
-that relates to a game.  Add a flag or parameter which enables verbose logging,
-which includes logging every message sent and received by the server and
-client.
+The code should always pass linting.
 
 Always try to make the smallest possible change to implement a feature.  Avoid
 big changes that do many things at once.
 
 Do not generate files that are not needed.  I use `vim` for editing and `git`
 for source control.
+
+#### Logging
+
+This app should emit useful debugging logs, which can be used by humans or AIs
+when we hit a problem.  Make sure to include the game code in every log-line
+that relates to a game.
+
+If a log line is about a specific game, do not include the game code in the
+message, just in the log header.
+
+When logging player names, always log both the player name, in double quotes,
+and the player ID.  For example `player "Joe Smith" (ABC123)`.
+
+Always log timestamps.
+
+Always start logs with a lowercase letter unless it is a proper noun or
+acronym. Thw words "game" and "player" and "server" are not proper nouns.
+
+Never end log lines with a period.
+
+Add a server parameter which enables verbose logging, which includes logging
+every message sent and received by the server and client.
 
 ### UI
 
@@ -1027,9 +1197,13 @@ styles and techniques.
 
 A prototype UI exists in ./prototype -- copy that UI design where possible.
 
-### Stages
+Whenever we show a dialog, maker sure that pressing ENTER on the keyboard
+presses the default button in the dialog.  If applicable, pressing ESCAPE
+should press the cancel button.
 
-#### Stage 1: Server and client
+### Phases
+
+#### Phase 1: Server and client
 
 Implement the server and client skeletons, with no game logic.
 
@@ -1046,7 +1220,9 @@ Implement the game page with the basic layout, but no game logic.
 
 Implement the player list, message area, timer area, table area, and hand area.
 
-#### Stage 2: Hand and table UI
+Implement the per-game nonce.
+
+#### Phase 2: Hand and table UI
 
 Implement drag and drop reordering of cards within the hand area.
 
@@ -1058,7 +1234,7 @@ Implement drawing cards from the draw pile.
 
 Implement the large overlay for inspecting cards.
 
-#### Stage 3: Turns
+#### Phase 3: Turns
 
 Implement the turn logic, including the action/reaction/rereaction logic.
 
@@ -1069,11 +1245,13 @@ Implement playable and unplayable cards and their rendering.
 Implement drawing EXPLODING CLUSTER and UPGRADE CLUSTER cards, and re-inserting
 them into the deck.
 
-#### Stage 4: Cards
+Implement DEVMODE features.
+
+#### Phase 4: Cards
 
 Implement the card actions.
 
-#### Stage 5: Everything else
+#### Phase 5: Everything else
 
 Implement the "watch game" logic.
 
