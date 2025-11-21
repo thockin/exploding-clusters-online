@@ -326,7 +326,10 @@ to end their turn.
 
 During their turn, the player may play 0 or more cards, either one at a time or in
 combos.  To play a card, players drag and drop them from their hand into
-discard pile.  Once played, and the reactions are done, any card-specific rules
+discard pile.  A played card appears, full size, on the discard pile for all
+players to see.
+
+Once played, and the reactions are done, any card-specific rules
 or actions must be followed (more on that later).  When a player decides they
 are done playing, they must draw a card from the draw pile, unless the last
 card action they played specifically said they do not need to draw a card.
@@ -341,9 +344,10 @@ played a pair of {card-class} cards".
 ##### Drawing a card
 
 When a player draws a card by clicking on the draw pile, they see the top
-card as a large overlay for 3 seconds.  If it is a regular card (not "EXPLODING
-CLUSTER" or "UPGRADE CLUSTER"), that card goes into theirt hand on the server
-and in their hand area, and their turn is over.
+card as a large overlay for 3 seconds.  During that time, game play is paused
+for all players.  If it is a regular card (not "EXPLODING CLUSTER" or "UPGRADE
+CLUSTER"), that card goes into their hand on the server and in their hand area,
+and their turn is over.
 
 When a player draws a card by clicking on the draw pile, other players see the
 draw pile flash yellow twice before the player list updates whose turn it it.
@@ -421,9 +425,9 @@ page.
 
 ##### Reordering cards
 
-If the player drags and drops cards within their hand, the cards should be
-reordered on the server and rendered for that player.  This can happen at any
-time, even when it is not that player's turn.
+If the player drags and drops cards within their hand (not to the table area),
+the cards should be reordered on the server and rendered for that player.  This
+can happen at any time, even when it is not that player's turn.
 
 ##### Playable and unplayable cards
 
@@ -497,7 +501,7 @@ For example:
 ##### Playing cards
 
 If there are no cards selected and the player clicks and drags a card to the
-discard pile, that card is played.
+discard pile, that card is played (being selected is not a prerequisite).
 
 If there is a single card selected and the player clicks and drags the selected
 card to the discard pile, that card is played.
@@ -563,6 +567,16 @@ is in developer mode.  In developer mode, the following things are different:
 
   * When the game is created, the draw pile starts with an EXPLODING CLUSTER
     card on top.
+
+  * The first player's hand starts with 2 identical DEVELOPER cards and a third
+    non-identical DEVELOPER card, plus 2 NAK cards, a SHUFFLE card, and a FAVOR
+    card.
+
+  * The second player's hand starts with 2 NAK cards, a SHUFFLE NOW card, an
+    ATTACK card, a SEE THE FUTURE card, and 2 DEVELOPER cards (one identical to
+    a card in player 1's hand, one not).
+
+  * Other players hands are random.
 
   * The player list area shows a "Give me a DEBUG card" button at the bottom.
     If the player clicks that button, they get a DEBUG card added to their hand
@@ -1290,6 +1304,41 @@ We need the following browsers tests to work:
       * Player presses Escape.
       * The draw pile overlay disappears.
 
+  12) Reorder Cards in Hand
+      * Player 1 creates a game.
+      * Player 2 joins the game.
+      * Player 1 starts the game.
+      * Player 1 drags and drops cards in their hand to reorder them.
+      * The new order is verified.
+
+  13) Card selection
+      * Player 1 creates a game.
+      * Player 2 joins the game.
+      * Player 1 starts the game.
+      * Player 1 clicks a card in their hand.
+      * The card is outlined to show selection.
+      * Player 1 clicks the same card.
+      * The card is no longer outlined.
+      * Player 1 selects a non-DEVELOPER card.
+      * The card is outlined to show selection.
+      * Player 1 selects another non-DEVELOPER card.
+      * The first card is deselected and the new card is selected.
+      * Player 1 selects a DEVELOPER card.
+      * The card is outlined to show selection.
+      * Player 1 shift-clicks a different DEVELOPER card of a different name.
+      * Nothing happens.
+      * Player 1 shift-clicks a different DEVELOPER card of the same name as
+        the selected card.
+      * Both DEVELOPER cards are outlined to show selection.
+      * Player 1 shift-clicks a third DEVELOPER card of the same name.
+      * Nothing happens.
+      * Player 1 clicks a non-DEVELOPER card in their hand.
+      * The card is outlined to show selection.
+
+  14) TODO: playing cards
+
+  15) TODO: drawing cards
+
 ### Implementation phases
 
 #### Phase 1: Server and client
@@ -1311,17 +1360,29 @@ Implement the player list, message area, timer area, table area, and hand area.
 
 Implement the per-game nonce.
 
+Implement the large overlay for inspecting cards.
+
+Implement DEVMODE features.
+
 #### Phase 2: Hand and table UI
+
+##### Phase 2.1: Reordering the hand
 
 Implement drag and drop reordering of cards within the hand area.
 
+##### Phase 2.2: Card selection
+
 Implement card selection, including multi-card combos.
 
-Implement drag and drop of cards from the hand area to the discard pile.
+##### Phase 2.3: Playing cards
 
-Implement drawing cards from the draw pile.
+Implement drag and drop of cards from the hand area to the discard pile to play
+them (but do not implement the card actions yet).
 
-Implement the large overlay for inspecting cards.
+##### Phase 2.4: Drawing cards
+
+Implement drawing cards from the draw pile (but do not implement the EXPLODING
+CLUSTER or UPGRADE CLUSTER logic yet).
 
 #### Phase 3: Turns
 
@@ -1333,8 +1394,6 @@ Implement playable and unplayable cards and their rendering.
 
 Implement drawing EXPLODING CLUSTER and UPGRADE CLUSTER cards, and re-inserting
 them into the deck.
-
-Implement DEVMODE features.
 
 #### Phase 4: Cards
 
