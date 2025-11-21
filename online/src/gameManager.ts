@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { Card, fullDeck, shuffleDeck } from './app/game/deck';
+import { PseudoRandom } from './utils/PseudoRandom';
 
 // Define interfaces for game and player states
 interface Player {
@@ -36,8 +37,12 @@ export class GameManager {
     private games: Map<string, Game> = new Map();
     private playerToGameMap: Map<string, string> = new Map(); // socketId -> gameCode
     private verbose: boolean = process.env.VERBOSE === '1';
+    private prng: PseudoRandom;
 
     constructor(private io: Server) {
+        const devMode = process.env.DEVMODE === '1';
+        this.prng = new PseudoRandom(devMode ? 0 : undefined);
+
         // Setup Socket.IO event listeners
         this.io.on('connection', (socket: Socket) => {
             // console.log(`Socket connected: ${socket.id}`); // Use this.log inside handlers or just here if we can access this.log?
@@ -53,7 +58,7 @@ export class GameManager {
             this.log(null, `socket connected: ${socket.id}`);
 
             if (this.verbose) {
-                socket.onAny((eventName, ...args) => {
+                socket.onAny((eventName: string, ...args: any[]) => {
                     this.log(null, `received event "${eventName}" from ${socket.id}: ${JSON.stringify(args)}`);
                 });
             }
@@ -173,7 +178,7 @@ export class GameManager {
         let code = '';
         let unique = false;
         while (!unique) {
-            code = Array.from({ length: 5 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
+            code = Array.from({ length: 5 }, () => alphabet[Math.floor(this.prng.random() * alphabet.length)]).join('');
             // TODO: Implement swear word check
             if (!this.games.has(code)) {
                 unique = true;
@@ -182,7 +187,10 @@ export class GameManager {
         return code;
     }
 
-    private generateNonce(): string {
+    private generateNonce(devMode: boolean): string {
+        if (devMode) {
+            return '0000000000000000'; // Fixed nonce for DEVMODE reproducibility
+        }
         return randomBytes(8).toString('hex');
     }
 
@@ -241,7 +249,7 @@ export class GameManager {
             return; // Stop further updates
         }
 
-        game.nonce = this.generateNonce();
+        game.nonce = this.generateNonce(game.devMode);
         // Notify all clients in the game about the nonce change
         this.emitGameUpdate(game);
 
@@ -274,7 +282,7 @@ export class GameManager {
             discardPile: [],
             pendingOperations: [],
             gameOwnerId: playerId,
-            nonce: this.generateNonce(),
+            nonce: this.generateNonce(devMode),
             timer: null,
             devMode: devMode,
         };
@@ -431,7 +439,7 @@ export class GameManager {
              deck.push(debugCards.pop()!);
         }
         
-        deck = shuffleDeck(deck);
+        deck = shuffleDeck(deck, this.prng.random.bind(this.prng));
 
         // Deal 7 cards to each player
         for (const p of game.players) {
@@ -456,7 +464,7 @@ export class GameManager {
              if (upgradeClusters.length > 0) deck.push(upgradeClusters.pop()!);
         }
 
-        game.drawPile = shuffleDeck(deck);
+        game.drawPile = shuffleDeck(deck, this.prng.random.bind(this.prng));
 
         // DEVMODE: Move Exploding Cluster to top
         if (game.devMode) {
@@ -471,7 +479,7 @@ export class GameManager {
         // Set turn order randomly
         game.turnOrder = game.players.map(p => p.id);
         for (let i = game.turnOrder.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = Math.floor(this.prng.random() * (i + 1));
             [game.turnOrder[i], game.turnOrder[j]] = [game.turnOrder[j], game.turnOrder[i]];
         }
         game.currentTurnIndex = 0;

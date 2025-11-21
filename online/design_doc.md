@@ -576,6 +576,9 @@ is in developer mode.  In developer mode, the following things are different:
   * Below the draw pile and the discard pile is the number of cards in each
     pile, e.g. "(21 cards)".
 
+  * The random seed uses the fixed value 0, so that shuffling and initial
+    player selection, and other things are deterministic for testing.
+
 #### Taking turns
 
 We need to give players time to react to each other.  Let's define some time

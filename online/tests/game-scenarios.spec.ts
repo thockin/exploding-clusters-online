@@ -179,7 +179,8 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // P2 Navigates away (Disconnects)
     await page2.goto('about:blank');
 
-    // P3 Joins -> Updates Nonce
+    // P3 Joins -> Updates Nonce (in production)
+    // In DEVMODE, nonce is fixed, so this will NOT change the nonce.
     const ctx3 = await browser.newContext();
     const page3 = await ctx3.newPage();
     await joinGame(page3, 'NewPlayer', code);
@@ -189,11 +190,18 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page2.goBack();
     await page2.waitForLoadState('networkidle'); // Wait for page to fully load
     
-    // Should see Error Modal
-    // Wait for the modal title to become visible, then assert text
-    await expect(page2.locator('.modal.show .modal-title')).toBeVisible({ timeout: 10000 });
-    await expect(page2.locator('.modal.show .modal-title')).toContainText('Sorry!', { timeout: 5000 });
-    await expect(page2.locator('.modal.show .modal-body')).toContainText('Rejoining', { timeout: 5000 });
+    if (process.env.DEVMODE === '1') {
+      // In DEVMODE, nonce is fixed, so P2 should successfully rejoin.
+      await expect(page2.locator('h2:has-text("Lobby - Game Code:")')).toBeVisible({ timeout: 30000 });
+      await expect(page2).toHaveURL(/lobby/, { timeout: 5000 });
+      await expect(page2.locator('text=Lobby - Game Code')).toBeVisible();
+      await expect(page1.locator('text=Leaver')).toBeVisible({ timeout: 10000 });
+    } else {
+      // In production, nonce changes, so P2 should see Error Modal.
+      await expect(page2.locator('.modal.show .modal-title')).toBeVisible({ timeout: 10000 });
+      await expect(page2.locator('.modal.show .modal-title')).toContainText('Sorry!', { timeout: 5000 });
+      await expect(page2.locator('.modal.show .modal-body')).toContainText('Rejoining', { timeout: 5000 });
+    }
   });
 
   test('Attrition Win', async ({ browser }) => {
