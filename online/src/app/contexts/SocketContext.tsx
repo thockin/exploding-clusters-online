@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { io, Socket } from 'socket.io-client';
 import { Card } from '../game/deck';
 
-interface PlayerInfo {
+export interface PlayerInfo {
   id: string;
   name: string;
   cards: number; // number of cards in hand
@@ -349,8 +349,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       watchGame,
       startGame,
       resetState,
-    }}>
-      {children}
-    </SocketContext.Provider>
+    }}>{
+      children
+    }</SocketContext.Provider>
   );
 };

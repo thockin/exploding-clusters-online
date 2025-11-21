@@ -512,10 +512,6 @@ export class GameManager {
 
     private handleDisconnect(socket: Socket) {
         const gameCode = this.playerToGameMap.get(socket.id);
-        // this.log(null, `Socket ${socket.id} disconnected. GameCode from map: ${gameCode}`); 
-        // Commented out or replaced. I'll replace it.
-        // Note: logging "Socket ... disconnected" might be noisy if I also log "Player ... disconnected".
-        // But user asked for timestamped logs.
         
         if (!gameCode) {
             this.log(null, `Socket ${socket.id} disconnected, not in any game`);
@@ -555,7 +551,16 @@ export class GameManager {
                 }
             }
             // Emit game update, which will trigger nonce change and purging of disconnected players
-            this.emitGameUpdate(game);
+            // OR immediate attrition win check if game started and only one player left.
+            const connectedPlayers = game.players.filter(p => !p.isDisconnected);
+            if (game.state === 'started' && connectedPlayers.length === 1) {
+                const winner = connectedPlayers[0];
+                this.log(game, `game won by attrition by ${winner.name} due to player disconnection`);
+                this.endGame(gameCode, { winner: winner.name, reason: 'attrition' });
+                return; // Game ended, no further updates needed
+            } else {
+                this.emitGameUpdate(game);
+            }
         }
 
         // --- Spectator Disconnection Logic ---
@@ -567,14 +572,6 @@ export class GameManager {
         }
 
         this.playerToGameMap.delete(socket.id); // Remove from map after all processing
-
-        // After all disconnect processing, and potential purges (via emitGameUpdate -> updateGameNonce),
-        // check if the game is now truly empty of players.
-        const playersAfterPurge = game.players.filter(p => !p.isDisconnected); 
-        if (playersAfterPurge.length === 0) {
-             this.log(game, `game is empty of players after disconnect, purging`);
-             this.endGame(gameCode);
-        }
     }
 
     private endGame(gameCode: string, result?: { winner: string, reason: string }) {
@@ -583,10 +580,18 @@ export class GameManager {
             if (game.timer) {
                 clearTimeout(game.timer);
             }
-            this.games.delete(gameCode);
-            // Optionally, notify all remaining clients that the game has ended
             this.emitToRoom(gameCode, 'gameEnded', result);
-            this.io.sockets.in(gameCode).socketsLeave(gameCode); // Make all sockets leave the room
+
+            // Directly emit to the winner's socket if result and winner are available
+            if (result?.winner) {
+                const winnerPlayer = game.players.find(p => p.name === result.winner && !p.isDisconnected);
+                if (winnerPlayer && winnerPlayer.socketId) {
+                    this.emitToSocket(winnerPlayer.socketId, 'gameEnded', result);
+                }
+            }
+
+            this.games.delete(gameCode); // Delete game from map after emitting
+
             this.log(null, `game ${gameCode} purged`);
         }
     }

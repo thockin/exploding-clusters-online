@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Container, Row, Col, ListGroup, Button, Modal } from 'react-bootstrap';
-import { useSocket } from '../contexts/SocketContext';
+import { useSocket, PlayerInfo } from '../contexts/SocketContext';
 import { Card as CardType } from './deck';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import Image from 'next/image';
@@ -34,7 +34,8 @@ export default function GameScreen() {
     if (!gameState && !isLoading && !gameEndData) {
       router.push('/');
     }
-  }, [gameState, isLoading, router, gameEndData]);
+    console.log({ myHand, isSpectator: !gameState?.players.some(p => p.id === playerId), playerId, gameCode });
+  }, [gameState, isLoading, router, gameEndData, myHand, playerId, gameCode]);
   
   useEffect(() => {
     // This effect handles logging exploding card but we don't render it yet?

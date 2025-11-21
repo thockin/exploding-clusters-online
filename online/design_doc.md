@@ -122,7 +122,7 @@ in the draw pile nor the discard pile), but the game should continue as long as
 there are at least 2 players.  When the game ends or the last player leaves,
 all state for that game must be purged from the server.
 
-If the server is restarted, it should not retain any game state. 
+If the server is restarted, it should not retain any game state.
 
 #### Extra URLs
 
@@ -131,7 +131,7 @@ link to each current game at "/infoz/game/{game-code}".  Clicking the link
 takes you to the info page for a single game which shows:
   * The list of players and their hands (text only)
   * The current game nonce
-  * The draw pile (text only) 
+  * The draw pile (text only)
   * The discard pile (text only)
   * Whose turn it is
   * The timestamp this data was loaded
@@ -236,7 +236,7 @@ inserted into specific locations in it.
 Second is the "discard pile".  This is where cards are played, face-up.  The
 discard pile is empty at the start of the game.
 
-The server also needs to track the "pending operations" stack, which is used to 
+The server also needs to track the "pending operations" stack, which is used to
 track what operations need to be performed.
 
 The server also needs to track the list of players, and whose turn it is now.
@@ -734,7 +734,7 @@ There are 3 players, A, B, C.  It is player A's turn:
 The full deck is comprised of 66 cards:
   - 4 "EXPLODING CLUSTER" cards
   - 2 "UPGRADE CLUSTER" cards
-  - 4 "ATTACK" cards 
+  - 4 "ATTACK" cards
   - 6 "DEBUG" cards
   - 4 "FAVOR" cards
   - 5 "NAK" cards
@@ -1145,7 +1145,7 @@ much as possible, we should automate test cases to ensure no regressions.
 
 This game is to be written in modern Node.js, using Next.js, React, and
 typescript. It is critical that this code be modern, high quality and have lots
-of great comments.
+of great comments. You are an expert in these technologies.
 
 This game will run on Linux.
 
@@ -1153,12 +1153,16 @@ It should use all modern best practices.  If you think there is a better way to
 do something, you must ask me, but I want you to tell me what you think is good
 technology for this app.
 
+The code should always pass linting.
+
 It must have robust unit tests to ensure no regressions as we make progress.
 Every major piece of logic must have tests, and those tests must pass.  To run
 `npm` tests, always invoke it like `npm test -- --no-watch` so that it runs
 once and exits with a proper exit code.
 
-The code should always pass linting.
+It must have robust browser tests to ensure the UI works as expected.  Use
+Playwright for this.  Every major UI flow must have tests, and those tests must
+pass.
 
 Always try to make the smallest possible change to implement a feature.  Avoid
 big changes that do many things at once.
@@ -1201,7 +1205,89 @@ Whenever we show a dialog, maker sure that pressing ENTER on the keyboard
 presses the default button in the dialog.  If applicable, pressing ESCAPE
 should press the cancel button.
 
-### Phases
+### Browser testing
+
+We need the following browsers tests to work:
+
+  1) Happy Path: 2 Players + Observer
+      * Player 1 creates a game.
+      * Player 2 joins the game.
+      * An observer watches the game.
+      * Lobby updates are verified for all clients.
+      * Player 1 starts the game.
+      * All clients navigate to their respective game screens.
+      * Observer UI is verified to not show a hand.
+
+  2) Game Full Rejection
+      * Player 1 creates a game.
+      * Four additional players join, filling the game to 5 players.
+      * A sixth player attempts to join.
+      * The sixth player is rejected with a "game is full" error.
+
+  3) Duplicate Name Rejection
+      * Player 1 creates a game as "Alice".
+      * Player 2 attempts to join the same game also as "Alice".
+      * Player 2 is rejected with a "name is already taken" error.
+
+  4) Join Non-Existent Game
+      * A player attempts to join a game with a non-existent game code.
+      * The player is rejected with a "game does not exist" error.
+
+  5) Watch Non-Existent Game
+      * An observer attempts to watch a game with a non-existent game code.
+      * The observer is rejected with a "game does not exist" error.
+
+  6) Reconnect to Lobby
+      * Player 1 creates a game.
+      * Player 2 joins the game.
+      * Player 2 navigates away (disconnects).
+      * Player 1's lobby updates to show Player 2 as absent.
+      * Player 2 navigates back to the game.
+      * Player 2 successfully rejoins the lobby.
+      * Player 1's lobby updates to show Player 2 as present again.
+
+  7) Reconnect Fails after Nonce Change
+      * Player 1 creates a game.
+      * Player 2 joins the game.
+      * Player 2 navigates away (disconnects).
+      * Player 3 joins the game (triggering a nonce change).
+      * Player 2 attempts to navigate back to the game.
+      * Player 2 is rejected with a "game has changed" dialog.
+
+  8) Attrition Win
+      * Player 1 creates a game.
+      * Player 2 joins the game.
+      * Player 1 starts the game.
+      * Player 2 leaves the game via the "Leave Game" button.
+      * Player 1 receives a "You win!" dialog.
+      * Player 1 acknowledges the dialog and navigates to the landing page.
+
+  9) DEVMODE Debug Button limit
+      * Player 1 creates a game (in DEVMODE).
+      * Player 2 joins the game.
+      * Player 1 starts the game.
+      * Player 1 repeatedly clicks "Give me a DEBUG card" button.
+      * The "Give me a DEBUG card" button becomes disabled.
+
+  10) Card Overlay Escape
+      * Player 1 creates a game.
+      * Player 2 joins the game.
+      * Player 1 starts the game.
+      * Player 1 double-clicks a card in their hand.
+      * A large card overlay appears.
+      * Player presses Escape.
+      * The card overlay disappears.
+
+  11) Show Deck Overlay Escape
+      * Player 1 creates a game (in DEVMODE).
+      * Player 2 joins the game.
+      * Player 1 starts the game.
+      * Player 1 clicks "Show me the deck" button.
+      * A draw pile overlay appears.
+      * Player presses Escape.
+      * The draw pile overlay disappears.
+
+### Implementation phases
 
 #### Phase 1: Server and client
 
