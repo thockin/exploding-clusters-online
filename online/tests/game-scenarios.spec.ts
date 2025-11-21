@@ -300,4 +300,73 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(overlay).not.toBeVisible();
   });
 
+  test('Reorder Cards in Hand', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click('text=Start Game');
+    await page1.waitForURL(/game/); // Ensure page is on game screen
+    await page1.waitForLoadState('networkidle');
+
+    await page1.waitForSelector('h5:has-text("Your Hand")', { timeout: 15000 });
+    const handSection = page1.locator('h5:has-text("Your Hand")').locator('xpath=..');
+    await expect(handSection).toBeVisible({ timeout: 15000 });
+    await expect(handSection.locator('img')).toHaveCount(8, { timeout: 10000 });
+
+    // Get initial order and card IDs by looking at the alt attribute of the img inside the draggable div
+    const initialDraggableElements = await handSection.locator('.m-1').all();
+    const initialCardIds = await Promise.all(initialDraggableElements.map(async (el) => await el.locator('img').getAttribute('alt')));
+
+    const firstDraggableElement = initialDraggableElements[0];
+    const secondDraggableElement = initialDraggableElements[1];
+
+    const firstCardBox = await firstDraggableElement.boundingBox();
+    const secondCardBox = await secondDraggableElement.boundingBox();
+
+    if (!firstCardBox || !secondCardBox) {
+      throw new Error('Could not get bounding box for cards');
+    }
+
+    const startX = firstCardBox.x + firstCardBox.width / 2;
+    const startY = firstCardBox.y + firstCardBox.height / 2;
+    const endX = secondCardBox.x + secondCardBox.width / 2;
+    const endY = secondCardBox.y + secondCardBox.height / 2;
+
+    console.log(`Dragging from (${startX}, ${startY}) to (${endX}, ${endY})`);
+
+    await page1.mouse.move(startX, startY);
+    await page1.mouse.down();
+    await page1.mouse.move(endX, endY, { steps: 20 }); // More steps for smoother drag
+    await page1.mouse.up();
+
+    await page1.waitForTimeout(500); // Give UI time to react
+
+    // Verify new order by comparing card IDs (using alt text as a proxy for card name/id for simplicity)
+    const newDraggableElements = await handSection.locator('.m-1').all();
+    const newCardIds = await Promise.all(newDraggableElements.map(async (el) => await el.locator('img').getAttribute('alt')));
+
+    await expect(newCardIds[0]).toBe(initialCardIds[1]); // Original second card is now first
+    await expect(newCardIds[1]).toBe(initialCardIds[0]);  // Original first card is now second
+
+    // Reload page to verify persistence
+    await page1.reload();
+    await page1.waitForURL(/lobby|game/);
+    
+    if (process.env.DEVMODE === '1') {
+        // In DEVMODE, since nonce is fixed, it should rejoin to game
+        await expect(page1).toHaveURL(/game/, { timeout: 10000 }); // Explicitly assert game URL
+        await page1.waitForSelector('h5:has-text("Your Hand")', { timeout: 15000 });
+        const reloadedHandSection = page1.locator('h5:has-text("Your Hand")').locator('xpath=..');
+        const reloadedDraggableElements = await reloadedHandSection.locator('.m-1').all();
+        const reloadedCardIds = await Promise.all(reloadedDraggableElements.map(async (el) => await el.locator('img').getAttribute('alt')));
+        await expect(reloadedCardIds[0]).toBe(initialCardIds[1]); 
+        await expect(reloadedCardIds[1]).toBe(initialCardIds[0]);  
+    } else {
+        // In production, nonce changes, so player is sent to landing page
+        await expect(page1).toHaveURL('/');
+    }
+  });
 });

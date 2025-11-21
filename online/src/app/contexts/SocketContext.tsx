@@ -79,20 +79,17 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         try {
           const { gameCode: sCode, playerName: sName, nonce: sNonce, playerId: sId, isSpectator: sIsSpectator } = JSON.parse(stored);
           if (sCode) {
-            console.log('Attempting to restore session:', { sCode, sName, sNonce, sIsSpectator });
             
             // Check if explicit spectator flag OR legacy "Spectator" name
             if (sIsSpectator || sName === 'Spectator') {
                 // Restore spectator session
                 socket.emit('watchGame', sCode, (response: { success: boolean; gameCode?: string; error?: string }) => {
                     if (response.success && response.gameCode) {
-                        console.log('Spectator session restored');
                         setGameCode(response.gameCode);
                         setPlayerName('Spectator');
                         setIsSpectator(true);
                         // gameState will be updated by gameUpdate event
                     } else {
-                         console.log('Spectator session restore failed:', response.error);
                          sessionStorage.removeItem('exploding_session');
                     }
                     setIsLoading(false);
@@ -101,14 +98,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                 // Restore player session
                 socket.emit('joinGame', sCode, sName, sNonce, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }) => {
                 if (response.success && response.gameCode) {
-                    console.log('Session restored successfully');
                     setGameCode(response.gameCode);
                     setPlayerName(sName);
                     setPlayerId(response.playerId || sId); // Prefer server response, fallback to stored
                     setIsSpectator(false);
                     // gameState will be updated by gameUpdate event
                 } else {
-                    console.log('Session restore failed:', response.error);
                     sessionStorage.removeItem('exploding_session');
                     setRejoinError("Sorry, the game has changed since you left. Rejoining is not possible.");
                 }
@@ -264,7 +259,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         };
         return newState;
       });
-      console.log('Game update received, debugCardsCount:', data.debugCardsCount);
       // Also sync the separate gameCode state if it's not set (e.g. refresh or late join)
       setGameCode(prev => prev || data.gameCode); 
     });

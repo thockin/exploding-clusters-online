@@ -87,6 +87,10 @@ export class GameManager {
                 this.showDeck(socket, gameCode);
             });
 
+            socket.on('reorder-hand', ({ gameCode, newHand }: { gameCode: string; newHand: Card[] }) => {
+                this.reorderHand(socket, gameCode, newHand);
+            });
+
             // Handle voluntary leave
             socket.on('leaveGame', (gameCode: string) => {
                 const game = this.games.get(gameCode);
@@ -333,6 +337,7 @@ export class GameManager {
                 
                 this.log(game, `player "${playerName}" (${existingPlayer.socketId}) rejoined the game`);
                 this.emitGameUpdate(game); // Rejoining player does not change nonce
+                this.emitToSocket(socket.id, 'handUpdate', { hand: existingPlayer.hand });
                 return callback({ success: true, gameCode, nonce: game.nonce, playerId: existingPlayer.id });
             }
         } else if (clientNonce && clientNonce !== game.nonce) {
@@ -518,6 +523,34 @@ export class GameManager {
         this.emitToSocket(socket.id, 'deckData', { deck: game.drawPile });
     }
 
+    private reorderHand(socket: Socket, gameCode: string, newHand: Card[]) {
+        const game = this.games.get(gameCode);
+        if (!game) {
+            this.log(null, `Attempted to reorder hand for non-existent game: ${gameCode}`);
+            return;
+        }
+
+        const player = game.players.find(p => p.socketId === socket.id);
+        if (!player) {
+            this.log(game, `Player ${socket.id} not found in game ${gameCode} for hand reorder.`);
+            return;
+        }
+
+        // Basic validation: ensure the newHand contains the same cards, just reordered.
+        // More robust validation might compare card IDs or content.
+        if (player.hand.length !== newHand.length ||
+            !player.hand.every(card => newHand.some(newCard => newCard.id === card.id))) {
+            this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.id}).`);
+            // Optionally, send an error back to the client or revert their UI.
+            this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Revert client hand
+            return;
+        }
+
+        player.hand = newHand;
+        this.log(game, `Player "${player.name}" (${player.id}) reordered their hand.`);
+        this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Update only the reordering player
+    }
+
     private handleDisconnect(socket: Socket) {
         const gameCode = this.playerToGameMap.get(socket.id);
         
@@ -559,16 +592,9 @@ export class GameManager {
                 }
             }
             // Emit game update, which will trigger nonce change and purging of disconnected players
-            // OR immediate attrition win check if game started and only one player left.
-            const connectedPlayers = game.players.filter(p => !p.isDisconnected);
-            if (game.state === 'started' && connectedPlayers.length === 1) {
-                const winner = connectedPlayers[0];
-                this.log(game, `game won by attrition by ${winner.name} due to player disconnection`);
-                this.endGame(gameCode, { winner: winner.name, reason: 'attrition' });
-                return; // Game ended, no further updates needed
-            } else {
-                this.emitGameUpdate(game);
-            }
+            // We do NOT check for attrition here to allow grace period for reconnection.
+            // Attrition check happens in updateGameNonce (if nonce changes) or explicitly if desired later.
+            this.emitGameUpdate(game);
         }
 
         // --- Spectator Disconnection Logic ---
