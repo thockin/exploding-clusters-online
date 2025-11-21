@@ -78,7 +78,7 @@ const generateDeck = (): Card[] => {
   return deck;
 };
 
-export const shuffleDeck = (deck: Card[]): Card[] => {
+export const shuffleDeck = <T>(deck: T[]): T[] => {
   const shuffled = [...deck];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));

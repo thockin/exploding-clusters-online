@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Container, Modal, Button } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
 import LobbyBase from '../components/LobbyBase';
@@ -9,7 +9,6 @@ import GameScreen from '../game/page';
 
 export default function ObserverPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { gameState, gameCode, isLoading, gameEndData, resetState } = useSocket();
 
   useEffect(() => {

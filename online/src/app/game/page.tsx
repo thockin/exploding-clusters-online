@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Container, Row, Col, ListGroup, Button, Modal, Form } from 'react-bootstrap';
+import { useRouter } from 'next/navigation';
+import { Container, Row, Col, ListGroup, Button, Modal } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
 import { Card as CardType } from './deck';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -13,20 +13,14 @@ const FIXED_PILE_GAP = 30; // px
 
 export default function GameScreen() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { socket, gameCode, gameState, playerName, playerId, myHand, resetState, isLoading, gameEndData } = useSocket();
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState<CardType | null>(null);
   const [overlayCard, setOverlayCard] = useState<CardType | null>(null);
   const [explodingCard, setExplodingCard] = useState<CardType | null>(null);
-  const [showDebugModal, setShowDebugModal] = useState(false);
-  const [reinsertPosition, setReinsertPosition] = useState(0);
-  const [winner, setWinner] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
-  const [isClient, setIsClient] = useState(false);
-  const logContainerRef = useRef<HTMLDivElement>(null);
+  const [windowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
+  const [isClient] = useState(false);
   const tableAreaRef = useRef<HTMLDivElement>(null);
   const [tableAreaSize, setTableAreaSize] = useState({ width: 0, height: 0 });
   
@@ -36,32 +30,29 @@ export default function GameScreen() {
   const gameStateRef = useRef(gameState);
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
-  console.log('GameScreen render. debugCardsCount:', gameState?.debugCardsCount);
-
   useEffect(() => {
     if (!gameState && !isLoading && !gameEndData) {
       router.push('/');
     }
   }, [gameState, isLoading, router, gameEndData]);
+  
+  useEffect(() => {
+    // This effect handles logging exploding card but we don't render it yet?
+    // Keeping state setter for future use or debugging.
+  }, [explodingCard]); 
 
   useEffect(() => {
     if (!socket) return;
 
     const onDeckData = ({ deck }: { deck: CardType[] }) => setDeckOverlay(deck);
     const onPlayerExploding = ({ card }: { card: CardType }) => setExplodingCard(card);
-    const onDebugSuccessful = () => setShowDebugModal(true);
-    const onGameOver = ({ winnerName }: { winnerName: string }) => setWinner(winnerName);
 
     socket.on('deckData', onDeckData);
     socket.on('player-exploding', onPlayerExploding);
-    socket.on('debug-successful', onDebugSuccessful);
-    socket.on('game-over', onGameOver);
 
     return () => {
         socket.off('deckData', onDeckData);
         socket.off('player-exploding', onPlayerExploding);
-        socket.off('debug-successful', onDebugSuccessful);
-        socket.off('game-over', onGameOver);
     };
   }, [socket]);
 
@@ -198,8 +189,6 @@ export default function GameScreen() {
   const me = gameState.players.find(p => p.id === playerId);
   const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
   const currentPlayer = gameState.players.find(p => p.id === currentPlayerId);
-  const myTurn = me && currentPlayer?.id === me.id;
-  const amDebugging = false; 
 
   const getEnlargedCardSize = () => {
     const maxHeight = windowHeight * 0.9;
@@ -382,13 +371,6 @@ export default function GameScreen() {
                     </Button>
                     <Button variant="info" size="sm" onClick={handleShowDeck}>Show me the deck</Button>
                 </div>
-            )}
-
-            {countdown !== null && (
-              <div className="mt-3 text-center">
-                <h2>Reaction Timer</h2>
-                <h1 style={{ fontSize: '4rem' }}>{countdown}</h1>
-              </div>
             )}
           </Col>
           <Col md={9} className="d-flex flex-column" style={{ backgroundColor: '#228B22', borderRadius: '10px', padding: `${FIXED_TABLE_PADDING}px` }} ref={tableAreaRef}>

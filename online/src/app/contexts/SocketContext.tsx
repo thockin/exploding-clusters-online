@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { Card } from '../game/deck';
 
 interface PlayerInfo {
   id: string;
@@ -22,7 +23,7 @@ interface GameState {
   turnOrder: string[];
   currentTurnIndex: number;
   drawPileCount: number;
-  discardPile: any[]; // Should use Card type
+  discardPile: Card[];
   debugCardsCount?: number;
   // Add other game state properties as they become relevant
 }
@@ -218,6 +219,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const socketIo = io();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     setSocket(socketIo);
 
     socketIo.on('connect', () => {
@@ -242,10 +244,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       turnOrder: string[];
       currentTurnIndex: number;
       drawPileCount: number;
-      discardPile: any[];
+      discardPile: Card[];
       debugCardsCount?: number;
     }) => {
-      setGameState(prev => {
+      setGameState(() => {
         const newState: GameState = {
           gameCode: data.gameCode,
           players: data.players,
@@ -267,7 +269,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setGameCode(prev => prev || data.gameCode); 
     });
 
-    socketIo.on('handUpdate', (data: { hand: any[] }) => {
+    socketIo.on('handUpdate', (data: { hand: Card[] }) => {
       setMyHand(data.hand);
     });
 

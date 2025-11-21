@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button, Container, Row, Col, Card, Form, Alert, Modal } from 'react-bootstrap';
 import { useSocket } from './contexts/SocketContext';
@@ -9,8 +9,7 @@ type FileMode = 'initial' | 'create' | 'join' | 'watch';
 
 export default function Home() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { createGame, joinGame, watchGame, gameCode, setGameCode, playerName, setPlayerName, gameState, socket, playerId, isLoading, rejoinError, resetState, gameEndData } = useSocket();
+  const { createGame, joinGame, watchGame, gameCode, setGameCode, playerName, setPlayerName, gameState, socket, playerId, isLoading, rejoinError, resetState } = useSocket();
 
   const [inputGameCode, setInputGameCode] = useState('');
   const [inputPlayerName, setInputPlayerName] = useState('');

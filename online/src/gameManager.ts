@@ -9,7 +9,7 @@ interface Player {
     id: string;
     name: string;
     socketId: string;
-    hand: any[]; // To be defined in detail later
+    hand: Card[]; 
     isOut: boolean;
     isDisconnected: boolean;
     turnsToTake: number;
@@ -22,8 +22,8 @@ interface Game {
     state: 'lobby' | 'started' | 'ended';
     turnOrder: string[]; // Array of player IDs
     currentTurnIndex: number;
-    drawPile: any[]; // To be defined later
-    discardPile: any[]; // To be defined later
+    drawPile: Card[]; 
+    discardPile: Card[]; 
     pendingOperations: any[]; // To be defined later
     gameOwnerId: string;
     nonce: string; // For reconnection logic
@@ -186,6 +186,7 @@ export class GameManager {
         return randomBytes(8).toString('hex');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private emitToRoom(room: string, event: string, data?: any) {
         if (this.verbose) {
             this.log(null, `sending event "${event}" to room ${room}: ${JSON.stringify(data)}`);
@@ -193,6 +194,7 @@ export class GameManager {
         this.io.to(room).emit(event, data);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private emitToSocket(socketId: string, event: string, data?: any) {
         if (this.verbose) {
             this.log(null, `sending event "${event}" to socket ${socketId}: ${JSON.stringify(data)}`);
@@ -404,10 +406,10 @@ export class GameManager {
         let deck = [...fullDeck];
         const explodingClusters = deck.filter(c => c.type === 'Exploding Cluster');
         const upgradeClusters = deck.filter(c => c.type === 'Upgrade Cluster');
-        let debugCards = deck.filter(c => c.type === 'Debug');
-        
-        // Remove special cards for initial deal
-        deck = deck.filter(c => c.type !== 'Exploding Cluster' && c.type !== 'Upgrade Cluster' && c.type !== 'Debug');
+        // "The full deck is comprised of... 6 DEBUG cards".
+        const debugCards = deck.filter(c => c.type === 'Debug');
+        // Remove them all first
+        deck = deck.filter(c => c.type !== 'Debug');
 
         // Give 1 Debug card to each player
         for (const p of game.players) {
@@ -467,8 +469,6 @@ export class GameManager {
         }
 
         // Set turn order randomly
-        game.turnOrder = shuffleDeck(game.players.map(p => p.id as any)).map(id => id as unknown as string); // shuffleDeck expects cards, hacky reuse or just array shuffle
-        // Let's do a proper shuffle for IDs
         game.turnOrder = game.players.map(p => p.id);
         for (let i = game.turnOrder.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));

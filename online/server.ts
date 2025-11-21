@@ -1,7 +1,6 @@
 import { createServer } from 'http';
 import { parse } from 'url';
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const next = require('next');
+import next from 'next';
 import { Server } from 'socket.io';
 import { GameManager } from './src/gameManager';
 
