@@ -426,7 +426,7 @@ export class GameManager {
 
         // Put remaining Debug cards back (max 2 or whatever is left)
         // Design doc says: "Put 2 DEBUG cards back into the deck, or 1 DEBUG card if that is all that is left."
-        const debugsToReturn = Math.min(debugCards.length, 2); // Design doc says put 2 back
+        const debugsToReturn = game.devMode ? debugCards.length : Math.min(debugCards.length, 2);
         // Actually logic says: "Each player gets 1 DEBUG card... Put 2 DEBUG cards back into the deck... Shuffle the deck."
         // Wait, if we have 6 debug cards and 5 players, we use 5. 1 left. We put it back.
         // If we have 6 debug cards and 2 players, we use 2. 4 left. We put 2 back? Or all 4?
