@@ -228,29 +228,6 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(page1).toHaveURL('/'); // Landing page
   });
 
-  test('DEVMODE Debug Button limit', async ({ browser }) => {
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
-    const code = await createGame(page1, 'Dev');
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-    await page1.click('text=Start Game');
-
-    const debugBtn = page1.locator('button:has-text("Give me a DEBUG card")');
-    await expect(debugBtn).toBeVisible();
-    await expect(debugBtn).toBeEnabled();
-
-    // Click until disabled
-    for (let i=0; i<10; i++) {
-        if (await debugBtn.isDisabled()) break;
-        await debugBtn.click();
-        await page1.waitForTimeout(200); 
-    }
-
-    await expect(debugBtn).toBeDisabled();
-  });
-
   test('Card Overlay Escape', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
@@ -282,7 +259,30 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(overlay).not.toBeVisible();
   });
 
-  test('Show Deck Overlay Escape', async ({ browser }) => {
+  test('DEVMODE Debug Button limit', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'Dev');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click('text=Start Game');
+
+    const debugBtn = page1.locator('button:has-text("Give me a DEBUG card")');
+    await expect(debugBtn).toBeVisible();
+    await expect(debugBtn).toBeEnabled();
+
+    // Click until disabled
+    for (let i=0; i<10; i++) {
+        if (await debugBtn.isDisabled()) break;
+        await debugBtn.click();
+        await page1.waitForTimeout(200); 
+    }
+
+    await expect(debugBtn).toBeDisabled();
+  });
+
+  test('DEVMODE Show Deck Overlay Escape', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
