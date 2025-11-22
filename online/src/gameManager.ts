@@ -201,9 +201,6 @@ export class GameManager {
     }
 
     private generateNonce(devMode: boolean): string {
-        if (devMode) {
-            return '0000000000000000'; // Fixed nonce for DEVMODE reproducibility
-        }
         return randomBytes(8).toString('hex');
     }
 
@@ -226,10 +223,7 @@ export class GameManager {
     private emitGameUpdate(game: Game) {
         // Use inclusive check to catch potential type issues
         const debugCount = game.drawPile.filter(c => c.cardClass.includes('Debug')).length;
-        if (game.devMode) {
-             this.log(game, `emitting update. debug count: ${debugCount}`);
-        }
-        
+     
         this.emitToRoom(game.code, 'gameUpdate', {
             gameCode: game.code,
             nonce: game.nonce,
@@ -444,12 +438,10 @@ export class GameManager {
         deck = deck.filter(c => c.cardClass !== 'Debug' && c.cardClass !== 'Exploding Cluster' && c.cardClass !== 'Upgrade Cluster');
 
         // Give 1 Debug card to each player
-        this.log(game, `DEBUG DISTRIBUTION: found ${debugCards.length} debug cards initially. players: ${game.players.length}`);
         for (const p of game.players) {
             if (debugCards.length > 0) {
                 const c = debugCards.pop()!;
                 p.hand.push(c);
-                this.log(game, `DEBUG DISTRIBUTION: gave ${c.name} to ${p.name}`);
             }
         }
 
@@ -462,9 +454,6 @@ export class GameManager {
         }
         // Move any remaining debugCards (excess) to the removedPile
         game.removedPile.push(...debugCards);
-        
-        const debugCountInDeck = deck.filter(c => c.cardClass === 'Debug').length;
-        this.log(game, `DEBUG DISTRIBUTION: final debug count in deck before shuffle: ${debugCountInDeck}`);
         
         deck = shuffleDeck(deck, this.prng.random.bind(this.prng));
 
@@ -643,20 +632,22 @@ export class GameManager {
         // More robust validation might compare card IDs or content.
         if (player.hand.length !== newHand.length ||
             !player.hand.every(card => newHand.some(newCard => newCard.id === card.id))) {
-            this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.id}).`);
+            this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}).`);
             // Optionally, send an error back to the client or revert their UI.
             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Revert client hand
             return;
         }
 
         player.hand = newHand;
-        this.log(game, `Player "${player.name}" (${player.id}) reordered their hand.`);
+        if (this.verbose) {
+            this.log(game, `Player "${player.name}" (${player.socketId}) reordered their hand.`);
+        }
         this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Update only the reordering player
     }
 
     private handleDisconnect(socket: Socket) {
         const gameCode = this.playerToGameMap.get(socket.id);
-        
+
         if (!gameCode) {
             this.log(null, `Socket ${socket.id} disconnected, not in any game`);
             return;
