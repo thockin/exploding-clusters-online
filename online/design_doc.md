@@ -39,7 +39,7 @@ owner.  Only the game owner can start the game.
 
 At startup, each game generates a random, 64 bit unsigned nonce.  Every time
 the game's state changes, such as a new player joining a lobby or a card being
-played, a new nonce is chosen and all connected players get a message with an
+played, a new nonce is chosen and all connected players get an event with an
 updated nonce value.
 
 The nonces are per-game, not global across all games on the server.
@@ -312,10 +312,11 @@ The main "game" screen is split into several areas:
 
   * Below those, across the whole screen, is the "message" area.  It has two
     parts.
-    - At the top is a line showing information about whose turn it is.
-    - Below that is the log.  It is at least 3 text lines tall.  When we talk
-      about sending a message to players, this is where the message goes.  It
-      is a log, so new messages are always appended to the bottom, and the
+    - At the top is a line showing information about whose turn it is, the
+      "turn" area.
+    - Below that is the "log" area.  It is at least 3 text lines tall.  When we
+      talk about sending a message to players, this is where the message goes.
+      It is a log, so new messages are always appended to the bottom, and the
       bottom is visible, while the top scrolls off, unless users choose to
       scroll back.
 
@@ -338,13 +339,15 @@ start.  After that, play proceeds in order of the player list.
 
 ##### Message area - whose turn is it
 
-For the player whose turn it currently is, the top line of the message area
-shows "It's your turn", highlighted light green like the player list.
+For the player whose turn it currently is, the top line of the message area,
+also called the "turn" area, shows "It's your turn", highlighted light green
+like the player list.
 
-For the player whose turn is next, it shows "Your turn is next", highlighted
-light orange like the player list.
+For the player whose turn is next, the turn area shows "It is {player}'s turn.
+You are next", highlighted light orange like the player list.
 
-For all other players it shows "It's {player}'s turn", highlighted light grey.
+For all other players the turn area shows "It's {player}'s turn", highlighted
+light blue.
 
 ##### Playing cards
 
@@ -1281,7 +1284,7 @@ should press the cancel button.
 
 We need the following browsers tests to work:
 
-  1) Happy Path: 2 Players + Observer
+  1) Happy path: 2 players + observer
       * Player 1 creates a game.
       * Player 2 joins the game.
       * An observer watches the game.
@@ -1290,35 +1293,35 @@ We need the following browsers tests to work:
       * All clients navigate to their respective game screens.
       * Observer UI is verified to not show a hand.
 
-  2) Game Full Rejection
+  2) Game-is-full rejection
       * Player 1 creates a game.
       * Four additional players join, filling the game to 5 players.
       * A sixth player attempts to join.
       * The sixth player is rejected with a "game is full" error.
 
-  3) Duplicate Name Rejection
+  3) Duplicate-name rejection
       * Player 1 creates a game as "Alice".
       * Player 2 attempts to join the same game also as "Alice".
       * Player 2 is rejected with a "name is already taken" error.
 
-  4) Join Non-Existent Game
+  4) Join non-existent game
       * A player attempts to join a game with a non-existent game code.
       * The player is rejected with a "game does not exist" error.
 
-  5) Watch Non-Existent Game
+  5) Watch non-existent game
       * An observer attempts to watch a game with a non-existent game code.
       * The observer is rejected with a "game does not exist" error.
 
-  6) Reconnect to Lobby
+  6) Reconnect to lobby
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 2 navigates away (disconnects).
-      * Player 1's lobby updates to show Player 2 as absent.
+      * Player 1's lobby updates to show player 2 as absent.
       * Player 2 navigates back to the game.
       * Player 2 successfully rejoins the lobby.
-      * Player 1's player list updates to show Player 2 as present again.
+      * Player 1's player list updates to show player 2 as present again.
 
-  7) Reconnect Fails after Nonce Change
+  7) Reconnect fails after nonce change
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 2 navigates away (disconnects).
@@ -1326,7 +1329,7 @@ We need the following browsers tests to work:
       * Player 2 attempts to navigate back to the game.
       * Player 2 is rejected with a "game has changed" dialog.
 
-  8) Game owner Reassignment
+  8) Game owner reassignment
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 3 joins the game.
@@ -1334,20 +1337,34 @@ We need the following browsers tests to work:
       * Verify that another player is assigned as the new game owner.
       * Player 1 navigates back to the game.
       * Player 1 successfully rejoins the lobby.
-      * Other players' player lists update to show Player 1 as present again.
+      * Other players' player lists update to show player 1 as present again.
 
-  9) Abandoned Turn
+  9) Turn area colors
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 3 joins the game.
       * Player 1 starts the game.
-      * Verify that it is Player 1's turn.
+      * Verify that it is player 1's turn.
+      * Verify that player 1's turn area is green.
+      * Verify that player 2's turn area is orange.
+      * Verify that player 3's turn area is blue.
+
+  10) Abandoned turn
+      * Player 1 creates a game.
+      * Player 2 joins the game.
+      * Player 3 joins the game.
+      * Player 1 starts the game.
+      * Verify that it is player 1's turn.
+      * Verify that player 1's turn area is green.
       * Player 1 navigates away (disconnects).
-      * Verify that Player 2's turn starts.
+      * Verify that players 2 and 3 get a message that player 1 has abandoned
+        their turn.
+      * Verify that player 2's turn starts.
+      * Verify that player 2's turn area is green.
       * Player 1 attempts to navigate back to the game.
       * Player 1 is rejected with a "game has changed" dialog.
 
-  10) Attrition Win
+  11) Attrition win
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1355,7 +1372,7 @@ We need the following browsers tests to work:
       * Player 1 receives a "You win!" dialog.
       * Player 1 acknowledges the dialog and navigates to the landing page.
 
-  11) Card Overlay Escape
+  12) Card overlay escape
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1364,14 +1381,14 @@ We need the following browsers tests to work:
       * Player presses Escape.
       * The card overlay disappears.
 
-  10) DEVMODE: Debug Button limit
+  13) DEVMODE: Debug button limit
       * Player 1 creates a game (in DEVMODE).
       * Player 2 joins the game.
       * Player 1 starts the game.
       * Player 1 repeatedly clicks "Give me a DEBUG card" button.
       * The "Give me a DEBUG card" button becomes disabled.
 
-  11) DEVMODE: Show Deck Overlay Escape
+  14) DEVMODE: Show deck overlay escape
       * Player 1 creates a game (in DEVMODE).
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1380,7 +1397,7 @@ We need the following browsers tests to work:
       * Player presses Escape.
       * The draw-pile overlay disappears.
 
-  12) DEVMODE: Show Removed Overlay Escape
+  15) DEVMODE: Show removed overlay escape
       * Player 1 creates a game (in DEVMODE).
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1389,26 +1406,26 @@ We need the following browsers tests to work:
       * Player presses Escape.
       * The removed-pile overlay disappears.
 
-  13) Reorder Cards in Hand
+  16) Reorder cards in hand
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
       * Player 1 drags and drops cards in their hand to reorder them.
       * The new order is verified.
 
-  14) Correct Number of Debug Cards
+  17) Correct number of debug cards
       * Creates and starts a game with two players.
       * Opens the "Show the deck" overlay.
       * Counts the number of debug cards remaining in the deck.
       * Verifies there are exactly 2 debug cards in the deck (6 total - 2 dealt - 2 removed).
 
-  15) Verify Hand Counts and Debug Card
+  18) Verify hand counts and debug card
       * Creates and starts a game with two players.
-      * Verifies Player 1 has exactly 8 cards.
-      * Verifies Player 2 has exactly 8 cards.
+      * Verifies player 1 has exactly 8 cards.
+      * Verifies player 2 has exactly 8 cards.
       * Verifies both players have at least 1 DEBUG card in their hand.
 
-  16) Card selection
+  19) TODO: Card selection
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1432,10 +1449,10 @@ We need the following browsers tests to work:
       * Player 1 clicks a non-DEVELOPER card in their hand.
       * The card is outlined to show selection.
 
-  17) TODO: playing cards
+  20) TODO: playing cards
 
-  18) TODO: drawing cards
-  20) TODO: leave while drawing explodign cluster/upgrade cluster
+  21) TODO: drawing cards
+  23) TODO: leave while drawing explodign cluster/upgrade cluster
 
 ### Implementation phases
 

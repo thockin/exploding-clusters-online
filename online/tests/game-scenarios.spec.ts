@@ -262,6 +262,43 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(page1.locator('button:has-text("Start Game")')).not.toBeVisible();
   });
 
+  test('Turn area colors', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    const ctx3 = await browser.newContext();
+    const page3 = await ctx3.newPage();
+    await joinGame(page3, 'P3', code);
+
+    await page1.click('text=Start Game');
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+    await page3.waitForURL(/game/);
+
+    // Verify P1 (Current Turn)
+    // "It's your turn" -> lightgreen
+    const p1TurnArea = page1.locator('strong:has-text("It\'s your turn")').locator('xpath=..');
+    await expect(p1TurnArea).toBeVisible();
+    await expect(p1TurnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)'); // lightgreen
+
+    // Verify P2 (Next Turn)
+    // "Your turn is next" -> #FFD580 (rgb(255, 213, 128))
+    const p2TurnArea = page2.locator('strong:has-text("Your turn is next")').locator('xpath=..');
+    await expect(p2TurnArea).toBeVisible();
+    await expect(p2TurnArea).toHaveCSS('background-color', 'rgb(255, 213, 128)');
+
+    // Verify P3 (Other)
+    // "It is P1's turn" -> lightblue
+    const p3TurnArea = page3.locator('strong:has-text("It is P1\'s turn")').locator('xpath=..');
+    await expect(p3TurnArea).toBeVisible();
+    await expect(p3TurnArea).toHaveCSS('background-color', 'rgb(173, 216, 230)'); // lightblue
+  });
+
   test('Abandoned Turn', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
@@ -317,10 +354,19 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Wait for the disconnected player to DISAPPEAR from the list (as per requirement)
     await expect(observerPage.locator(`.list-group-item:has-text("${currentName}")`)).not.toBeVisible();
     
+    // Verify "abandoned turn" message
+    await expect(observerPage.locator(`text=${currentName} has abandoned their turn`)).toBeVisible();
+
     // Wait for turn to change to someone else (Next player)
     // In DEVMODE, if P1 leaves, P2 should be next.
     if (process.env.DEVMODE === '1') {
          await expect(observerPage.locator(`.list-group-item:has-text("${nextPlayerName}")`)).toHaveClass(/bg-success-subtle/);
+         
+         // If observer is the next player (P2), verify green turn area
+         if (nextPlayerName === 'P2' && observerPage === page2) {
+             const turnArea = observerPage.locator('strong:has-text("It\'s your turn")').locator('xpath=..');
+             await expect(turnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)');
+         }
     } else {
         const remainingPlayers = ['P1', 'P2', 'P3'].filter(n => n !== currentName);
         const nextPlayerTurnSelector = remainingPlayers.map(n => `.list-group-item:has-text("${n}").bg-success-subtle`).join(',');

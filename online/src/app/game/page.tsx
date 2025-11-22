@@ -13,7 +13,7 @@ const FIXED_PILE_GAP = 30; // px
 
 export default function GameScreen() {
   const router = useRouter();
-  const { socket, gameCode, gameState, playerName, playerId, myHand, resetState, isLoading, gameEndData, gameMessage } = useSocket();
+  const { socket, gameCode, gameState, playerName, playerId, myHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState<CardType | null>(null);
@@ -22,6 +22,7 @@ export default function GameScreen() {
   const [windowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
   const [isClient] = useState(false);
   const tableAreaRef = useRef<HTMLDivElement>(null);
+  const messageAreaRef = useRef<HTMLDivElement>(null);
   const [tableAreaSize, setTableAreaSize] = useState({ width: 0, height: 0 });
   
   // DEVMODE states
@@ -85,6 +86,12 @@ export default function GameScreen() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  useEffect(() => {
+    if (messageAreaRef.current) {
+      messageAreaRef.current.scrollTop = messageAreaRef.current.scrollHeight;
+    }
+  }, [gameMessages]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -240,9 +247,15 @@ export default function GameScreen() {
   let turnStatus = '';
   let turnStatusBgColor = '';
    if (gameState && me && currentPlayer) {
+      const nextTurnIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
+      const nextPlayerId = gameState.turnOrder[nextTurnIndex];
+
       if (me.id === currentPlayerId) {
         turnStatus = "It's your turn";
         turnStatusBgColor = 'lightgreen';
+      } else if (me.id === nextPlayerId) {
+        turnStatus = "Your turn is next";
+        turnStatusBgColor = '#FFD580'; // light orange
       } else {
         turnStatus = `It is ${currentPlayer.name}'s turn`;
         turnStatusBgColor = 'lightblue';
@@ -461,15 +474,19 @@ export default function GameScreen() {
               }}>
                 <strong>{turnStatus}</strong>
               </div>
-              {gameMessage && (
-                  <div style={{
+              
+              <div 
+                  ref={messageAreaRef}
+                  style={{
                       textAlign: 'left', padding: '0.25rem',
                       overflowY: 'auto', flexGrow: 1,
                       borderTop: '1px solid #ccc', marginTop: '0.25rem'
-                  }}>
-                      {gameMessage}
-                  </div>
-              )}
+                  }}
+              >
+                  {gameMessages.map((msg, i) => (
+                      <div key={i}>{msg}</div>
+                  ))}
+              </div>
             </div>
           </Col>
         </Row>
