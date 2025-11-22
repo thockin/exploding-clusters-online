@@ -13,7 +13,7 @@ const FIXED_PILE_GAP = 30; // px
 
 export default function GameScreen() {
   const router = useRouter();
-  const { socket, gameCode, gameState, playerName, playerId, myHand, resetState, isLoading, gameEndData } = useSocket();
+  const { socket, gameCode, gameState, playerName, playerId, myHand, resetState, isLoading, gameEndData, gameMessage } = useSocket();
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState<CardType | null>(null);
@@ -461,7 +461,15 @@ export default function GameScreen() {
               }}>
                 <strong>{turnStatus}</strong>
               </div>
-              {/* Log area would go here */}
+              {gameMessage && (
+                  <div style={{
+                      textAlign: 'left', padding: '0.25rem',
+                      overflowY: 'auto', flexGrow: 1,
+                      borderTop: '1px solid #ccc', marginTop: '0.25rem'
+                  }}>
+                      {gameMessage}
+                  </div>
+              )}
             </div>
           </Col>
         </Row>

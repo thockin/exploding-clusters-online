@@ -312,11 +312,13 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await currentPage.goBack();
     await currentPage.waitForLoadState('networkidle');
     
-    // Verify rejoin
-    await expect(currentPage).toHaveURL(/game/);
+    // Verify REJECTION (Player removed, treated as new player on started game, or nonce mismatch logic triggers)
+    // The client receives an error and shows the Rejoin Error modal
+    await expect(currentPage.locator('.modal.show')).toBeVisible();
+    await expect(currentPage.locator('.modal.show')).toContainText('Sorry'); // "Sorry!" title or "Sorry," in body
     
-    // Verify player reappears in list
-    await expect(observerPage.locator(`.list-group-item:has-text("${currentName}")`)).toBeVisible();
+    // Verify player DOES NOT reappear in list
+    await expect(observerPage.locator(`.list-group-item:has-text("${currentName}")`)).not.toBeVisible();
   });
 
   test('Attrition Win', async ({ browser }) => {

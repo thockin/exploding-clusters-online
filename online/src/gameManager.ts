@@ -325,7 +325,7 @@ export class GameManager {
         }
 
         if (game.devMode && clientNonce) {
-            this.log(game, `player "${playerName}" (${socket.id}) attempting to rejoin with nonce=${clientNonce} (server=${game.nonce})`);
+            this.log(game, `player "${playerName}" (${socket.id}) attempting to rejoin with nonce ${clientNonce}`);
         }
         // Reconnection logic
         if (clientNonce && clientNonce === game.nonce) {
@@ -362,7 +362,7 @@ export class GameManager {
         }
 
         if (game.state !== 'lobby') {
-            this.log(game, `attempted to join when not in lobby state`);
+            this.log(game, `attempted to join when not in lobby state (state=${game.state})`);
             return callback({ success: false, error: 'Sorry, that game has already started' });
         }
 
@@ -694,8 +694,21 @@ export class GameManager {
                 // "Any pending operations for that player are discarded."
                 game.pendingOperations = [];
 
-                // Advance turn
-                game.currentTurnIndex = (game.currentTurnIndex + 1) % game.turnOrder.length;
+                // Remove from turnOrder
+                const turnIndex = game.turnOrder.indexOf(player.id);
+                if (turnIndex !== -1) {
+                    game.turnOrder.splice(turnIndex, 1);
+                    // If we removed the current player, the next player shifts into this index.
+                    // Unless it was the last player, then wrap to 0.
+                    if (game.currentTurnIndex >= game.turnOrder.length) {
+                        game.currentTurnIndex = 0;
+                    }
+                }
+
+                // Remove from players list so they cannot rejoin
+                // We must use the index we found earlier, but verify it hasn't shifted?
+                // No, we haven't mutated players array yet in this function.
+                game.players.splice(playerIndex, 1);
                 
                 const nextPlayerId = game.turnOrder[game.currentTurnIndex];
                 const nextPlayer = game.players.find(p => p.id === nextPlayerId);

@@ -87,7 +87,8 @@ the draw-pile, face-down.  If the player has just drawn an UPGRADE CLUSTER
 card, it is automatically re-inserted at a random position in the draw-pile,
 face-up.  A message is sent to all players like "{player} has abandoned their
 turn, it's {nextplayer}'s turn.".  Play then continues with the next player's
-turn.
+turn, and the nonce is updated.  Players who leave the game during their turn
+are not eligible to rejoin.
 
 When the game owner disconnects while the game is in the lobby, the server
 should randomly choose another player to act as the owner.  The new owner
@@ -1336,8 +1337,7 @@ We need the following browsers tests to work:
       * The player whose turn it is navigates away (disconnects).
       * Verify that another player's turn starts.
       * The disconnected player 1 navigates back to the game.
-      * Player successfully rejoins the lobby.
-      * Other players' player list update to show them as present again.
+      * Player 1 is rejected with a "game has changed" dialog.
 
   10) Attrition Win
       * Player 1 creates a game.

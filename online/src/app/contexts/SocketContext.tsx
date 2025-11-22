@@ -40,6 +40,7 @@ interface SocketContextType {
   gameState: GameState | null;
   isLoading: boolean; // New: indicates if context is restoring session
   rejoinError: string | null;
+  gameMessage: string | null;
   gameEndData: { winner: string; reason: string } | null;
   createGame: (playerName: string) => Promise<{ success: boolean; gameCode?: string; playerId?: string; error?: string }>;
   joinGame: (gameCode: string, playerName: string, clientNonce?: string) => Promise<{ success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }>;
@@ -67,8 +68,17 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [myHand, setMyHand] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true); // Start loading
   const [rejoinError, setRejoinError] = useState<string | null>(null);
+  const [gameMessage, setGameMessage] = useState<string | null>(null);
   const [isSpectator, setIsSpectator] = useState(false);
   const [gameEndData, setGameEndData] = useState<{ winner: string; reason: string } | null>(null);
+
+  // Auto-clear game message
+  useEffect(() => {
+    if (gameMessage) {
+      const timer = setTimeout(() => setGameMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameMessage]);
 
   // Restore session on mount/connect
   useEffect(() => {
@@ -269,6 +279,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setGameCode(prev => prev || data.gameCode); 
     });
 
+    socketIo.on('gameMessage', (data: { message: string }) => {
+      setGameMessage(data.message);
+    });
+
     socketIo.on('handUpdate', (data: { hand: Card[] }) => {
       setMyHand(data.hand);
     });
@@ -321,6 +335,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       socketIo.off('connect');
       socketIo.off('disconnect');
       socketIo.off('gameUpdate');
+      socketIo.off('gameMessage');
       socketIo.off('handUpdate');
       socketIo.off('playerJoined');
       socketIo.off('playerDisconnected');
@@ -343,6 +358,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       gameState,
       isLoading,
       rejoinError,
+      gameMessage,
       gameEndData,
       createGame,
       joinGame,
