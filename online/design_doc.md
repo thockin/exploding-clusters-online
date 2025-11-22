@@ -118,7 +118,7 @@ currently 12345.
 
 When a user leaves a game, their cards are help in reserve until the server
 nonce changes.  Once it changes, those cards are removed from the game (neither
-in the draw pile nor the discard pile), but the game should continue as long as
+in the draw-pile nor the discard-pile), but the game should continue as long as
 there are at least 2 players.  When the game ends or the last player leaves,
 all state for that game must be purged from the server.
 
@@ -131,8 +131,9 @@ link to each current game at "/infoz/game/{game-code}".  Clicking the link
 takes you to the info page for a single game which shows:
   * The list of players and their hands (text only)
   * The current game nonce
-  * The draw pile (text only)
-  * The discard pile (text only)
+  * The draw-pile (text only)
+  * The discard-pile (text only)
+  * The removed-pile (text only)
   * Whose turn it is
   * The timestamp this data was loaded
 
@@ -225,16 +226,21 @@ change to the "game" screen.
 
 ### Game state
 
-The server needs to track two main sets of cards.
+The server needs to track three main sets of cards.
 
-First is the "draw pile", sometimes called "the deck".  This is the set of
+First is the "draw-pile", sometimes called "the deck".  This is the set of
 cards from which players draw cards.  Cards in this pile are usually face-down,
 but some cards (which will be defined later) may be face-up, so the server
 must track that.  This pile can be shuffled, inspected, and cards can be
 inserted into specific locations in it.
 
-Second is the "discard pile".  This is where cards are played, face-up.  The
-discard pile is empty at the start of the game.
+Second is the "discard-pile".  This is where cards are played, face-up.  The
+discard-pile is empty at the start of the game.
+
+Third is the "removed-pile".  This is where cards go when they are removed from
+the game, such as when a player leaves the game or is out of the game.  Cards
+in this pile are not part of the game anymore.  The removed-pile is empty at
+the start of the game.
 
 The server also needs to track the "pending operations" stack, which is used to
 track what operations need to be performed.
@@ -251,8 +257,8 @@ actually have that card in their hand first, to prevent abuse.
 
 Clients should never have any information about the game except:
   * What cards are in their hand
-  * What is showing on the top of the draw pile
-  * What is showing on the top of the discard pile
+  * What is showing on the top of the draw-pile
+  * What is showing on the top of the discard-pile
   * The random-ordered list of players, and how many cards each player has
   * Whose turn it is now
   * Whose turn is next
@@ -272,8 +278,8 @@ The main "game" screen is split into several areas:
   * Below the player list is an area which shows the reaction timer when
     needed.  We will call this the timer area.  More on that later.
 
-  * To the right of those is the "table" area. It shows the draw pile on the
-    left and the discard pile on the right. If either pile is empty, show a
+  * To the right of those is the "table" area. It shows the draw-pile on the
+    left and the discard-pile on the right. If either pile is empty, show a
     yellow-orange outline instead. Both piles, and their outlines, should be as
     large as possible in that area, while following these guidelines:
     - Prefer the piles to be next to each other horizontally, unless there's
@@ -300,7 +306,7 @@ The main "game" screen is split into several areas:
     nonce, and takes the player back to the landing page.  All that player's
     state is removed from the server, and all other players in the lobby are
     notified and their player lists are updated. The player's cards are removed
-    (neither in the draw pile nor the discard pile) for the remainder of the
+    (neither in the draw-pile nor the discard-pile) for the remainder of the
     game.
 
 #### Turns
@@ -326,31 +332,31 @@ to end their turn.
 
 During their turn, the player may play 0 or more cards, either one at a time or in
 combos.  To play a card, players drag and drop them from their hand into
-discard pile.  A played card appears, full size, on the discard pile for all
+discard-pile.  A played card appears, full size, on the discard-pile for all
 players to see.
 
 Once played, and the reactions are done, any card-specific rules
 or actions must be followed (more on that later).  When a player decides they
-are done playing, they must draw a card from the draw pile, unless the last
+are done playing, they must draw a card from the draw-pile, unless the last
 card action they played specifically said they do not need to draw a card.
 
 When a player plays one or more cards, those cards are removed from the
 player's hand in the server state and in their hand area, and all players can
-see the last played card on the discard pile.  We send a message to all players
+see the last played card on the discard-pile.  We send a message to all players
 that "{player} played a {card-class} card".  The card class is always in capital
 letters.  If they played a pair of cards as a combo, the message is "{player}
 played a pair of {card-class} cards".
 
 ##### Drawing a card
 
-When a player draws a card by clicking on the draw pile, they see the top
+When a player draws a card by clicking on the draw-pile, they see the top
 card as a large overlay for 3 seconds.  During that time, game play is paused
 for all players.  If it is a regular card (not "EXPLODING CLUSTER" or "UPGRADE
 CLUSTER"), that card goes into their hand on the server and in their hand area,
 and their turn is over.
 
-When a player draws a card by clicking on the draw pile, other players see the
-draw pile flash yellow twice before the player list updates whose turn it it.
+When a player draws a card by clicking on the draw-pile, other players see the
+draw-pile flash yellow twice before the player list updates whose turn it it.
 We send a message to all players that "{player} drew a card", but not which
 card they drew.
 
@@ -374,12 +380,12 @@ allowed.
 
 The player must then re-insert the EXPLODING CLUSTER card back into the draw
 pile at any position they choose.  They are prompted to choose a position,
-like: "There are {n} cards in the draw pile, where do you want to put the
+like: "There are {n} cards in the draw-pile, where do you want to put the
 EXPLODING CLUSTER card? (0 is the top of the deck, {n} is the bottom)". They
 need to enter a number from 0 to N, and whatever they enter, we put the
-EXPLODING CLUSTER card back into the draw pile at that position. If they chose
-0, the card goes on the top of the draw pile.  If they chose {n}, the card goes
-at the bottom of the draw pile.
+EXPLODING CLUSTER card back into the draw-pile at that position. If they chose
+0, the card goes on the top of the draw-pile.  If they chose {n}, the card goes
+at the bottom of the draw-pile.
 
 Once the EXPLODING CLUSTER card is re-inserted into the deck, the player's turn
 is over and it becomes the next player's turn.
@@ -391,15 +397,15 @@ card as a large overlay for 3 seconds, and then it is shown on the discard
 pile.  Regular play pauses.  All other players see it as a large overlay until
 play resumes.
 
-The player must then re-insert the UPGRADE CLUSTER card back into the draw pile
+The player must then re-insert the UPGRADE CLUSTER card back into the draw-pile
 at any position they choose.  Unlike EXPLODING CLUSTER cards, the UPGRADE
 CLUSTER card is re-inserted face-up.  The player is prompted to choose a
-position, like: "There are {n} cards in the draw pile, where do you want to put
+position, like: "There are {n} cards in the draw-pile, where do you want to put
 the UPGRADE CLUSTER card? (0 is the top of the deck, {n} is the bottom)". They
 need to enter a number from 0 to N, and whatever they enter, we put the UPGRADE
-CLUSTER card back into the draw pile at that position. If they chose 0, the
-card goes on the top of the draw pile.  If they chose {n}, the card goes at the
-bottom of the draw pile.
+CLUSTER card back into the draw-pile at that position. If they chose 0, the
+card goes on the top of the draw-pile.  If they chose {n}, the card goes at the
+bottom of the draw-pile.
 
 Once the UPGRADE CLUSTER card is re-inserted into the deck, the player's turn
 is over and it becomes the next player's turn.
@@ -442,7 +448,7 @@ These rules apply to all time periods.
 
 "Now" cards are playable during other players turns.
 
-If someone tries to drag an unplayable card to the discard pile, it should have
+If someone tries to drag an unplayable card to the discard-pile, it should have
 no effect.  The client should not send a "play" event to the server, and the
 server should ignore any such events if they are sent.  No error message is
 needed.
@@ -501,33 +507,33 @@ For example:
 ##### Playing cards
 
 If there are no cards selected and the player clicks and drags a card to the
-discard pile, that card is played (being selected is not a prerequisite).
+discard-pile, that card is played (being selected is not a prerequisite).
 
 If there is a single card selected and the player clicks and drags the selected
-card to the discard pile, that card is played.
+card to the discard-pile, that card is played.
 
 If there is a single card selected and the player clicks and drags a different
-card to the discard pile, the selected card is deselected and the second card
+card to the discard-pile, the selected card is deselected and the second card
 is played.
 
 If there is a single DEVELOPER card selected and the player clicks and drags
-another identical card to the discard pile, that is considered a valid combo,
+another identical card to the discard-pile, that is considered a valid combo,
 and both cards are played.
 
 If there is a valid combo of DEVELOPER cards selected and the player clicks and
-drags one of those cards to the discard pile, both cards are played.
+drags one of those cards to the discard-pile, both cards are played.
 
 If a single DEVELOPER card is played, that card is not played.  Return it to
 the player's hand with a message that "DEVELOPER cards must be played in
 pairs".
 
 If there is a valid combo of cards selected and the player clicks and drags a
-different card to the discard pile, that does not play any card, but the
+different card to the discard-pile, that does not play any card, but the
 outline of the selected cards should flash 3 times.
 
 When a card or a combo is played, remove the card or cards from the player's
-hand, and put them on the discard pile.  All players should see the top card of
-the discard pile and receive a message about what was played.
+hand, and put them on the discard-pile.  All players should see the top card of
+the discard-pile and receive a message about what was played.
 
 ##### Inspecting cards
 
@@ -536,11 +542,11 @@ overlay, until the player clicks somewhere or hits the ESCAPE key.
 
 #### UI: The table area
 
-The table area is green like a blackjack table, with the draw pile and the
-discard pile centered on it, left-to-right. If either pile is empty, show a
+The table area is green like a blackjack table, with the draw-pile and the
+discard-pile centered on it, left-to-right. If either pile is empty, show a
 yellow-orange outline instead.
 
-The draw pile and the discard pile, or their outlines should be rendered as large as possible, but
+The draw-pile and the discard-pile, or their outlines should be rendered as large as possible, but
 they must always be the same size.
 
 #### Beginning the game
@@ -573,7 +579,7 @@ are removed from the game.
 
 Shuffle the deck.
 
-That is the draw pile.  Render it on the table area.  The initial discard pile
+That is the draw-pile.  Render it on the table area.  The initial discard-pile
 is empty.
 
 ##### DEVMODE
@@ -581,7 +587,7 @@ is empty.
 If the game server was started with DEVMODE=1 in its environment, then the game
 is in developer mode.  In developer mode, the following things are different:
 
-  * When the game is created, the draw pile starts with an EXPLODING CLUSTER
+  * When the game is created, the draw-pile starts with an EXPLODING CLUSTER
     card on top.
 
   * The first player's hand starts with 2 identical DEVELOPER cards and a third
@@ -599,11 +605,15 @@ is in developer mode.  In developer mode, the following things are different:
     from the deck. If there are no DEBUG cards in the deck, disable that
     button for all players.
 
-  * The player list area shows a "Show me the deck" button at the bottom. If
-    the player clicks that button, they see the entire draw pile as a list of
+  * The player list area shows a "Show the deck" button at the bottom. If
+    the player clicks that button, they see the entire draw-pile as a list of
     cards in a large overlay.
 
-  * Below the draw pile and the discard pile is the number of cards in each
+  * The player list area shows a "Show removed cards" button at the bottom.
+    If the player clicks that button, they see the entire removed-pile as a
+    list of cards in a large overlay.
+
+  * Below the draw-pile and the discard-pile is the number of cards in each
     pile, e.g. "(21 cards)".
 
   * The random seed uses the fixed value 0, so that shuffling and initial
@@ -1113,14 +1123,14 @@ Playing a NAK card pops 1 extra item off the operations stack, if possible,
 and discards it.  If the stack was empty this card does nothing.  Playing a NAK
 after a NAK negates the first NAK.
 
-Playing a SHUFFLE card shuffles the draw pile and send a message to all players
+Playing a SHUFFLE card shuffles the draw-pile and send a message to all players
 that "The deck was shuffled".
 
 SHUFFLE NOW cards are the same action as SHUFFLE cards, but may be played by
 any player during any action, reaction, or rereaction period.
 
 Playing a SEE THE FUTURE card shows the current player the top 3 cards from the
-draw pile in a large overlay, with a "Done" button.  When the player clicks
+draw-pile in a large overlay, with a "Done" button.  When the player clicks
 "done", the overlay is closed, but the cards remain in their places in the
 deck. A message is sent to all players that "{player} saw the future".
 
@@ -1295,14 +1305,7 @@ We need the following browsers tests to work:
       * Player 1 receives a "You win!" dialog.
       * Player 1 acknowledges the dialog and navigates to the landing page.
 
-  9) DEVMODE Debug Button limit
-      * Player 1 creates a game (in DEVMODE).
-      * Player 2 joins the game.
-      * Player 1 starts the game.
-      * Player 1 repeatedly clicks "Give me a DEBUG card" button.
-      * The "Give me a DEBUG card" button becomes disabled.
-
-  10) Card Overlay Escape
+  9) Card Overlay Escape
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1311,35 +1314,51 @@ We need the following browsers tests to work:
       * Player presses Escape.
       * The card overlay disappears.
 
-  11) Show Deck Overlay Escape
+  10) DEVMODE: Debug Button limit
       * Player 1 creates a game (in DEVMODE).
       * Player 2 joins the game.
       * Player 1 starts the game.
-      * Player 1 clicks "Show me the deck" button.
-      * A draw pile overlay appears.
-      * Player presses Escape.
-      * The draw pile overlay disappears.
+      * Player 1 repeatedly clicks "Give me a DEBUG card" button.
+      * The "Give me a DEBUG card" button becomes disabled.
 
-  12) Reorder Cards in Hand
+  11) DEVMODE: Show Deck Overlay Escape
+      * Player 1 creates a game (in DEVMODE).
+      * Player 2 joins the game.
+      * Player 1 starts the game.
+      * Player 1 clicks "Show the deck" button.
+      * A draw-pile overlay appears.
+      * Player presses Escape.
+      * The draw-pile overlay disappears.
+
+  12) DEVMODE: Show Removed Overlay Escape
+      * Player 1 creates a game (in DEVMODE).
+      * Player 2 joins the game.
+      * Player 1 starts the game.
+      * Player 1 clicks "Show removed" button.
+      * A removed-pile overlay appears.
+      * Player presses Escape.
+      * The removed-pile overlay disappears.
+
+  13) Reorder Cards in Hand
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
       * Player 1 drags and drops cards in their hand to reorder them.
       * The new order is verified.
 
-  13) Correct Number of Debug Cards
+  14) Correct Number of Debug Cards
       * Creates and starts a game with two players.
-      * Opens the "Show me the deck" overlay.
+      * Opens the "Show the deck" overlay.
       * Counts the number of debug cards remaining in the deck.
       * Verifies there are exactly 2 debug cards in the deck (6 total - 2 dealt - 2 removed).
 
-  14) Verify Hand Counts and Debug Card
+  15) Verify Hand Counts and Debug Card
       * Creates and starts a game with two players.
       * Verifies Player 1 has exactly 8 cards.
       * Verifies Player 2 has exactly 8 cards.
       * Verifies both players have at least 1 DEBUG card in their hand.
 
-  15) Card selection
+  16) Card selection
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1363,9 +1382,9 @@ We need the following browsers tests to work:
       * Player 1 clicks a non-DEVELOPER card in their hand.
       * The card is outlined to show selection.
 
-  16) TODO: playing cards
+  17) TODO: playing cards
 
-  17) TODO: drawing cards
+  18) TODO: drawing cards
 
 ### Implementation phases
 
@@ -1404,12 +1423,12 @@ Implement card selection, including multi-card combos.
 
 ##### Phase 2.3: Playing cards
 
-Implement drag and drop of cards from the hand area to the discard pile to play
+Implement drag and drop of cards from the hand area to the discard-pile to play
 them (but do not implement the card actions yet).
 
 ##### Phase 2.4: Drawing cards
 
-Implement drawing cards from the draw pile (but do not implement the EXPLODING
+Implement drawing cards from the draw-pile (but do not implement the EXPLODING
 CLUSTER or UPGRADE CLUSTER logic yet).
 
 #### Phase 3: Turns

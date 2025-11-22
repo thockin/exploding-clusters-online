@@ -24,6 +24,7 @@ interface GameState {
   currentTurnIndex: number;
   drawPileCount: number;
   discardPile: Card[];
+  removedPileCount?: number; // New: number of cards in the removed pile
   debugCardsCount?: number;
   // Add other game state properties as they become relevant
 }
@@ -240,6 +241,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       currentTurnIndex: number;
       drawPileCount: number;
       discardPile: Card[];
+      removedPileCount?: number; // New: number of cards in the removed pile
       debugCardsCount?: number;
     }) => {
       setGameState(() => {
@@ -255,6 +257,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           currentTurnIndex: data.currentTurnIndex || 0,
           drawPileCount: data.drawPileCount || 0,
           discardPile: data.discardPile || [],
+          removedPileCount: data.removedPileCount || 0, // Set new removed pile count
           debugCardsCount: data.debugCardsCount
         };
         return newState;

@@ -25,6 +25,7 @@ interface Game {
     currentTurnIndex: number;
     drawPile: Card[]; 
     discardPile: Card[]; 
+    removedPile: Card[]; // New: cards removed from the game
     pendingOperations: any[]; // To be defined later
     gameOwnerId: string;
     nonce: string; // For reconnection logic
@@ -87,6 +88,10 @@ export class GameManager {
                 this.showDeck(socket, gameCode);
             });
 
+            socket.on('showRemovedPile', (gameCode: string) => {
+                this.showRemovedPile(socket, gameCode);
+            });
+
             socket.on('reorder-hand', ({ gameCode, newHand }: { gameCode: string; newHand: Card[] }) => {
                 this.reorderHand(socket, gameCode, newHand);
             });
@@ -124,6 +129,10 @@ export class GameManager {
                             }
                         }
                     }
+
+                    // Move player's hand to removedPile
+                    game.removedPile.push(...player.hand);
+                    player.hand = []; // Clear hand
 
                     game.players.splice(playerIndex, 1); // Remove from array
 
@@ -233,16 +242,25 @@ export class GameManager {
             currentTurnIndex: game.currentTurnIndex,
             drawPileCount: game.drawPile.length,
             discardPile: game.discardPile,
+            removedPileCount: game.removedPile.length, // New: include removed pile count
             debugCardsCount: debugCount
         });
     }
 
     private updateGameNonce(game: Game) {
         // Purge disconnected players whenever nonce changes
-        const initialCount = game.players.length;
-        game.players = game.players.filter(p => !p.isDisconnected);
-        if (game.players.length < initialCount) {
-            this.log(game, `purged ${initialCount - game.players.length} disconnected players due to nonce change`);
+        const initialPlayers = game.players; // Keep a reference to original players
+        game.players = game.players.filter(p => {
+            if (p.isDisconnected) {
+                game.removedPile.push(...p.hand);
+                p.hand = []; // Clear hand
+                this.log(game, `purged disconnected player "${p.name}" (${p.id}). moved hand to removedPile`);
+                return false; // Exclude disconnected player
+            }
+            return true; // Keep connected player
+        });
+        if (game.players.length < initialPlayers.length) {
+            this.log(game, `purged ${initialPlayers.length - game.players.length} disconnected players due to nonce change`);
         }
 
         // Check for attrition win after purge
@@ -284,6 +302,7 @@ export class GameManager {
             currentTurnIndex: -1,
             drawPile: [],
             discardPile: [],
+            removedPile: [], // Initialize new removed pile
             pendingOperations: [],
             gameOwnerId: playerId,
             nonce: this.generateNonce(devMode),
@@ -441,6 +460,8 @@ export class GameManager {
         for (let i = 0; i < debugsToReturn; i++) {
              deck.push(debugCards.pop()!);
         }
+        // Move any remaining debugCards (excess) to the removedPile
+        game.removedPile.push(...debugCards);
         
         const debugCountInDeck = deck.filter(c => c.cardClass === 'Debug').length;
         this.log(game, `DEBUG DISTRIBUTION: final debug count in deck before shuffle: ${debugCountInDeck}`);
@@ -466,6 +487,8 @@ export class GameManager {
         for (let i = 0; i < numExploding; i++) {
              if (explodingClusters.length > 0) deck.push(explodingClusters.pop()!);
         }
+        // Move any remaining explodingClusters (excess) to the removedPile
+        game.removedPile.push(...explodingClusters);
 
         // Insert Upgrade Clusters
         const numPlayers = game.players.length;
@@ -478,6 +501,8 @@ export class GameManager {
         for (let i = 0; i < upgradeCount; i++) {
              if (upgradeClusters.length > 0) deck.push(upgradeClusters.pop()!);
         }
+        // Move any remaining upgradeClusters (excess) to the removedPile
+        game.removedPile.push(...upgradeClusters);
 
         game.drawPile = shuffleDeck(deck, this.prng.random.bind(this.prng));
 
@@ -560,8 +585,8 @@ export class GameManager {
             p2.hand.push(...findAndRemove(c => c.cardClass === 'Shuffle Now', 1));
             p2.hand.push(...findAndRemove(c => c.cardClass === 'Attack', 1));
             p2.hand.push(...findAndRemove(c => c.cardClass === 'See the Future', 1));
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameB, 1));
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameC, 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameB, 1)); // Matches P1's solo DEVELOPER
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameC, 1)); // Different DEVELOPER
         }
     }
 
@@ -591,6 +616,14 @@ export class GameManager {
 
         // Send the full deck to the requester
         this.emitToSocket(socket.id, 'deckData', { deck: game.drawPile });
+    }
+
+    private showRemovedPile(socket: Socket, gameCode: string) {
+        const game = this.games.get(gameCode);
+        if (!game || !game.devMode) return;
+
+        // Send the removed pile to the requester
+        this.emitToSocket(socket.id, 'removedData', { removedPile: game.removedPile });
     }
 
     private reorderHand(socket: Socket, gameCode: string, newHand: Card[]) {
@@ -755,6 +788,9 @@ export class GameManager {
 
             html += `<h3>Discard Pile (${game.discardPile.length})</h3>`;
              html += `<textarea rows="10" cols="80" readonly>${game.discardPile.map(c => c.cardClass).join('\n')}</textarea>`;
+
+            html += `<h3>Removed Pile (${game.removedPile.length})</h3>`;
+             html += `<textarea rows="10" cols="80" readonly>${game.removedPile.map(c => c.cardClass).join('\n')}</textarea>`;
 
             html += '</body></html>';
             res.end(html);

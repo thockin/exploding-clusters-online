@@ -26,6 +26,7 @@ export default function GameScreen() {
   
   // DEVMODE states
   const [deckOverlay, setDeckOverlay] = useState<CardType[] | null>(null);
+  const [removedOverlay, setRemovedOverlay] = useState<CardType[] | null>(null); // New: for removed pile overlay
 
   const gameStateRef = useRef(gameState);
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
@@ -46,13 +47,16 @@ export default function GameScreen() {
     if (!socket) return;
 
     const onDeckData = ({ deck }: { deck: CardType[] }) => setDeckOverlay(deck);
+    const onRemovedData = ({ removedPile }: { removedPile: CardType[] }) => setRemovedOverlay(removedPile);
     const onPlayerExploding = ({ card }: { card: CardType }) => setExplodingCard(card);
 
     socket.on('deckData', onDeckData);
+    socket.on('removedData', onRemovedData);
     socket.on('player-exploding', onPlayerExploding);
 
     return () => {
         socket.off('deckData', onDeckData);
+        socket.off('removedData', onRemovedData);
         socket.off('player-exploding', onPlayerExploding);
     };
   }, [socket]);
@@ -62,6 +66,7 @@ export default function GameScreen() {
       if (event.key === 'Escape') {
         setOverlayCard(null);
         setDeckOverlay(null);
+        setRemovedOverlay(null); // Close removed pile overlay
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -140,6 +145,12 @@ export default function GameScreen() {
   const handleShowDeck = () => {
       if (socket && gameCode) {
           socket.emit('showDeck', gameCode);
+      }
+  };
+
+  const handleShowRemovedPile = () => {
+      if (socket && gameCode) {
+          socket.emit('showRemovedPile', gameCode);
       }
   };
 
@@ -345,6 +356,29 @@ export default function GameScreen() {
              </div>
           </div>
         )}
+        
+        {removedOverlay && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              zIndex: 1000, overflowY: 'auto', padding: '20px'
+            }}
+            onClick={() => setRemovedOverlay(null)}
+          >
+             <h2 style={{color: 'white'}}>Removed Pile ({removedOverlay.length} cards)</h2>
+             <div className="d-flex flex-wrap justify-content-center">
+                 {removedOverlay.map((card, index) => (
+                     <div key={index} className="m-1">
+                        <Image src={card.imageUrl} alt={card.name} width={100} height={140} />
+                        <div style={{color: 'white', textAlign: 'center'}}>{index}</div>
+                     </div>
+                 ))}
+             </div>
+          </div>
+        )}
 
         <Row className="flex-grow-1">
           <Col md={3}>
@@ -370,7 +404,8 @@ export default function GameScreen() {
                     >
                         Give me a DEBUG card
                     </Button>
-                    <Button variant="info" size="sm" onClick={handleShowDeck}>Show me the deck</Button>
+                    <Button variant="info" size="sm" onClick={handleShowDeck}>Show the deck</Button>
+                    <Button variant="info" size="sm" onClick={handleShowRemovedPile}>Show removed cards</Button>
                 </div>
             )}
           </Col>

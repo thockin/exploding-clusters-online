@@ -291,9 +291,35 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await joinGame(page2, 'P2', code);
     await page1.click('text=Start Game');
 
-    await page1.click('text=Show me the deck');
+    await page1.click('button:has-text("Show the deck")');
     
     const overlay = page1.locator('text=Draw Pile');
+    await expect(overlay).toBeVisible();
+
+    await page1.keyboard.press('Escape');
+    await expect(overlay).not.toBeVisible();
+  });
+
+  test('DEVMODE Show Removed Overlay Escape', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click('text=Start Game');
+
+    // Force some cards into the removed pile for testing
+    // In DEVMODE, we have 4 debug cards that are put back into the deck.
+    // Since 2 are dealt to players, 2 are returned. So 2 are discarded.
+    // The startGame method removes exploding/upgrade cards to the removedPile.
+    // For 2 players, 1 exploding card and 0 upgrade cards are inserted.
+    // Total 4 exploding clusters, 2 upgrade clusters. So 3 exploding and 2 upgrade cards should be in removed pile.
+    // Total removed in a 2 player game: 2 debug + 3 exploding + 2 upgrade = 7 cards.
+    
+    await page1.click('text=Show removed cards'); 
+    
+    const overlay = page1.locator('text=Removed Pile');
     await expect(overlay).toBeVisible();
 
     await page1.keyboard.press('Escape');
@@ -384,7 +410,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page1.waitForSelector('img[alt="Draw Pile"]', { timeout: 10000 });
     
     // We can check this via the "Show me the deck" feature in DEVMODE
-    await page1.click('text=Show me the deck');
+    await page1.click('button:has-text("Show the deck")');
     const deckOverlay = page1.locator('div[style*="z-index: 1000"]').locator('h2:has-text("Draw Pile")').locator('xpath=..');
     await expect(deckOverlay).toBeVisible();
     
