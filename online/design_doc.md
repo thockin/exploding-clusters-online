@@ -545,22 +545,38 @@ they must always be the same size.
 
 #### Beginning the game
 
-At the beginning of the game, when the "start game" is clicked, remove all of
-the "EXPLODING CLUSTER" and "UPGRADE CLUSTER" and "DEBUG" cards from the deck.
+At the beginning of the game, when the "start game" is clicked, the deck
+contains all of the cards.
+
+Remove all of the "EXPLODING CLUSTER", "UPGRADE CLUSTER", and "DEBUG" cards
+from the deck, temporarily.
 
 Each player gets 1 DEBUG card in their hand. Put 2 DEBUG cards back into the
-deck, or 1 DEBUG card if that is all that is left. Shuffle the deck.
+deck, or 1 DEBUG card if that is all that is left. Any extra DEBUG cards are
+removed from the game.
 
-Each player gets 7 more cards from the deck, for a total of 8.
+Shuffle the deck.
 
-Once those are assigned, put one less than the number of players "EXPLODING
-CLUSTER" cards into the deck. For example, if there are 3 players, put 2
-EXPLODING CLUSTERS cards in. If there are 5 players, put 4 in. If there are 3
-or 4 players put 1 "UPGRADE CLUSTER" card into the deck. If there are players,
-put 2 "UPGRADE CLUSTER" cards in. Shuffle the deck.
+Each player gets 7 more cards from the deck, for a total of 8 cards in each
+player's hand.  Note that the EXPLODING CLUSTER and UPGRADE CLUSTER cards are
+not in the deck at this point, so no player can get one of those cards in their
+initial hand.
+
+Once those are dealt, put one less than the number of players EXPLODING
+CLUSTER cards into the deck. For example, if there are 3 players, put 2
+EXPLODING CLUSTERS cards in. If there are 5 players, put 4 in.  Any extra
+EXPLODING CLUSTER cards are removed from the game.
+
+If there are 3 or 4 players put 1 UPGRADE CLUSTER card into the deck. If there
+are players, put 2 UPGRADE CLUSTER cards in.  Any extra UPGRADE CLUSTER cards
+are removed from the game.
+
+Shuffle the deck.
 
 That is the draw pile.  Render it on the table area.  The initial discard pile
 is empty.
+
+##### DEVMODE
 
 If the game server was started with DEVMODE=1 in its environment, then the game
 is in developer mode.  In developer mode, the following things are different:
@@ -572,11 +588,11 @@ is in developer mode.  In developer mode, the following things are different:
     non-identical DEVELOPER card, plus 2 NAK cards, a SHUFFLE card, and a FAVOR
     card.
 
-  * The second player's hand starts with 2 NAK cards, a SHUFFLE NOW card, an
-    ATTACK card, a SEE THE FUTURE card, and 2 DEVELOPER cards (one identical to
-    a card in player 1's hand, one not).
+  * The second player's hand starts with a NAK card, a SKIP card, a SHUFFLE NOW
+    card, an ATTACK card, a SEE THE FUTURE card, and 2 DEVELOPER cards (one
+    identical to the solo DEVELOPER card in player 1's hand, one different).
 
-  * Other players hands are random.
+  * Other players' hands are random.
 
   * The player list area shows a "Give me a DEBUG card" button at the bottom.
     If the player clicks that button, they get a DEBUG card added to their hand
@@ -1311,7 +1327,19 @@ We need the following browsers tests to work:
       * Player 1 drags and drops cards in their hand to reorder them.
       * The new order is verified.
 
-  13) Card selection
+  13) Correct Number of Debug Cards
+      * Creates and starts a game with two players.
+      * Opens the "Show me the deck" overlay.
+      * Counts the number of debug cards remaining in the deck.
+      * Verifies there are exactly 2 debug cards in the deck (6 total - 2 dealt - 2 removed).
+
+  14) Verify Hand Counts and Debug Card
+      * Creates and starts a game with two players.
+      * Verifies Player 1 has exactly 8 cards.
+      * Verifies Player 2 has exactly 8 cards.
+      * Verifies both players have at least 1 DEBUG card in their hand.
+
+  15) Card selection
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1335,9 +1363,9 @@ We need the following browsers tests to work:
       * Player 1 clicks a non-DEVELOPER card in their hand.
       * The card is outlined to show selection.
 
-  14) TODO: playing cards
+  16) TODO: playing cards
 
-  15) TODO: drawing cards
+  17) TODO: drawing cards
 
 ### Implementation phases
 

@@ -369,4 +369,59 @@ test.describe('Exploding Clusters Game Scenarios', () => {
         await expect(page1).toHaveURL('/');
     }
   });
+
+  test('Correct Number of Debug Cards', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click('text=Start Game');
+    await expect(page1).toHaveURL(/game/, { timeout: 10000 });
+    
+    // Wait for the draw pile image to be visible, which indicates the game screen is fully loaded
+    await page1.waitForSelector('img[alt="Draw Pile"]', { timeout: 10000 });
+    
+    // We can check this via the "Show me the deck" feature in DEVMODE
+    await page1.click('text=Show me the deck');
+    const deckOverlay = page1.locator('div[style*="z-index: 1000"]').locator('h2:has-text("Draw Pile")').locator('xpath=..');
+    await expect(deckOverlay).toBeVisible();
+    
+    // Count debug cards in the deck list
+    // The overlay shows images. We can count images with specific alt text or src.
+    // Our debug cards have filenames starting with 'debug_-_'.
+    // The deck overlay renders images.
+    const debugCardsInDeck = await deckOverlay.locator('img[src*="debug_-_"]').count();
+    
+    // 2 players -> 2 dealt. Max 2 returned to deck. 6 total - 2 dealt - 2 returned = 2 discarded.
+    expect(debugCardsInDeck).toBe(2);
+  });
+
+  test('Verify Hand Counts and Debug Card', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click('text=Start Game');
+    
+    await page1.waitForSelector('h5:has-text("Your Hand")', { timeout: 10000 });
+    await page2.waitForSelector('h5:has-text("Your Hand")', { timeout: 10000 });
+
+    const p1HandCount = await page1.locator('h5:has-text("Your Hand")').locator('xpath=..').locator('img').count();
+    const p2HandCount = await page2.locator('h5:has-text("Your Hand")').locator('xpath=..').locator('img').count();
+
+    expect(p1HandCount).toBe(8);
+    expect(p2HandCount).toBe(8);
+
+    // Verify each has a debug card
+    // Debug cards have 'debug_-_' in src
+    const p1DebugCount = await page1.locator('h5:has-text("Your Hand")').locator('xpath=..').locator('img[src*="debug_-_"]').count();
+    const p2DebugCount = await page2.locator('h5:has-text("Your Hand")').locator('xpath=..').locator('img[src*="debug_-_"]').count();
+
+    expect(p1DebugCount).toBeGreaterThanOrEqual(1);
+    expect(p2DebugCount).toBeGreaterThanOrEqual(1);
+  });
 });

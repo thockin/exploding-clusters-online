@@ -422,33 +422,43 @@ export class GameManager {
         // "The full deck is comprised of... 6 DEBUG cards".
         const debugCards = deck.filter(c => c.cardClass === 'Debug');
         // Remove them all first
-        deck = deck.filter(c => c.cardClass !== 'Debug');
+        deck = deck.filter(c => c.cardClass !== 'Debug' && c.cardClass !== 'Exploding Cluster' && c.cardClass !== 'Upgrade Cluster');
 
         // Give 1 Debug card to each player
+        this.log(game, `DEBUG DISTRIBUTION: found ${debugCards.length} debug cards initially. players: ${game.players.length}`);
         for (const p of game.players) {
-            if (debugCards.length > 0) p.hand.push(debugCards.pop()!);
+            if (debugCards.length > 0) {
+                const c = debugCards.pop()!;
+                p.hand.push(c);
+                this.log(game, `DEBUG DISTRIBUTION: gave ${c.name} to ${p.name}`);
+            }
         }
 
         // Put remaining Debug cards back (max 2 or whatever is left)
-        // Design doc says: "Put 2 DEBUG cards back into the deck, or 1 DEBUG card if that is all that is left."
-        const debugsToReturn = game.devMode ? debugCards.length : Math.min(debugCards.length, 2);
-        // Actually logic says: "Each player gets 1 DEBUG card... Put 2 DEBUG cards back into the deck... Shuffle the deck."
-        // Wait, if we have 6 debug cards and 5 players, we use 5. 1 left. We put it back.
-        // If we have 6 debug cards and 2 players, we use 2. 4 left. We put 2 back? Or all 4?
-        // Design doc: "Put 2 DEBUG cards back into the deck, or 1 DEBUG card if that is all that is left."
-        // Implicitly, discard the rest? "The full deck is comprised of... 6 DEBUG cards".
-        // If 2 players, 2 used. 4 left. Put 2 back. 2 discarded?
-        // Let's follow "Put 2 DEBUG cards back...".
+        // Design doc says: "Put 2 DEBUG cards back into the deck, or 1 DEBUG card if that is all that is left. Any extra DEBUG cards are removed from the game."
+        const debugsToReturn = Math.min(debugCards.length, 2);
         
         for (let i = 0; i < debugsToReturn; i++) {
              deck.push(debugCards.pop()!);
         }
         
+        const debugCountInDeck = deck.filter(c => c.cardClass === 'Debug').length;
+        this.log(game, `DEBUG DISTRIBUTION: final debug count in deck before shuffle: ${debugCountInDeck}`);
+        
         deck = shuffleDeck(deck, this.prng.random.bind(this.prng));
 
-        // Deal 7 cards to each player
-        for (const p of game.players) {
-            p.hand.push(...deck.splice(0, 7));
+        // Deal hands
+        if (game.devMode && game.players.length >= 1) {
+             this.dealDevModeHands(game, deck);
+             // Deal random to remaining players (P3+)
+             for (let i = 2; i < game.players.length; i++) {
+                 game.players[i].hand.push(...deck.splice(0, 7));
+             }
+        } else {
+            // Deal 7 cards to each player
+            for (const p of game.players) {
+                p.hand.push(...deck.splice(0, 7));
+            }
         }
 
         // Insert Exploding Clusters (players - 1)
@@ -493,6 +503,66 @@ export class GameManager {
         this.updateGameNonce(game);
         this.emitToRoom(game.code, 'gameStarted');
         callback({ success: true });
+    }
+
+    private dealDevModeHands(game: Game, deck: Card[]) {
+        // P1: 2 identical DEVELOPER, 1 other DEVELOPER, 2 NAK, 1 SHUFFLE, 1 FAVOR
+        // P2: 2 NAK, 1 SHUFFLE NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER (one identical to P1's pair, one not)
+        
+        const findAndRemove = (criteria: (c: Card) => boolean, count: number): Card[] => {
+            const found: Card[] = [];
+            for (let i = 0; i < count; i++) {
+                const idx = deck.findIndex(criteria);
+                if (idx !== -1) {
+                    found.push(deck.splice(idx, 1)[0]);
+                }
+            }
+            return found;
+        };
+
+        // Identify a developer card name that has at least 3 copies in deck
+        // (deck is shuffled, but fullDeck has 4 of each)
+        // We need 3 copies of Type A, 1 copy of Type B, 1 copy of Type C (or just different from A)
+        // Actually: P1 has 2x A, 1x B. P2 has 1x A, 1x C.
+        
+        // Just pick first developer card found as Type A
+        const devCardA = deck.find(c => c.cardClass === 'Developer');
+        if (!devCardA) return; // Should not happen
+        const nameA = devCardA.name;
+
+        // Pick Type B (different from A)
+        const devCardB = deck.find(c => c.cardClass === 'Developer' && c.name !== nameA);
+        if (!devCardB) return;
+        const nameB = devCardB.name;
+
+        // Pick Type C (different from A and B, or just different from A? "one not [identical to P1's pair]")
+        // P2 needs 2 DEVELOPER cards: one identical to P1's pair (A), one not.
+        // "one not" could be B or C. Let's pick C to be safe/diverse.
+        const devCardC = deck.find(c => c.cardClass === 'Developer' && c.name !== nameA && c.name !== nameB);
+        if (!devCardC) return; // Should not happen
+        // If we are unlucky and only A and B are left (unlikely with 28 cards), we can use B.
+        const nameC = devCardC ? devCardC.name : nameB; 
+
+        const p1 = game.players[0];
+        const p2 = game.players.length > 1 ? game.players[1] : null;
+
+        // P1 Hand
+        p1.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameA, 2));
+        p1.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameB, 1));
+        p1.hand.push(...findAndRemove(c => c.cardClass === 'Nak', 2));
+        p1.hand.push(...findAndRemove(c => c.cardClass === 'Shuffle', 1));
+        p1.hand.push(...findAndRemove(c => c.cardClass === 'Favor', 1));
+
+        if (p2) {
+            // P2 Hand (1 NAK, 1 SKIP, 1 SHUFFLE NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER) = 7 cards
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'Nak', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'Skip', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'Shuffle Now', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'Attack', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'See the Future', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameB, 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameC, 1));
+        }
     }
 
     private giveDebugCard(socket: Socket, gameCode: string) {

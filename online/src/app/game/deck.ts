@@ -8,7 +8,7 @@ export interface Card {
 const cardClasses = {
   EXPLODING_CLUSTER: 'Exploding Cluster',
   UPGRADE_CLUSTER: 'Upgrade Cluster',
-  ATTACK: 'Attack 2x',
+  ATTACK: 'Attack',
   DEBUG: 'Debug',
   FAVOR: 'Favor',
   NAK: 'Nak',
