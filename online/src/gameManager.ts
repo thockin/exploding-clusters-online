@@ -227,7 +227,10 @@ export class GameManager {
         this.emitToRoom(game.code, 'gameUpdate', {
             gameCode: game.code,
             nonce: game.nonce,
-            players: game.players.map(p => ({ id: p.id, name: p.name, cards: p.hand.length, isOut: p.isOut, isDisconnected: p.isDisconnected })),
+            // Filter out disconnected players for the client view
+            players: game.players
+                .filter(p => !p.isDisconnected)
+                .map(p => ({ id: p.id, name: p.name, cards: p.hand.length, isOut: p.isOut, isDisconnected: p.isDisconnected })),
             state: game.state,
             gameOwnerId: game.gameOwnerId,
             spectators: game.spectators,
@@ -668,6 +671,49 @@ export class GameManager {
             const oldSocketId = player.socketId;
             player.isDisconnected = true;
             player.socketId = ''; // Clear socketId so this socket can't be reused directly
+
+            // If current player disconnected, handle turn progression
+            if (game.state === 'started' && game.turnOrder[game.currentTurnIndex] === player.id) {
+                this.log(game, `current player "${player.name}" disconnected. removing hand and advancing turn.`);
+                
+                // Check for pending Exploding/Upgrade Cluster cards in hand (just drawn)
+                // "If the player has just drawn an EXPLODING CLUSTER card, it is re-inserted at a random position..."
+                const specialCards = player.hand.filter(c => c.cardClass === 'Exploding Cluster' || c.cardClass === 'Upgrade Cluster');
+                const remainingHand = player.hand.filter(c => c.cardClass !== 'Exploding Cluster' && c.cardClass !== 'Upgrade Cluster');
+
+                specialCards.forEach(card => {
+                    const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
+                    game.drawPile.splice(insertIndex, 0, card);
+                    this.log(game, `re-inserted ${card.name} (${card.cardClass}) at index ${insertIndex} due to disconnect`);
+                });
+
+                // Move remaining hand to removedPile
+                game.removedPile.push(...remainingHand);
+                player.hand = [];
+                
+                // "Any pending operations for that player are discarded."
+                game.pendingOperations = [];
+
+                // Advance turn
+                game.currentTurnIndex = (game.currentTurnIndex + 1) % game.turnOrder.length;
+                
+                const nextPlayerId = game.turnOrder[game.currentTurnIndex];
+                const nextPlayer = game.players.find(p => p.id === nextPlayerId);
+                if (nextPlayer) {
+                    this.emitToRoom(game.code, 'gameMessage', { 
+                        message: `${player.name} has abandoned their turn, it's ${nextPlayer.name}'s turn.` 
+                    });
+                }
+            }
+
+            // Check for attrition win (only 1 connected player left)
+            const connectedPlayers = game.players.filter(p => !p.isDisconnected && !p.isOut);
+            if (game.state === 'started' && connectedPlayers.length === 1) {
+                 const winner = connectedPlayers[0];
+                 this.log(game, `game won by attrition by ${winner.name} (others disconnected/out)`);
+                 this.endGame(game.code, { winner: winner.name, reason: 'attrition' });
+                 return;
+            }
 
             // If game owner leaves the lobby, assign a new game owner IF game is in lobby
             if (game.state === 'lobby' && game.gameOwnerId === player.id && game.players.length > 1) {

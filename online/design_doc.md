@@ -63,18 +63,39 @@ changed.
 Any time the nonce changes, for any reason, all disconnected players must be
 purged.
 
-When a player tries to rejoin a game but is not allowed, show them a dialog
-with a title like "Sorry!" and a message like "The game has changed since you
-left. Rejoining it is not possible.". When they hit OK, take them to the
+When a player tries to rejoin an existing game but is not allowed, show them a
+dialog with a title like "Sorry!" and a message like "The game has changed
+since you left. Rejoining it is not possible.". When they hit OK, take them to
+the landing page.
+
+When a player tries to rejoin a game that does not exist, take them to the
 landing page.
 
-When the game owner disconnects, randomly choose another player to act as the
-owner.  The new owner should be saved in the server and they should see the
-"Start the game" button. They should also get a dialog with title "You are now the
-game owner" and message "{previous owner} left the game, so you have been
-selected as the new game owner.  Congratulations on your promotion!". The
-original owner can rejoin the game as a regular player, but they are no
-longer the owner.
+##### Disconnecting Players
+
+When a player leaves the game, either by clicking the button or by navigating
+away, they should not appear in the player list anymore.
+
+When the next-to-last player leaves the game, either by clicking the button or
+by navigating away, that is a "win by attrition" for the last remaining player.
+
+When the player leaves the game during their turn, their turn is over. Any
+pending operations for that player are discarded. If the player had to take
+multiple turns, those are also discarded. If the player has just drawn an
+EXPLODING CLUSTER card, it is automatically re-inserted at a random position in
+the draw-pile, face-down.  If the player has just drawn an UPGRADE CLUSTER
+card, it is automatically re-inserted at a random position in the draw-pile,
+face-up.  A message is sent to all players like "{player} has abandoned their
+turn, it's {nextplayer}'s turn.".  Play then continues with the next player's
+turn.
+
+When the game owner disconnects while the game is in the lobby, the server
+should randomly choose another player to act as the owner.  The new owner
+should be saved in the server and they should see the "Start the game" button.
+They should also get a dialog with title "You are now the game owner" and
+message "{previous owner} left the game, so you have been selected as the new
+game owner. Congratulations on your promotion!". The original owner can rejoin
+the game as a regular player, but they are no longer the owner.
 
 When the last player leaves a game, all state for that game must be purged from
 the server, whether there are spectators or not.  No new owner needs to be
@@ -1287,7 +1308,7 @@ We need the following browsers tests to work:
       * Player 1's lobby updates to show Player 2 as absent.
       * Player 2 navigates back to the game.
       * Player 2 successfully rejoins the lobby.
-      * Player 1's lobby updates to show Player 2 as present again.
+      * Player 1's player list updates to show Player 2 as present again.
 
   7) Reconnect Fails after Nonce Change
       * Player 1 creates a game.
@@ -1297,7 +1318,28 @@ We need the following browsers tests to work:
       * Player 2 attempts to navigate back to the game.
       * Player 2 is rejected with a "game has changed" dialog.
 
-  8) Attrition Win
+  8) Game owner Reassignment
+      * Player 1 creates a game.
+      * Player 2 joins the game.
+      * Player 3 joins the game.
+      * Player 1 navigates away (disconnects).
+      * Verify that another player is assigned as the new game owner.
+      * Player 1 navigates back to the game.
+      * Player 1 successfully rejoins the lobby.
+      * Other players' player lists update to show Player 1 as present again.
+
+  9) Abandoned Turn
+      * Player 1 creates a game.
+      * Player 2 joins the game.
+      * Player 3 joins the game.
+      * Player 1 starts the game.
+      * The player whose turn it is navigates away (disconnects).
+      * Verify that another player's turn starts.
+      * The disconnected player 1 navigates back to the game.
+      * Player successfully rejoins the lobby.
+      * Other players' player list update to show them as present again.
+
+  10) Attrition Win
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1305,7 +1347,7 @@ We need the following browsers tests to work:
       * Player 1 receives a "You win!" dialog.
       * Player 1 acknowledges the dialog and navigates to the landing page.
 
-  9) Card Overlay Escape
+  11) Card Overlay Escape
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1385,6 +1427,7 @@ We need the following browsers tests to work:
   17) TODO: playing cards
 
   18) TODO: drawing cards
+  20) TODO: leave while drawing explodign cluster/upgrade cluster
 
 ### Implementation phases
 

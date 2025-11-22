@@ -27,8 +27,21 @@ export default function GameScreen() {
   // DEVMODE states
   const [deckOverlay, setDeckOverlay] = useState<CardType[] | null>(null);
   const [removedOverlay, setRemovedOverlay] = useState<CardType[] | null>(null); // New: for removed pile overlay
+  const [hostPromotionMessage, setHostPromotionMessage] = useState<string | null>(null);
 
   const gameStateRef = useRef(gameState);
+  
+  useEffect(() => {
+      const prevGameState = gameStateRef.current;
+      if (prevGameState && gameState) {
+          if (prevGameState.gameOwnerId !== playerId && gameState.gameOwnerId === playerId) {
+              const prevOwner = prevGameState.players.find(p => p.id === prevGameState.gameOwnerId);
+              const prevOwnerName = prevOwner ? prevOwner.name : 'The previous host';
+              setHostPromotionMessage(`${prevOwnerName} left the game, so you have been selected as the new game owner. Congratulations on your promotion!`);
+          }
+      }
+  }, [gameState, playerId]);
+
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
   useEffect(() => {
@@ -85,7 +98,7 @@ export default function GameScreen() {
     window.addEventListener('resize', handleResize);
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
-  }, [isClient]);
+  }, [isClient, isLoading, gameState]);
 
   const handleGameEndConfirm = useCallback(() => {
       resetState();
@@ -480,6 +493,18 @@ export default function GameScreen() {
         )}
         
         {/* Modals... */}
+        <Modal show={!!hostPromotionMessage} onHide={() => setHostPromotionMessage(null)}>
+          <Modal.Header closeButton>
+            <Modal.Title>You are now the game owner</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{hostPromotionMessage}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={() => setHostPromotionMessage(null)}>OK</Button>
+          </Modal.Footer>
+        </Modal>
+
         <Modal show={showLeaveModal} onHide={() => setShowLeaveModal(false)}>
           <Modal.Header closeButton>
             <Modal.Title>Leave Game?</Modal.Title>

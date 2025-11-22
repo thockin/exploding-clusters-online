@@ -196,6 +196,129 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(page2.locator('.modal.show .modal-body')).toContainText('Rejoining', { timeout: 5000 });
   });
 
+  test('Game owner Reassignment', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'Owner');
+
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'Player 2', code);
+
+    const ctx3 = await browser.newContext();
+    const page3 = await ctx3.newPage();
+    await joinGame(page3, 'Player 3', code);
+
+    // Ensure all players are in the lobby
+    await expect(page1.locator('text=Player 2')).toBeVisible();
+    await expect(page1.locator('text=Player 3')).toBeVisible();
+    await expect(page2.locator('text=Owner (Host)')).toBeVisible();
+    await expect(page3.locator('text=Owner (Host)')).toBeVisible();
+
+    // Owner (P1) navigates away (Disconnects)
+    await page1.goto('about:blank');
+
+    // Verify Owner is gone from P2's list (since disconnected players are filtered out)
+    await expect(page2.locator('.list-group-item:has-text("Owner")')).not.toBeVisible();
+
+    // Verify a new owner is assigned. It should be either Player 2 or Player 3.
+    // One of them should see "(Host)" next to their name or the other's name.
+    // And one of them should see the "Start Game" button.
+    
+    // Wait for the host indicator to update on P2's screen
+    await expect(page2.locator('.list-group-item:has-text("(Host)")')).toBeVisible();
+    
+    // Check who is the new host
+    const p2Host = await page2.locator('.list-group-item:has-text("Player 2 (Host)")').isVisible();
+    const p3Host = await page2.locator('.list-group-item:has-text("Player 3 (Host)")').isVisible();
+    
+    expect(p2Host || p3Host).toBeTruthy();
+    
+    if (p2Host) {
+        await expect(page2.locator('button:has-text("Start Game")')).toBeVisible();
+        await expect(page3.locator('button:has-text("Start Game")')).not.toBeVisible();
+        // Check modal on P2
+        await expect(page2.locator('.modal-title:has-text("You are now the game owner")')).toBeVisible();
+    } else {
+        await expect(page3.locator('button:has-text("Start Game")')).toBeVisible();
+        await expect(page2.locator('button:has-text("Start Game")')).not.toBeVisible();
+         // Check modal on P3
+        await expect(page3.locator('.modal-title:has-text("You are now the game owner")')).toBeVisible();
+    }
+
+    // P1 Reconnects
+    await page1.goBack();
+    await page1.waitForLoadState('networkidle');
+    
+    // Verify P1 successfully rejoins
+    await expect(page1.locator('h2:has-text("Lobby - Game Code:")')).toBeVisible();
+    
+    // Verify P1 is present in P2's list again
+    await expect(page2.locator('.list-group-item:has-text("Owner")')).toBeVisible();
+    
+    // Verify P1 is NO LONGER the host
+    await expect(page1.locator('.list-group-item:has-text("Owner (Host)")')).not.toBeVisible();
+    // And P1 should NOT see the Start Game button
+    await expect(page1.locator('button:has-text("Start Game")')).not.toBeVisible();
+  });
+
+  test('Abandoned Turn', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    const ctx3 = await browser.newContext();
+    const page3 = await ctx3.newPage();
+    await joinGame(page3, 'P3', code);
+
+    await page1.click('text=Start Game');
+    await page1.waitForURL(/game/);
+
+    // Identify whose turn it is
+    const isP1Turn = await page1.locator('.list-group-item:has-text("P1")').getAttribute('class').then(c => c?.includes('bg-success-subtle'));
+    const isP2Turn = await page1.locator('.list-group-item:has-text("P2")').getAttribute('class').then(c => c?.includes('bg-success-subtle'));
+    const isP3Turn = await page1.locator('.list-group-item:has-text("P3")').getAttribute('class').then(c => c?.includes('bg-success-subtle'));
+
+    let currentPage: Page;
+    let currentName: string;
+
+    if (isP1Turn) { currentPage = page1; currentName = 'P1'; }
+    else if (isP2Turn) { currentPage = page2; currentName = 'P2'; }
+    else { currentPage = page3; currentName = 'P3'; }
+
+    console.log(`Current turn is: ${currentName}`);
+
+    // Current player disconnects
+    await currentPage.goto('about:blank');
+
+    // Verify turn advances on other players' screens
+    const observerPage = (currentPage === page1) ? page2 : page1;
+
+    // Wait for the disconnected player to DISAPPEAR from the list (as per requirement)
+    await expect(observerPage.locator(`.list-group-item:has-text("${currentName}")`)).not.toBeVisible();
+    
+    // Wait for turn to change to someone else
+    // Find the new current player (someone with bg-success-subtle class)
+    // There are 2 remaining players. One of them should be active.
+    const remainingPlayers = ['P1', 'P2', 'P3'].filter(n => n !== currentName);
+    const nextPlayerTurnSelector = remainingPlayers.map(n => `.list-group-item:has-text("${n}").bg-success-subtle`).join(',');
+    await expect(observerPage.locator(nextPlayerTurnSelector)).toBeVisible();
+    
+    // Reconnect
+    await currentPage.goBack();
+    await currentPage.waitForLoadState('networkidle');
+    
+    // Verify rejoin
+    await expect(currentPage).toHaveURL(/game/);
+    
+    // Verify player reappears in list
+    await expect(observerPage.locator(`.list-group-item:has-text("${currentName}")`)).toBeVisible();
+  });
+
   test('Attrition Win', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
@@ -322,15 +445,33 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
+    
     const ctx2 = await browser.newContext();
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
-    await page1.click('text=Start Game');
-    await page1.waitForURL(/game/); // Ensure page is on game screen
-    await page1.waitForLoadState('networkidle');
 
-    await page1.waitForSelector('h5:has-text("Your Hand")', { timeout: 15000 });
-    const handSection = page1.locator('h5:has-text("Your Hand")').locator('xpath=..');
+    // Add P3 to prevent attrition win on reload
+    const ctx3 = await browser.newContext();
+    const page3 = await ctx3.newPage();
+    await joinGame(page3, 'P3', code);
+
+    await page1.click('text=Start Game');
+    await page1.waitForURL(/game/); 
+    await page2.waitForURL(/game/);
+    await page3.waitForURL(/game/);
+    
+    await page1.waitForLoadState('networkidle');
+    await page2.waitForLoadState('networkidle');
+
+    // Determine which player is NOT the current turn holder
+    // We check P1. If it's P1's turn, we use P2. Otherwise P1.
+    const p1Turn = await page1.locator('text=It\'s your turn').isVisible();
+    const targetPage = p1Turn ? page2 : page1;
+    const targetName = p1Turn ? 'P2' : 'P1';
+    console.log(`Testing reorder with ${targetName} (Not current turn)`);
+
+    await targetPage.waitForSelector('h5:has-text("Your Hand")', { timeout: 15000 });
+    const handSection = targetPage.locator('h5:has-text("Your Hand")').locator('xpath=..');
     await expect(handSection).toBeVisible({ timeout: 15000 });
     await expect(handSection.locator('img')).toHaveCount(8, { timeout: 10000 });
 
@@ -355,14 +496,14 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     console.log(`Dragging from (${startX}, ${startY}) to (${endX}, ${endY})`);
 
-    await page1.mouse.move(startX, startY);
-    await page1.mouse.down();
-    await page1.mouse.move(endX, endY, { steps: 20 }); // More steps for smoother drag
-    await page1.mouse.up();
+    await targetPage.mouse.move(startX, startY);
+    await targetPage.mouse.down();
+    await targetPage.mouse.move(endX, endY, { steps: 20 }); // More steps for smoother drag
+    await targetPage.mouse.up();
 
-    await page1.waitForTimeout(500); // Give UI time to react
+    await targetPage.waitForTimeout(500); // Give UI time to react
 
-    // Verify new order by comparing card IDs (using alt text as a proxy for card name/id for simplicity)
+    // Verify new order locally
     const newDraggableElements = await handSection.locator('.m-1').all();
     const newCardIds = await Promise.all(newDraggableElements.map(async (el) => await el.locator('img').getAttribute('alt')));
 
@@ -370,21 +511,30 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(newCardIds[1]).toBe(initialCardIds[0]);  // Original first card is now second
 
     // Reload page to verify persistence
-    await page1.reload();
-    await page1.waitForURL(/lobby|game/);
+    await targetPage.reload();
+    await targetPage.waitForURL(/lobby|game/);
     
     if (process.env.DEVMODE === '1') {
-        // In DEVMODE, since nonce is fixed, it should rejoin to game
-        await expect(page1).toHaveURL(/game/, { timeout: 10000 }); // Explicitly assert game URL
-        await page1.waitForSelector('h5:has-text("Your Hand")', { timeout: 15000 });
-        const reloadedHandSection = page1.locator('h5:has-text("Your Hand")').locator('xpath=..');
+        // In DEVMODE, it should rejoin to game
+        await expect(targetPage).toHaveURL(/game/, { timeout: 10000 });
+        await targetPage.waitForSelector('h5:has-text("Your Hand")', { timeout: 15000 });
+        const reloadedHandSection = targetPage.locator('h5:has-text("Your Hand")').locator('xpath=..');
+        
+        // Wait for cards to appear
+        await expect(reloadedHandSection.locator('img')).toHaveCount(8, { timeout: 10000 });
+        
         const reloadedDraggableElements = await reloadedHandSection.locator('.m-1').all();
         const reloadedCardIds = await Promise.all(reloadedDraggableElements.map(async (el) => await el.locator('img').getAttribute('alt')));
         await expect(reloadedCardIds[0]).toBe(initialCardIds[1]); 
         await expect(reloadedCardIds[1]).toBe(initialCardIds[0]);  
     } else {
-        // In production, nonce changes, so player is sent to landing page
-        await expect(page1).toHaveURL('/');
+        // In production, nonce changes logic might differ, but here we assume same session behavior unless purge logic kicks in
+         // Actually with 3 players, reloading P2 (disconnecting) leaves 2 players. Nonce does NOT change.
+         // So P2 should be able to rejoin even in production!
+         // The logic "Reconnect Fails after Nonce Change" applies when a NEW player joins in between.
+         // Here, simple reload. Nonce shouldn't change.
+         // So verify rejoin success.
+         await expect(targetPage).toHaveURL(/game/, { timeout: 10000 });
     }
   });
 

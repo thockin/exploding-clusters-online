@@ -106,7 +106,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                     // gameState will be updated by gameUpdate event
                 } else {
                     sessionStorage.removeItem('exploding_session');
-                    setRejoinError("Sorry, the game has changed since you left. Rejoining is not possible.");
+                    // Only set error if it's NOT a "game does not exist" error
+                    if (response.error && !response.error.includes('does not exist')) {
+                        setRejoinError("Sorry, the game has changed since you left. Rejoining is not possible.");
+                    }
                 }
                 setIsLoading(false);
                 });
