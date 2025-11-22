@@ -216,7 +216,7 @@ export class GameManager {
 
     private emitGameUpdate(game: Game) {
         // Use inclusive check to catch potential type issues
-        const debugCount = game.drawPile.filter(c => c.type.includes('Debug')).length;
+        const debugCount = game.drawPile.filter(c => c.cardClass.includes('Debug')).length;
         if (game.devMode) {
              this.log(game, `emitting update. debug count: ${debugCount}`);
         }
@@ -417,12 +417,12 @@ export class GameManager {
 
         // Initialize deck
         let deck = [...fullDeck];
-        const explodingClusters = deck.filter(c => c.type === 'Exploding Cluster');
-        const upgradeClusters = deck.filter(c => c.type === 'Upgrade Cluster');
+        const explodingClusters = deck.filter(c => c.cardClass === 'Exploding Cluster');
+        const upgradeClusters = deck.filter(c => c.cardClass === 'Upgrade Cluster');
         // "The full deck is comprised of... 6 DEBUG cards".
-        const debugCards = deck.filter(c => c.type === 'Debug');
+        const debugCards = deck.filter(c => c.cardClass === 'Debug');
         // Remove them all first
-        deck = deck.filter(c => c.type !== 'Debug');
+        deck = deck.filter(c => c.cardClass !== 'Debug');
 
         // Give 1 Debug card to each player
         for (const p of game.players) {
@@ -473,7 +473,7 @@ export class GameManager {
 
         // DEVMODE: Move Exploding Cluster to top
         if (game.devMode) {
-            const explodingIndex = game.drawPile.findIndex(c => c.type === 'Exploding Cluster');
+            const explodingIndex = game.drawPile.findIndex(c => c.cardClass === 'Exploding Cluster');
             if (explodingIndex > -1) {
                 const [explodingCard] = game.drawPile.splice(explodingIndex, 1);
                 game.drawPile.unshift(explodingCard);
@@ -502,7 +502,7 @@ export class GameManager {
         const player = game.players.find(p => p.socketId === socket.id);
         if (!player) return;
 
-        const debugCardIndex = game.drawPile.findIndex(c => c.type === 'Debug');
+        const debugCardIndex = game.drawPile.findIndex(c => c.cardClass === 'Debug');
         if (debugCardIndex > -1) {
             const [debugCard] = game.drawPile.splice(debugCardIndex, 1);
             player.hand.push(debugCard);
@@ -676,15 +676,15 @@ export class GameManager {
             html += `<h3>Players (${game.players.length})</h3><ul>`;
             game.players.forEach(p => {
                 const isTurn = game.turnOrder[game.currentTurnIndex] === p.id;
-                html += `<li>${p.name} ${isTurn ? '<strong>(TURN)</strong>' : ''} - Hand: ${p.hand.map(c => c.type).join(', ')}</li>`;
+                html += `<li>${p.name} ${isTurn ? '<strong>(TURN)</strong>' : ''} - Hand: ${p.hand.map(c => c.cardClass).join(', ')}</li>`;
             });
             html += '</ul>';
 
             html += `<h3>Draw Pile (${game.drawPile.length})</h3>`;
-            html += `<textarea rows="10" cols="80" readonly>${game.drawPile.map(c => c.type).join('\n')}</textarea>`;
+            html += `<textarea rows="10" cols="80" readonly>${game.drawPile.map(c => c.cardClass).join('\n')}</textarea>`;
 
             html += `<h3>Discard Pile (${game.discardPile.length})</h3>`;
-             html += `<textarea rows="10" cols="80" readonly>${game.discardPile.map(c => c.type).join('\n')}</textarea>`;
+             html += `<textarea rows="10" cols="80" readonly>${game.discardPile.map(c => c.cardClass).join('\n')}</textarea>`;
 
             html += '</body></html>';
             res.end(html);

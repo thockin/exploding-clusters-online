@@ -1,11 +1,11 @@
 export interface Card {
   id: string;
   name: string;
-  type: string;
+  cardClass: string;
   imageUrl: string;
 }
 
-const cardTypes = {
+const cardClasses = {
   EXPLODING_CLUSTER: 'Exploding Cluster',
   UPGRADE_CLUSTER: 'Upgrade Cluster',
   ATTACK: 'Attack 2x',
@@ -38,9 +38,9 @@ const generateDeck = (): Card[] => {
   const deck: Card[] = [];
   let id = 0;
 
-  const createCard = (type: string, name: string, imageUrl: string) => ({
+  const createCard = (cardClass: string, name: string, imageUrl: string) => ({
     id: `card-${id++}`,
-    type,
+    cardClass: cardClass,
     name,
     imageUrl: `/art/${imageUrl}`,
   });
@@ -51,27 +51,27 @@ const generateDeck = (): Card[] => {
   const developerFiles = artFiles.filter(f => f.startsWith('developer_-_'));
 
   artFiles.forEach(file => {
-    if (file.startsWith('exploding_-_')) deck.push(createCard(cardTypes.EXPLODING_CLUSTER, getName(file), file));
-    else if (file.startsWith('upgrade_-_')) deck.push(createCard(cardTypes.UPGRADE_CLUSTER, getName(file), file));
-    else if (file.startsWith('attack_-_')) deck.push(createCard(cardTypes.ATTACK, getName(file), file));
-    else if (file.startsWith('debug_-_')) deck.push(createCard(cardTypes.DEBUG, getName(file), file));
-    else if (file.startsWith('nak_-_')) deck.push(createCard(cardTypes.NAK, getName(file), file));
-    else if (file.startsWith('see_future_-_')) deck.push(createCard(cardTypes.SEE_THE_FUTURE, getName(file), file));
-    else if (file.startsWith('shuffle_-_')) deck.push(createCard(cardTypes.SHUFFLE, getName(file), file));
-    else if (file.startsWith('shuffle_now_-_')) deck.push(createCard(cardTypes.SHUFFLE_NOW, getName(file), file));
-    else if (file.startsWith('skip_-_')) deck.push(createCard(cardTypes.SKIP, getName(file), file));
+    if (file.startsWith('exploding_-_')) deck.push(createCard(cardClasses.EXPLODING_CLUSTER, getName(file), file));
+    else if (file.startsWith('upgrade_-_')) deck.push(createCard(cardClasses.UPGRADE_CLUSTER, getName(file), file));
+    else if (file.startsWith('attack_-_')) deck.push(createCard(cardClasses.ATTACK, getName(file), file));
+    else if (file.startsWith('debug_-_')) deck.push(createCard(cardClasses.DEBUG, getName(file), file));
+    else if (file.startsWith('nak_-_')) deck.push(createCard(cardClasses.NAK, getName(file), file));
+    else if (file.startsWith('see_future_-_')) deck.push(createCard(cardClasses.SEE_THE_FUTURE, getName(file), file));
+    else if (file.startsWith('shuffle_-_')) deck.push(createCard(cardClasses.SHUFFLE, getName(file), file));
+    else if (file.startsWith('shuffle_now_-_')) deck.push(createCard(cardClasses.SHUFFLE_NOW, getName(file), file));
+    else if (file.startsWith('skip_-_')) deck.push(createCard(cardClasses.SKIP, getName(file), file));
   });
 
   // 4 "favor" cards (2 copies each of 2 files)
   favorFiles.forEach(file => {
-    deck.push(createCard(cardTypes.FAVOR, getName(file), file));
-    deck.push(createCard(cardTypes.FAVOR, getName(file), file));
+    deck.push(createCard(cardClasses.FAVOR, getName(file), file));
+    deck.push(createCard(cardClasses.FAVOR, getName(file), file));
   });
 
   // 28 "developer" cards (7 sets of 4)
   developerFiles.forEach(file => {
     for (let i = 0; i < 4; i++) {
-      deck.push(createCard(cardTypes.DEVELOPER, getName(file), file));
+      deck.push(createCard(cardClasses.DEVELOPER, getName(file), file));
     }
   });
 
