@@ -609,6 +609,8 @@ is empty.
 If the game server was started with DEVMODE=1 in its environment, then the game
 is in developer mode.  In developer mode, the following things are different:
 
+  * The first game code is "XXXXX". Subsequent game codes are random as usual.
+
   * When the game is created, the draw-pile starts with an EXPLODING CLUSTER
     card on top.
 
@@ -620,7 +622,12 @@ is in developer mode.  In developer mode, the following things are different:
     card, an ATTACK card, a SEE THE FUTURE card, and 2 DEVELOPER cards (one
     identical to the solo DEVELOPER card in player 1's hand, one different).
 
-  * Other players' hands are random.
+  * Other players' hands are dealt from the deck.
+
+  * The player list is ordered by join sequence.  The game creator is first, the
+    second player to join is second, and so on.
+
+  * The game creator is always the first player to play.
 
   * The player list area shows a "Give me a DEBUG card" button at the bottom.
     If the player clicks that button, they get a DEBUG card added to their hand
@@ -1334,9 +1341,10 @@ We need the following browsers tests to work:
       * Player 2 joins the game.
       * Player 3 joins the game.
       * Player 1 starts the game.
-      * The player whose turn it is navigates away (disconnects).
-      * Verify that another player's turn starts.
-      * The disconnected player 1 navigates back to the game.
+      * Verify that it is Player 1's turn.
+      * Player 1 navigates away (disconnects).
+      * Verify that Player 2's turn starts.
+      * Player 1 attempts to navigate back to the game.
       * Player 1 is rejected with a "game has changed" dialog.
 
   10) Attrition Win

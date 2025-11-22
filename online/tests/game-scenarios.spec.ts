@@ -110,7 +110,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page.goto('/');
     await page.click('text=Join a game');
     await page.fill('input[placeholder="Enter your name"]', 'Bob');
-    await page.fill('input[placeholder="Enter 5-letter game code"]', 'XXXXX');
+    await page.fill('input[placeholder="Enter 5-letter game code"]', 'YYYYY');
     await page.click('button:has-text("Join Game")');
     
     await expect(page.locator('.modal.show .alert-danger')).toContainText('does not exist');
@@ -120,7 +120,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const page = await browser.newPage();
     await page.goto('/');
     await page.click('text=Watch a game');
-    await page.fill('input[placeholder="Enter 5-letter game code"]', 'XXXXX');
+    await page.fill('input[placeholder="Enter 5-letter game code"]', 'YYYYY');
     await page.click('button:has-text("Watch Game")');
     await expect(page.locator('.modal.show .alert-danger')).toContainText('does not exist');
   });
@@ -278,17 +278,33 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page1.click('text=Start Game');
     await page1.waitForURL(/game/);
 
-    // Identify whose turn it is
+    // In DEVMODE, P1 always starts.
+    if (process.env.DEVMODE === '1') {
+        await expect(page1.locator('.list-group-item:has-text("P1")')).toHaveClass(/bg-success-subtle/);
+    }
+
+    // Identify whose turn it is (Robust for non-DEVMODE too)
     const isP1Turn = await page1.locator('.list-group-item:has-text("P1")').getAttribute('class').then(c => c?.includes('bg-success-subtle'));
     const isP2Turn = await page1.locator('.list-group-item:has-text("P2")').getAttribute('class').then(c => c?.includes('bg-success-subtle'));
-    const isP3Turn = await page1.locator('.list-group-item:has-text("P3")').getAttribute('class').then(c => c?.includes('bg-success-subtle'));
+    // const isP3Turn = ...
 
     let currentPage: Page;
     let currentName: string;
+    let nextPlayerName: string;
 
-    if (isP1Turn) { currentPage = page1; currentName = 'P1'; }
-    else if (isP2Turn) { currentPage = page2; currentName = 'P2'; }
-    else { currentPage = page3; currentName = 'P3'; }
+    if (isP1Turn) { 
+        currentPage = page1; 
+        currentName = 'P1'; 
+        nextPlayerName = 'P2'; // In DEVMODE turn order is P1, P2, P3
+    } else if (isP2Turn) { 
+        currentPage = page2; 
+        currentName = 'P2'; 
+        nextPlayerName = 'P3';
+    } else { 
+        currentPage = page3; 
+        currentName = 'P3'; 
+        nextPlayerName = 'P1';
+    }
 
     console.log(`Current turn is: ${currentName}`);
 
@@ -301,12 +317,15 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Wait for the disconnected player to DISAPPEAR from the list (as per requirement)
     await expect(observerPage.locator(`.list-group-item:has-text("${currentName}")`)).not.toBeVisible();
     
-    // Wait for turn to change to someone else
-    // Find the new current player (someone with bg-success-subtle class)
-    // There are 2 remaining players. One of them should be active.
-    const remainingPlayers = ['P1', 'P2', 'P3'].filter(n => n !== currentName);
-    const nextPlayerTurnSelector = remainingPlayers.map(n => `.list-group-item:has-text("${n}").bg-success-subtle`).join(',');
-    await expect(observerPage.locator(nextPlayerTurnSelector)).toBeVisible();
+    // Wait for turn to change to someone else (Next player)
+    // In DEVMODE, if P1 leaves, P2 should be next.
+    if (process.env.DEVMODE === '1') {
+         await expect(observerPage.locator(`.list-group-item:has-text("${nextPlayerName}")`)).toHaveClass(/bg-success-subtle/);
+    } else {
+        const remainingPlayers = ['P1', 'P2', 'P3'].filter(n => n !== currentName);
+        const nextPlayerTurnSelector = remainingPlayers.map(n => `.list-group-item:has-text("${n}").bg-success-subtle`).join(',');
+        await expect(observerPage.locator(nextPlayerTurnSelector)).toBeVisible();
+    }
     
     // Reconnect
     await currentPage.goBack();

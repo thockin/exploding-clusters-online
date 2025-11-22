@@ -186,7 +186,15 @@ export class GameManager {
         });
     }
 
+    private firstGameCreated = false;
+
     private generateGameCode(): string {
+        // In DEVMODE, the first game code is always XXXXX
+        if (process.env.DEVMODE === '1' && !this.firstGameCreated) {
+            this.firstGameCreated = true;
+            return 'XXXXX';
+        }
+
         const alphabet = 'BCDFGHJKLMNPQRSTVWXYZ'; // No vowels, uppercase
         let code = '';
         let unique = false;
@@ -508,11 +516,13 @@ export class GameManager {
             }
         }
 
-        // Set turn order randomly
+        // Set turn order
         game.turnOrder = game.players.map(p => p.id);
-        for (let i = game.turnOrder.length - 1; i > 0; i--) {
-            const j = Math.floor(this.prng.random() * (i + 1));
-            [game.turnOrder[i], game.turnOrder[j]] = [game.turnOrder[j], game.turnOrder[i]];
+        if (!game.devMode) {
+            for (let i = game.turnOrder.length - 1; i > 0; i--) {
+                const j = Math.floor(this.prng.random() * (i + 1));
+                [game.turnOrder[i], game.turnOrder[j]] = [game.turnOrder[j], game.turnOrder[i]];
+            }
         }
         game.currentTurnIndex = 0;
 
