@@ -8,7 +8,7 @@ export interface Card {
 const cardTypes = {
   EXPLODING_CLUSTER: 'Exploding Cluster',
   UPGRADE_CLUSTER: 'Upgrade Cluster',
-  ATTACK_2X: 'Attack 2x',
+  ATTACK: 'Attack 2x',
   DEBUG: 'Debug',
   FAVOR: 'Favor',
   NAK: 'Nak',
@@ -53,7 +53,7 @@ const generateDeck = (): Card[] => {
   artFiles.forEach(file => {
     if (file.startsWith('exploding_-_')) deck.push(createCard(cardTypes.EXPLODING_CLUSTER, getName(file), file));
     else if (file.startsWith('upgrade_-_')) deck.push(createCard(cardTypes.UPGRADE_CLUSTER, getName(file), file));
-    else if (file.startsWith('attack_-_')) deck.push(createCard(cardTypes.ATTACK_2X, getName(file), file));
+    else if (file.startsWith('attack_-_')) deck.push(createCard(cardTypes.ATTACK, getName(file), file));
     else if (file.startsWith('debug_-_')) deck.push(createCard(cardTypes.DEBUG, getName(file), file));
     else if (file.startsWith('nak_-_')) deck.push(createCard(cardTypes.NAK, getName(file), file));
     else if (file.startsWith('see_future_-_')) deck.push(createCard(cardTypes.SEE_THE_FUTURE, getName(file), file));
