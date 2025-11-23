@@ -375,7 +375,7 @@ export class GameManager {
                 return callback({ success: true, gameCode, nonce: game.nonce, playerId: existingPlayer.id });
             }
         } else if (clientNonce && clientNonce !== game.nonce) {
-            this.log(game, `player "${playerName}" (${game.players.find(p => p.name.toLowerCase() === playerName.toLowerCase())?.id || 'unknown'}) failed to reconnect due to nonce mismatch`);
+            this.log(game, `player "${playerName}" (${socket.id}) failed to rejoin due to nonce mismatch`);
             return callback({ success: false, error: 'Cannot rejoin, game state has changed.', nonce: game.nonce });
         }
 
@@ -394,7 +394,7 @@ export class GameManager {
         // Check name against CONNECTED players
         const existingPlayerWithSameName = connectedPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
         if (existingPlayerWithSameName) {
-            this.log(game, `attempted to join with duplicate name: "${playerName}" (existing: "${existingPlayerWithSameName.name}" (${existingPlayerWithSameName.socketId}))`);
+            this.log(game, `attempted to join with duplicate name: "${playerName}", exists as ${existingPlayerWithSameName.socketId}`);
             return callback({ success: false, error: 'That name is already taken in this game. Please choose a different name.' });
         }
 
@@ -536,7 +536,7 @@ export class GameManager {
         }
         game.currentTurnIndex = 0;
 
-        this.log(game, `game started!`);
+        this.log(game, `game started`);
         this.updateGameNonce(game);
         this.emitToRoom(game.code, 'gameStarted');
         callback({ success: true });
@@ -613,7 +613,7 @@ export class GameManager {
         if (debugCardIndex > -1) {
             const [debugCard] = game.drawPile.splice(debugCardIndex, 1);
             player.hand.push(debugCard);
-            this.log(game, `DEVMODE: gave DEBUG card to player "${player.name}" (${player.socketId})`);
+            this.log(game, `DEVMODE: gave a DEBUG card to player "${player.name}" (${player.socketId})`);
             this.updateGameNonce(game); // This triggers gameUpdate and handUpdate
         } else {
             // Optionally create one if none exist?
@@ -633,7 +633,7 @@ export class GameManager {
         if (cardIndex > -1) {
             const [card] = game.drawPile.splice(cardIndex, 1);
             player.hand.push(card);
-            this.log(game, `DEVMODE: gave safe card ${card.name} to player "${player.name}" (${player.socketId})`);
+            this.log(game, `DEVMODE: gave a safe card "${card.name}" to player "${player.name}" (${player.socketId})`);
             this.updateGameNonce(game);
         } else {
              this.log(game, `DEVMODE: no safe cards left in deck for player "${player.name}" (${player.socketId})`);
@@ -741,7 +741,7 @@ export class GameManager {
 
             // If current player disconnected, handle turn progression
             if (game.state === 'started' && game.turnOrder[game.currentTurnIndex] === player.id) {
-                this.log(game, `current player "${player.name}" disconnected. removing hand and advancing turn.`);
+                this.log(game, `current player "${player.name}" has left, advancing turn`);
                 
                 // Check for pending Exploding/Upgrade Cluster cards in hand (just drawn)
                 // "If the player has just drawn an EXPLODING CLUSTER card, it is re-inserted at a random position..."
@@ -784,6 +784,9 @@ export class GameManager {
                         message: `${player.name} has abandoned their turn, it's ${nextPlayer.name}'s turn.` 
                     });
                 }
+                // Ensure nonce is updated because game state changed significantly
+                this.updateGameNonce(game);
+                return; // updateGameNonce emits update, so we can return
             }
 
             // Check for attrition win (only 1 connected player left)
