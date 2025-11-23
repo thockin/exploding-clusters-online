@@ -345,6 +345,63 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0).locator('img')).toHaveCount(5);
     await expect(rows.nth(1).locator('img')).toHaveCount(5);
+    // Verify standard size (100px)
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
+
+    // Add cards to force 3 rows (at standard size) -> should trigger resize to 2 rows (small)
+    // Max standard per row is 7.
+    // 14 cards = 2 rows of 7 (fits).
+    // 15 cards = 3 rows of 5 (overflows 2 rows).
+    // So we need 15 cards. Current is 10. Add 5 more.
+    for (let i = 0; i < 5; i++) {
+        await page.click('button:has-text("Draw a safe card")');
+        // Small wait to ensure processing if needed, though click should be awaited
+    }
+    await expect(handSection.locator('img')).toHaveCount(15);
+
+    // 15 cards -> Should still be 2 rows, but SMALL size
+    // Small width 75px + 8px = 83px. 786px / 83px = 9 cards per row capacity.
+    // 15 cards / 2 rows = 8 cards per row. Fits!
+    await expect(rows).toHaveCount(2);
+    // Verify size 75px
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '75px');
+
+    // Add cards to force 3 rows even with SMALL size
+    // Max small per row is 9.
+    // 18 cards = 2 rows of 9 (fits).
+    // 19 cards = 3 rows (7, 6, 6).
+    // Need 19 cards. Current 15. Add 4.
+    for (let i = 0; i < 4; i++) {
+        await page.click('button:has-text("Draw a safe card")');
+    }
+    await expect(handSection.locator('img')).toHaveCount(19);
+    
+    // 19 cards -> 3 rows (Small size)
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '75px');
+
+    // Reduce cards to 14 (fits in 2 rows at standard size) -> should revert to standard
+    // Discard 5 cards (19 -> 14)
+    const discardPile = page.locator('text=Discard Pile').locator('xpath=..');
+    for (let i = 0; i < 5; i++) {
+        // Always pick first card
+        const cardToPlay = rows.first().locator('.m-1').first();
+        const srcBox = await cardToPlay.boundingBox();
+        const dstBox = await discardPile.boundingBox();
+        if (srcBox && dstBox) {
+            await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+            await page.mouse.down();
+            await page.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 10 });
+            await page.mouse.up();
+            await page.waitForTimeout(200); // Wait for server processing
+        }
+    }
+    
+    await expect(handSection.locator('img')).toHaveCount(14);
+    
+    // 14 cards -> 2 rows (7, 7). Standard size.
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
   });
 
   test('Abandoned Turn', async ({ browser }) => {

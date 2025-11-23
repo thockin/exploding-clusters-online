@@ -100,6 +100,10 @@ export class GameManager {
                 this.reorderHand(socket, gameCode, newHand);
             });
 
+            socket.on('play-card', (data: { gameCode: string; cardId: string }) => {
+                this.playCard(socket, data.gameCode, data.cardId);
+            });
+
             // Handle voluntary leave
             socket.on('leaveGame', (gameCode: string) => {
                 const game = this.games.get(gameCode);
@@ -679,6 +683,34 @@ export class GameManager {
             this.log(game, `Player "${player.name}" (${player.socketId}) reordered their hand.`);
         }
         this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Update only the reordering player
+    }
+
+    private playCard(socket: Socket, gameCode: string, cardId: string) {
+        const game = this.games.get(gameCode);
+        if (!game) return;
+
+        const player = game.players.find(p => p.socketId === socket.id);
+        if (!player) return;
+
+        // Basic validation: check if it's player's turn (ignoring "now" cards for basic implementation)
+        const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
+        // In DEVMODE or basic implementation, strict turn checking might be desired, but for this test P1 starts so it IS their turn.
+        if (!isMyTurn) {
+             this.log(game, `player "${player.name}" tried to play card out of turn`);
+             return;
+        }
+
+        const cardIndex = player.hand.findIndex(c => c.id === cardId);
+        if (cardIndex === -1) {
+             this.log(game, `player "${player.name}" tried to play card they don't have`);
+             return;
+        }
+
+        const [card] = player.hand.splice(cardIndex, 1);
+        game.discardPile.push(card);
+        this.log(game, `player "${player.name}" played ${card.name} (${card.cardClass})`);
+        
+        this.updateGameNonce(game);
     }
 
     private handleDisconnect(socket: Socket) {

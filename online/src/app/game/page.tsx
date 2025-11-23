@@ -12,8 +12,10 @@ const FIXED_TABLE_PADDING = 20; // px
 const FIXED_PILE_GAP = 30; // px
 
 const CARD_WIDTH_PX = 100;
+const CARD_SMALL_WIDTH_PX = 75;
 const CARD_MARGIN_X_PX = 4; // m-1 means 0.25rem, assuming 1rem=16px, so 4px on each side
 const CARD_FULL_WIDTH_PX = CARD_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
+const CARD_SMALL_FULL_WIDTH_PX = CARD_SMALL_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
 
 export default function GameScreen() {
   const router = useRouter();
@@ -191,14 +193,13 @@ export default function GameScreen() {
   // Helper function to distribute cards into approximately even rows
   const distributeCardsIntoRows = useCallback(( 
     cardsWithIndex: Array<{ card: CardType; originalIndex: number }>, 
-    containerWidth: number 
+    containerWidth: number,
+    cardFullWidth: number = CARD_FULL_WIDTH_PX
   ): Array<Array<{ card: CardType; originalIndex: number }>> => {
     if (cardsWithIndex.length === 0) return [];
     
     // Fallback to single row if container width is not yet measured
     if (containerWidth === 0) return [cardsWithIndex];
-
-    const cardFullWidth = CARD_FULL_WIDTH_PX;
 
     // Calculate how many cards can ideally fit on one row
     const idealCardsPerRow = Math.floor(containerWidth / cardFullWidth);
@@ -392,8 +393,18 @@ export default function GameScreen() {
     // Prepare cards with their original indices for distribution
     const cardsWithOriginalIndex = myHand.map((card, index) => ({ card, originalIndex: index }));
 
-    // Distribute cards into rows
-    const distributedRows = distributeCardsIntoRows(cardsWithOriginalIndex, handAreaWidth);
+    // First, try with standard card width
+    let distributedRows = distributeCardsIntoRows(cardsWithOriginalIndex, handAreaWidth, CARD_FULL_WIDTH_PX);
+    let currentCardWidth = CARD_WIDTH_PX;
+
+    // If it results in 3 or more rows, try fitting with smaller cards
+    if (distributedRows.length > 2) {
+        const smallCardRows = distributeCardsIntoRows(cardsWithOriginalIndex, handAreaWidth, CARD_SMALL_FULL_WIDTH_PX);
+        // Use smaller cards regardless of whether they fit in 2 rows or not, 
+        // to satisfy the requirement "Don't go smaller than that [75px]".
+        distributedRows = smallCardRows;
+        currentCardWidth = CARD_SMALL_WIDTH_PX;
+    }
 
     return (
       <Droppable droppableId="hand" direction="horizontal">
@@ -422,8 +433,8 @@ export default function GameScreen() {
                                 ...providedDraggable.draggableProps.style,
                                 border: selectedCard?.id === item.card.id ? '3px solid blue' : 'none',
                                 borderRadius: '5px',
-                                width: `${CARD_WIDTH_PX}px`,
-                                height: `${CARD_WIDTH_PX * 1.4}px`,
+                                width: `${currentCardWidth}px`,
+                                height: `${currentCardWidth * 1.4}px`,
                                 boxSizing: 'content-box',
                                 cursor: 'pointer',
                               }}
@@ -433,8 +444,8 @@ export default function GameScreen() {
                               <Image 
                                 src={item.card.imageUrl} 
                                 alt={item.card.name} 
-                                width={CARD_WIDTH_PX} 
-                                height={CARD_WIDTH_PX * 1.4}
+                                width={currentCardWidth} 
+                                height={currentCardWidth * 1.4}
                               />
                             </div>
                           )}

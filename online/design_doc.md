@@ -1538,3 +1538,8 @@ Implement the "watch game" logic.
 Implement anything else that was detailed in the design doc but not yet
 implemented, or which was not thought of during the design phase, but is
 actually needed.
+
+## Part 3: Things not yet integrated in this doc
+ - Game modifiers (less cards, more exploding cards, more upgrade cards)
+ - 3 card combos
+ - Game PIN required to join
