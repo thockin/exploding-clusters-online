@@ -11,6 +11,10 @@ import Image from 'next/image';
 const FIXED_TABLE_PADDING = 20; // px
 const FIXED_PILE_GAP = 30; // px
 
+const CARD_WIDTH_PX = 100;
+const CARD_MARGIN_X_PX = 4; // m-1 means 0.25rem, assuming 1rem=16px, so 4px on each side
+const CARD_FULL_WIDTH_PX = CARD_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
+
 export default function GameScreen() {
   const router = useRouter();
   const { socket, gameCode, gameState, playerName, playerId, myHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
@@ -23,7 +27,9 @@ export default function GameScreen() {
   const [isClient] = useState(false);
   const tableAreaRef = useRef<HTMLDivElement>(null);
   const messageAreaRef = useRef<HTMLDivElement>(null);
+  const handAreaRef = useRef<HTMLDivElement>(null);
   const [tableAreaSize, setTableAreaSize] = useState({ width: 0, height: 0 });
+  const [handAreaWidth, setHandAreaWidth] = useState(0);
   
   // DEVMODE states
   const [deckOverlay, setDeckOverlay] = useState<CardType[] | null>(null);
@@ -107,6 +113,32 @@ export default function GameScreen() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isClient, isLoading, gameState]);
 
+  useEffect(() => {
+    if (handAreaRef.current) {
+        setHandAreaWidth(handAreaRef.current.offsetWidth);
+        const observer = new ResizeObserver(entries => {
+            if (entries[0]) {
+                setHandAreaWidth(entries[0].contentRect.width);
+            }
+        });
+        observer.observe(handAreaRef.current);
+        return () => observer.disconnect();
+    }
+  }, [handAreaRef.current]); // Re-run if ref changes
+
+  useEffect(() => {
+    if (handAreaRef.current) {
+        setHandAreaWidth(handAreaRef.current.offsetWidth);
+        const observer = new ResizeObserver(entries => {
+            if (entries[0]) {
+                setHandAreaWidth(entries[0].contentRect.width);
+            }
+        });
+        observer.observe(handAreaRef.current);
+        return () => observer.disconnect();
+    }
+  }, [handAreaRef.current]);
+
   const handleGameEndConfirm = useCallback(() => {
       resetState();
       router.push('/');
@@ -155,6 +187,58 @@ export default function GameScreen() {
   const handleCardDoubleClick = useCallback((card: CardType) => {
     setOverlayCard(card);
   }, []);
+
+  // Helper function to distribute cards into approximately even rows
+  const distributeCardsIntoRows = useCallback(( 
+    cardsWithIndex: Array<{ card: CardType; originalIndex: number }>, 
+    containerWidth: number 
+  ): Array<Array<{ card: CardType; originalIndex: number }>> => {
+    if (cardsWithIndex.length === 0) return [];
+    
+    // Fallback to single row if container width is not yet measured
+    if (containerWidth === 0) return [cardsWithIndex];
+
+    const cardFullWidth = CARD_FULL_WIDTH_PX;
+
+    // Calculate how many cards can ideally fit on one row
+    const idealCardsPerRow = Math.floor(containerWidth / cardFullWidth);
+    
+    // If all cards fit on one row, or no space for even one card, return as single row
+    if (idealCardsPerRow === 0 || cardsWithIndex.length <= idealCardsPerRow) {
+      return [cardsWithIndex];
+    }
+
+    const numCards = cardsWithIndex.length;
+    let bestNumRows = numCards; // Default to max rows (1 card per row) if nothing else fits
+
+    // Iterate through possible number of rows (from 1 to numCards)
+    for (let numRows = 1; numRows <= numCards; numRows++) {
+        const baseCardsPerRow = Math.floor(numCards / numRows);
+        const remainder = numCards % numRows;
+        
+        // Calculate the maximum number of cards in any row for this distribution
+        const maxCardsInAnyRow = baseCardsPerRow + (remainder > 0 ? 1 : 0);
+        
+        // If this distribution fits within the container width, use it!
+        // Since we start from numRows = 1, this finds the MINIMUM number of rows required.
+        if (maxCardsInAnyRow > 0 && maxCardsInAnyRow <= idealCardsPerRow) {
+            bestNumRows = numRows;
+            break; 
+        }
+    }
+
+    const rows: Array<Array<{ card: CardType; originalIndex: number }>> = [];
+    let currentIndex = 0;
+    const cardsPerBestRowBase = Math.floor(numCards / bestNumRows);
+    let bestRemainder = numCards % bestNumRows;
+
+    for (let i = 0; i < bestNumRows; i++) {
+        const count = cardsPerBestRowBase + (i < bestRemainder ? 1 : 0);
+        rows.push(cardsWithIndex.slice(currentIndex, currentIndex + count));
+        currentIndex += count;
+    }
+    return rows;
+  }, [myHand, handAreaWidth]);
 
   const handleGiveDebugCard = () => {
       if (socket && gameCode) {
@@ -305,39 +389,58 @@ export default function GameScreen() {
   };
 
   const renderHand = () => {
-     return (
+    // Prepare cards with their original indices for distribution
+    const cardsWithOriginalIndex = myHand.map((card, index) => ({ card, originalIndex: index }));
+
+    // Distribute cards into rows
+    const distributedRows = distributeCardsIntoRows(cardsWithOriginalIndex, handAreaWidth);
+
+    return (
       <Droppable droppableId="hand" direction="horizontal">
         {(provided) => (
           <div
             {...provided.droppableProps}
             ref={provided.innerRef}
-            className="d-flex justify-content-center flex-wrap"
+            className="d-flex flex-column" // Stack rows vertically
             style={{ minHeight: '200px' }}
           >
-            {myHand.map((card, index) => (
-                <Draggable key={card.id} draggableId={card.id} index={index}>
-                  {(provided) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      {...provided.dragHandleProps}
-                      className="m-1"
-                      style={{
-                        ...provided.draggableProps.style,
-                        border: selectedCard?.id === card.id ? '3px solid blue' : 'none',
-                        borderRadius: '5px',
-                        width: '100px',
-                        height: '140px',
-                        boxSizing: 'content-box',
-                        cursor: 'pointer',
-                      }}
-                      onClick={() => handleCardClick(card)}
-                      onDoubleClick={() => handleCardDoubleClick(card)}
-                    >
-                      <Image src={card.imageUrl} alt={card.name} width={100} height={140} />
-                    </div>
-                  )}
-                </Draggable>
+            {distributedRows.map((rowCards, rowIndex) => (
+                <div key={`row-${rowIndex}`} className="d-flex justify-content-center flex-nowrap w-100">
+                    {rowCards.map((item) => (
+                        <Draggable 
+                            key={item.card.id} 
+                            draggableId={item.card.id} 
+                            index={item.originalIndex} // Use original index for Draggable
+                        >
+                          {(providedDraggable) => (
+                            <div
+                              ref={providedDraggable.innerRef}
+                              {...providedDraggable.draggableProps}
+                              {...providedDraggable.dragHandleProps}
+                              className="m-1"
+                              style={{
+                                ...providedDraggable.draggableProps.style,
+                                border: selectedCard?.id === item.card.id ? '3px solid blue' : 'none',
+                                borderRadius: '5px',
+                                width: `${CARD_WIDTH_PX}px`,
+                                height: `${CARD_WIDTH_PX * 1.4}px`,
+                                boxSizing: 'content-box',
+                                cursor: 'pointer',
+                              }}
+                              onClick={() => handleCardClick(item.card)}
+                              onDoubleClick={() => handleCardDoubleClick(item.card)}
+                            >
+                              <Image 
+                                src={item.card.imageUrl} 
+                                alt={item.card.name} 
+                                width={CARD_WIDTH_PX} 
+                                height={CARD_WIDTH_PX * 1.4}
+                              />
+                            </div>
+                          )}
+                        </Draggable>
+                    ))}
+                </div>
             ))}
             {provided.placeholder}
           </div>
@@ -498,7 +601,10 @@ export default function GameScreen() {
           </Col>
         </Row>
         {!isSpectator && (
-        <Row className="bg-light p-3 d-flex flex-column position-relative" style={{ borderTop: '1px solid #ccc', flexShrink: 0 }}>
+        <Row className="bg-light p-3 d-flex flex-column position-relative" 
+             style={{ borderTop: '1px solid #ccc', flexShrink: 0 }} 
+             ref={handAreaRef}
+        >
           <h5 className="text-start mb-2">Your Hand</h5>
           {renderHand()}
           <Button 
