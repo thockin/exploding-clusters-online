@@ -393,7 +393,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
             await page.mouse.down();
             await page.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 10 });
             await page.mouse.up();
-            await page.waitForTimeout(200); // Wait for server processing
+            await expect(handSection.locator('img')).toHaveCount(19 - 1 - i);
         }
     }
     
@@ -614,16 +614,18 @@ test.describe('Exploding Clusters Game Scenarios', () => {
   });
 
   test('Reorder Cards in Hand', async ({ browser }) => {
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
+    // Set viewport to force 2 rows with ~12 cards
+    const viewport = { width: 850, height: 800 };
+    const context = await browser.newContext({ viewport });
+    const page1 = await context.newPage();
     const code = await createGame(page1, 'P1');
     
-    const ctx2 = await browser.newContext();
+    const ctx2 = await browser.newContext({ viewport });
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
 
     // Add P3 to prevent attrition win on reload
-    const ctx3 = await browser.newContext();
+    const ctx3 = await browser.newContext({ viewport });
     const page3 = await ctx3.newPage();
     await joinGame(page3, 'P3', code);
 
@@ -647,41 +649,98 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(handSection).toBeVisible({ timeout: 15000 });
     await expect(handSection.locator('img')).toHaveCount(8, { timeout: 10000 });
 
-    // Get initial order and card IDs by looking at the alt attribute of the img inside the draggable div
-    const initialDraggableElements = await handSection.locator('.m-1').all();
-    const initialCardIds = await Promise.all(initialDraggableElements.map(async (el) => await el.locator('img').getAttribute('alt')));
+    // Draw cards to get 2 rows. 
+    // 850px width -> ~7 cards per row (108px per card). 
+    // Need > 7 cards. 8 cards should be 2 rows (4, 4) due to wrapping logic if enabled or just natural overflow if simple flex wrap.
+    // Wait, "Card Wrapping" test logic says 8 cards -> 2 rows (4, 4) with our custom logic.
+    // Let's verify we have 2 rows first.
+    
+    const rows = handSection.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
+    await expect(rows).toHaveCount(2);
 
-    const firstDraggableElement = initialDraggableElements[0];
-    const secondDraggableElement = initialDraggableElements[1];
+    // Get cards from Row 1 and Row 2
+    const row1Cards = rows.nth(0).locator('.m-1');
+    const row2Cards = rows.nth(1).locator('.m-1');
 
-    const firstCardBox = await firstDraggableElement.boundingBox();
-    const secondCardBox = await secondDraggableElement.boundingBox();
+    await expect(row1Cards).toHaveCount(4);
+    await expect(row2Cards).toHaveCount(4);
 
-    if (!firstCardBox || !secondCardBox) {
-      throw new Error('Could not get bounding box for cards');
-    }
+    // --- Test 1: Drag from Row 1 (Index 0) to Row 2 (Index 0) ---
+    // Moving Card 0 (Row 1, Pos 0) to Pos 4 (Row 2, Pos 0).
+    // Original: [0, 1, 2, 3] [4, 5, 6, 7]
+    // Move 0 to index 4 (before 4).
+    // Expected: [1, 2, 3, 4] [0, 5, 6, 7] (roughly, exact wrapping might shift things)
+    // Actually, reorder happens in flat array. 
+    // [0, 1, 2, 3, 4, 5, 6, 7] -> move 0 to 4 -> [1, 2, 3, 0, 4, 5, 6, 7]
+    // New layout: [1, 2, 3, 0] [4, 5, 6, 7] (since 4 per row)
+    
+    let card0 = row1Cards.nth(0).locator('img');
+    let card0Id = await card0.getAttribute('alt');
+    
+    let card4 = row2Cards.nth(0).locator('img'); // Target
+    
+    // Bounding boxes
+    let srcBox = await card0.boundingBox();
+    let dstBox = await card4.boundingBox(); // We want to drop BEFORE card 4, so drop on left half of card 4?
+    // DnD logic often drops "at" index.
+    
+    if (!srcBox || !dstBox) throw new Error('Missing bounding box');
 
-    const startX = firstCardBox.x + firstCardBox.width / 2;
-    const startY = firstCardBox.y + firstCardBox.height / 2;
-    const endX = secondCardBox.x + secondCardBox.width / 2;
-    const endY = secondCardBox.y + secondCardBox.height / 2;
-
-    console.log(`Dragging from (${startX}, ${startY}) to (${endX}, ${endY})`);
-
-    await targetPage.mouse.move(startX, startY);
+    console.log(`Dragging Row 1 Item 0 to Row 2 Item 0`);
+    await targetPage.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
     await targetPage.mouse.down();
-    await targetPage.mouse.move(endX, endY, { steps: 20 }); // More steps for smoother drag
+    await targetPage.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
     await targetPage.mouse.up();
+    
+    await targetPage.waitForTimeout(1000); // Wait for server & re-render
+    
+    // Verify Row 2 Item 0 is the old Card 0
+    // Logic: [0, 1, 2, 3, 4, 5, 6, 7] -> Remove 0 -> [1, 2, 3, 4, 5, 6, 7] -> Insert at 4 -> [1, 2, 3, 4, 0, 5, 6, 7]
+    // Row 1: 1, 2, 3, 4
+    // Row 2: 0, 5, 6, 7
+    
+    const newRow1Cards = rows.nth(0).locator('.m-1');
+    const newRow2Cards = rows.nth(1).locator('.m-1');
+    
+    let newRow2FirstId = await newRow2Cards.nth(0).locator('img').getAttribute('alt');
+    expect(newRow2FirstId).toBe(card0Id);
 
-    await targetPage.waitForTimeout(500); // Give UI time to react
+    // --- Test 2: Drag from Row 2 (Index 0) to Row 1 (Index 0) ---
+    // Current: [1, 2, 3, 4, 0, 5, 6, 7]
+    // Move Card 0 (Row 2 Pos 0, global index 4) to Row 1 Pos 0 (global index 0).
+    // Target is Card 1 (first in Row 1).
+    // Result: [0, 1, 2, 3, 4, 5, 6, 7] (Back to original)
+    
+    let card0target = newRow2Cards.nth(0).locator('img'); // This is '0'
+    let currentCard0Id = await card0target.getAttribute('alt');
+    expect(currentCard0Id).toBe(card0Id); // Sanity check
+    
+    let card1target = newRow1Cards.nth(0).locator('img'); // This is '1' (target drop)
+    let card1Id = await card1target.getAttribute('alt');
 
-    // Verify new order locally
-    const newDraggableElements = await handSection.locator('.m-1').all();
-    const newCardIds = await Promise.all(newDraggableElements.map(async (el) => await el.locator('img').getAttribute('alt')));
+    await card0target.scrollIntoViewIfNeeded();
+    await card1target.scrollIntoViewIfNeeded();
+    
+    srcBox = await card0target.boundingBox();
+    dstBox = await card1target.boundingBox();
+    
+    if (!srcBox || !dstBox) throw new Error('Missing bounding box 2');
 
-    await expect(newCardIds[0]).toBe(initialCardIds[1]); // Original second card is now first
-    await expect(newCardIds[1]).toBe(initialCardIds[0]);  // Original first card is now second
+    console.log(`Dragging Row 2 Item 0 (${currentCard0Id}) to Row 1 Item 0 (${card1Id})`);
+    console.log(`Src: ${srcBox.x},${srcBox.y} Dst: ${dstBox.x},${dstBox.y}`);
 
+    await targetPage.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+    await targetPage.mouse.down();
+    await targetPage.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 10 });
+    await targetPage.mouse.up();
+    
+    await targetPage.waitForTimeout(1000);
+    
+    // Verify Row 1 Item 0 is '0'
+    const finalRow1Cards = rows.nth(0).locator('.m-1');
+    let finalRow1FirstId = await finalRow1Cards.nth(0).locator('img').getAttribute('alt');
+    expect(finalRow1FirstId).toBe(card0Id);
+    
     // Reload page to verify persistence
     await targetPage.reload();
     await targetPage.waitForURL(/lobby|game/);
@@ -695,17 +754,12 @@ test.describe('Exploding Clusters Game Scenarios', () => {
         // Wait for cards to appear
         await expect(reloadedHandSection.locator('img')).toHaveCount(8, { timeout: 10000 });
         
-        const reloadedDraggableElements = await reloadedHandSection.locator('.m-1').all();
-        const reloadedCardIds = await Promise.all(reloadedDraggableElements.map(async (el) => await el.locator('img').getAttribute('alt')));
-        await expect(reloadedCardIds[0]).toBe(initialCardIds[1]); 
-        await expect(reloadedCardIds[1]).toBe(initialCardIds[0]);  
+        const reloadedRows = reloadedHandSection.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
+        const reloadedRow1Cards = reloadedRows.nth(0).locator('.m-1');
+        
+        let reloadedRow1FirstId = await reloadedRow1Cards.nth(0).locator('img').getAttribute('alt');
+        expect(reloadedRow1FirstId).toBe(card0Id);
     } else {
-        // In production, nonce changes logic might differ, but here we assume same session behavior unless purge logic kicks in
-         // Actually with 3 players, reloading P2 (disconnecting) leaves 2 players. Nonce does NOT change.
-         // So P2 should be able to rejoin even in production!
-         // The logic "Reconnect Fails after Nonce Change" applies when a NEW player joins in between.
-         // Here, simple reload. Nonce shouldn't change.
-         // So verify rejoin success.
          await expect(targetPage).toHaveURL(/game/, { timeout: 10000 });
     }
   });

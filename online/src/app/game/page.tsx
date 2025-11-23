@@ -190,56 +190,44 @@ export default function GameScreen() {
     setOverlayCard(card);
   }, []);
 
-  // Helper function to distribute cards into approximately even rows
-  const distributeCardsIntoRows = useCallback(( 
-    cardsWithIndex: Array<{ card: CardType; originalIndex: number }>, 
-    containerWidth: number,
-    cardFullWidth: number = CARD_FULL_WIDTH_PX
-  ): Array<Array<{ card: CardType; originalIndex: number }>> => {
-    if (cardsWithIndex.length === 0) return [];
-    
+  // Helper function to calculate layout constraints
+  const calculateHandLayout = useCallback(( 
+    numCards: number, 
+    containerWidth: number 
+  ): { maxWidth: number, cardWidth: number, cols: number } => {
+    if (numCards === 0) return { maxWidth: 0, cardWidth: CARD_WIDTH_PX, cols: 1 };
     // Fallback to single row if container width is not yet measured
-    if (containerWidth === 0) return [cardsWithIndex];
+    if (containerWidth === 0) return { maxWidth: numCards * CARD_FULL_WIDTH_PX + 2, cardWidth: CARD_WIDTH_PX, cols: numCards };
 
-    // Calculate how many cards can ideally fit on one row
-    const idealCardsPerRow = Math.floor(containerWidth / cardFullWidth);
-    
-    // If all cards fit on one row, or no space for even one card, return as single row
-    if (idealCardsPerRow === 0 || cardsWithIndex.length <= idealCardsPerRow) {
-      return [cardsWithIndex];
-    }
-
-    const numCards = cardsWithIndex.length;
-    let bestNumRows = numCards; // Default to max rows (1 card per row) if nothing else fits
-
-    // Iterate through possible number of rows (from 1 to numCards)
-    for (let numRows = 1; numRows <= numCards; numRows++) {
-        const baseCardsPerRow = Math.floor(numCards / numRows);
-        const remainder = numCards % numRows;
+    const getRowsAndCols = (cardFullWidth: number) => {
+        const maxColsPossible = Math.floor(containerWidth / cardFullWidth);
+        if (maxColsPossible === 0) return { rows: numCards, cols: 1 }; 
         
-        // Calculate the maximum number of cards in any row for this distribution
-        const maxCardsInAnyRow = baseCardsPerRow + (remainder > 0 ? 1 : 0);
-        
-        // If this distribution fits within the container width, use it!
-        // Since we start from numRows = 1, this finds the MINIMUM number of rows required.
-        if (maxCardsInAnyRow > 0 && maxCardsInAnyRow <= idealCardsPerRow) {
-            bestNumRows = numRows;
-            break; 
+        for (let r = 1; r <= numCards; r++) {
+            const cols = Math.ceil(numCards / r);
+            if (cols <= maxColsPossible) return { rows: r, cols };
         }
+        return { rows: numCards, cols: 1 };
+    };
+
+    const standard = getRowsAndCols(CARD_FULL_WIDTH_PX);
+    
+    let chosenCardWidth = CARD_WIDTH_PX;
+    let chosenFullWidth = CARD_FULL_WIDTH_PX;
+    let chosenCols = standard.cols;
+
+    // "Once we shrink cards, they stay at the smaller size until the number of cards in the hand can all fit in two rows at the regular size."
+    // This implies: If Standard > 2 rows, use Small.
+    if (standard.rows > 2) {
+        const small = getRowsAndCols(CARD_SMALL_FULL_WIDTH_PX);
+        chosenCardWidth = CARD_SMALL_WIDTH_PX;
+        chosenFullWidth = CARD_SMALL_FULL_WIDTH_PX;
+        chosenCols = small.cols;
     }
 
-    const rows: Array<Array<{ card: CardType; originalIndex: number }>> = [];
-    let currentIndex = 0;
-    const cardsPerBestRowBase = Math.floor(numCards / bestNumRows);
-    let bestRemainder = numCards % bestNumRows;
-
-    for (let i = 0; i < bestNumRows; i++) {
-        const count = cardsPerBestRowBase + (i < bestRemainder ? 1 : 0);
-        rows.push(cardsWithIndex.slice(currentIndex, currentIndex + count));
-        currentIndex += count;
-    }
-    return rows;
-  }, [myHand, handAreaWidth]);
+    const maxWidth = chosenCols * chosenFullWidth + 2; // Buffer
+    return { maxWidth, cardWidth: chosenCardWidth, cols: chosenCols };
+  }, [handAreaWidth]);
 
   const handleGiveDebugCard = () => {
       if (socket && gameCode) {
@@ -266,23 +254,48 @@ export default function GameScreen() {
   };
 
   const onDragEnd = (result: DropResult) => {
+    console.log('onDragEnd', result);
     const { source, destination } = result;
-    if (!destination) return;
+    if (!destination) {
+        console.log('no destination');
+        return;
+    }
 
     const currentGameState = gameStateRef.current;
-    if (!currentGameState) return;
-    
-    if (source.droppableId === 'hand' && destination.droppableId === 'hand') {
-      const newHand = Array.from(myHand);
-      const [reorderedItem] = newHand.splice(source.index, 1);
-      newHand.splice(destination.index, 0, reorderedItem);
-      socket?.emit('reorder-hand', { gameCode, newHand });
+    if (!currentGameState) {
+        console.log('no gameState');
+        return;
+    }
+
+    // Handle discard pile drop
+    if (destination.droppableId === 'discard-pile') {
+      let card = null;
+      if (source.droppableId.startsWith('hand-row-')) {
+          const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
+          const sourceRowIndex = parseInt(source.droppableId.replace('hand-row-', ''), 10);
+          const sourceGlobalIndex = sourceRowIndex * cols + source.index;
+          card = myHand[sourceGlobalIndex];
+      }
+      
+      if (card) {
+          socket?.emit('play-card', { gameCode, cardId: card.id });
+      }
       return;
     }
 
-    if (destination.droppableId === 'discard-pile') {
-      const card = myHand[source.index];
-       socket?.emit('play-card', { gameCode, cardId: card.id });
+    if (source.droppableId.startsWith('hand-row-') && destination.droppableId.startsWith('hand-row-')) {
+        const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
+        const sourceRowIndex = parseInt(source.droppableId.replace('hand-row-', ''), 10);
+        const destRowIndex = parseInt(destination.droppableId.replace('hand-row-', ''), 10);
+
+        const sourceGlobalIndex = sourceRowIndex * cols + source.index;
+        const destGlobalIndex = destRowIndex * cols + destination.index;
+
+        const newHand = Array.from(myHand);
+        const [reorderedItem] = newHand.splice(sourceGlobalIndex, 1);
+        newHand.splice(destGlobalIndex, 0, reorderedItem);
+        socket?.emit('reorder-hand', { gameCode, newHand });
+        return;
     }
   };
 
@@ -390,39 +403,46 @@ export default function GameScreen() {
   };
 
   const renderHand = () => {
-    // Prepare cards with their original indices for distribution
-    const cardsWithOriginalIndex = myHand.map((card, index) => ({ card, originalIndex: index }));
+    const { maxWidth, cardWidth, cols } = calculateHandLayout(myHand.length, handAreaWidth);
 
-    // First, try with standard card width
-    let distributedRows = distributeCardsIntoRows(cardsWithOriginalIndex, handAreaWidth, CARD_FULL_WIDTH_PX);
-    let currentCardWidth = CARD_WIDTH_PX;
-
-    // If it results in 3 or more rows, try fitting with smaller cards
-    if (distributedRows.length > 2) {
-        const smallCardRows = distributeCardsIntoRows(cardsWithOriginalIndex, handAreaWidth, CARD_SMALL_FULL_WIDTH_PX);
-        // Use smaller cards regardless of whether they fit in 2 rows or not, 
-        // to satisfy the requirement "Don't go smaller than that [75px]".
-        distributedRows = smallCardRows;
-        currentCardWidth = CARD_SMALL_WIDTH_PX;
+    // Split hand into rows
+    const rows: CardType[][] = [];
+    if (cols > 0) {
+        for (let i = 0; i < myHand.length; i += cols) {
+            rows.push(myHand.slice(i, i + cols));
+        }
+    } else {
+        rows.push(myHand);
+    }
+    
+    if (rows.length === 0) {
+        rows.push([]);
     }
 
     return (
-      <Droppable droppableId="hand" direction="horizontal">
-        {(provided) => (
-          <div
-            {...provided.droppableProps}
-            ref={provided.innerRef}
-            className="d-flex flex-column" // Stack rows vertically
-            style={{ minHeight: '200px' }}
-          >
-            {distributedRows.map((rowCards, rowIndex) => (
-                <div key={`row-${rowIndex}`} className="d-flex justify-content-center flex-nowrap w-100">
-                    {rowCards.map((item) => (
-                        <Draggable 
-                            key={item.card.id} 
-                            draggableId={item.card.id} 
-                            index={item.originalIndex} // Use original index for Draggable
-                        >
+      <div 
+        style={{ 
+            maxWidth: `${maxWidth}px`,
+            margin: '0 auto', // Center the container itself
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+        }}
+      >
+        {rows.map((rowCards, rowIndex) => (
+            <Droppable key={rowIndex} droppableId={`hand-row-${rowIndex}`} direction="horizontal">
+                {(provided) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className="d-flex justify-content-center flex-nowrap w-100"
+                    style={{ 
+                        minHeight: `${cardWidth * 1.4 + 10}px`, // Ensure height for drop target + margin
+                        width: '100%',
+                    }}
+                  >
+                    {rowCards.map((card, index) => (
+                        <Draggable key={card.id} draggableId={card.id} index={index}>
                           {(providedDraggable) => (
                             <div
                               ref={providedDraggable.innerRef}
@@ -431,32 +451,32 @@ export default function GameScreen() {
                               className="m-1"
                               style={{
                                 ...providedDraggable.draggableProps.style,
-                                border: selectedCard?.id === item.card.id ? '3px solid blue' : 'none',
+                                border: selectedCard?.id === card.id ? '3px solid blue' : 'none',
                                 borderRadius: '5px',
-                                width: `${currentCardWidth}px`,
-                                height: `${currentCardWidth * 1.4}px`,
+                                width: `${cardWidth}px`,
+                                height: `${cardWidth * 1.4}px`,
                                 boxSizing: 'content-box',
                                 cursor: 'pointer',
                               }}
-                              onClick={() => handleCardClick(item.card)}
-                              onDoubleClick={() => handleCardDoubleClick(item.card)}
+                              onClick={() => handleCardClick(card)}
+                              onDoubleClick={() => handleCardDoubleClick(card)}
                             >
                               <Image 
-                                src={item.card.imageUrl} 
-                                alt={item.card.name} 
-                                width={currentCardWidth} 
-                                height={currentCardWidth * 1.4}
+                                src={card.imageUrl} 
+                                alt={card.name} 
+                                width={cardWidth} 
+                                height={cardWidth * 1.4}
                               />
                             </div>
                           )}
                         </Draggable>
                     ))}
-                </div>
-            ))}
-            {provided.placeholder}
-          </div>
-        )}
-      </Droppable>
+                    {provided.placeholder}
+                  </div>
+                )}
+            </Droppable>
+        ))}
+      </div>
     );
   };
 

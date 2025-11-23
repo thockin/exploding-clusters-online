@@ -289,6 +289,11 @@ Clients should never have any information about the game except:
 
 ### Playing the game
 
+#### Turns
+
+The game is played in turns.  At the beginning a random player is chosen to
+start.  After that, play proceeds in order of the player list.
+
 #### The game screen
 
 The main "game" screen is split into several areas:
@@ -331,11 +336,6 @@ The main "game" screen is split into several areas:
     notified and their player lists are updated. The player's cards are removed
     (neither in the draw-pile nor the discard-pile) for the remainder of the
     game.
-
-#### Turns
-
-The game is played in turns.  At the beginning a random player is chosen to
-start.  After that, play proceeds in order of the player list.
 
 ##### Message area - whose turn is it
 
@@ -454,11 +454,52 @@ page.
 
 #### UI: the "hand" area
 
+##### Rendering cards
+
+The players' hand is shown in the hand area.  The hand area is rendered in
+rows or cards.
+
+If there are too many cards such that we need to wrap to a second row, it
+should always wrap more than one card, so that the rows are approximately
+equal.  For example, if the hand area can fit 7 cards across, but we have 8
+cards in the hand, wrap it so there are 2 rows of 4 cards each.  If the area
+can fit 6 cards across and we have 7, wrap it so there are 2 rows: 4 cards on
+top and 3 on bottom.  Always keep the rows of cards centered horizontally. Do
+not wrap to another row until we absolutely have to.
+
+When the first two rows are filled and we need to add a third row, first make
+the cards 20% smaller, so we can fit a few more into 2 rows. Don't go smaller
+than that. Once cards are being rendered smaller, they stay at the smaller size
+until the number of cards in the hand is reduced and all cards can fit in two
+rows at the regular size.
+
+Example: Suppose the browser is sized such that 6 cards fit horizontally at regular size and 8 at the smaller size.
+  * When I have 8 cards it should be rendered as two rows of 4 cards, regular size
+  * 9 cards is rendered as two rows, 5+4, at regular size
+  * ...and so on until 12 cards, which is two rows of 6, regular size
+  * When the player draws a 13th card, it can't fit without a 3rd row
+  * Shrink all cards to the smaller size
+  * 13 cards can now render as two rows, 7+6, in the smaller size
+  * 14 cards is 7+7, small
+  * 15 is 8+7, small
+  * 16 is 8+8, small
+  * Drawing the 17th card must overflow to a 3rd row, since cards are already small
+  * 17 cards is rendered as three rows, 6+6+5, in the small size
+  * 18 is 6+6+6
+  * ...and so on up to 24, which is 3 rows, 8+8+8
+  * The 25th card needs a 4th row
+  * Render 25 cards as 4 rows, 7+7+6+5, small size.
+  * ...and so on
+
 ##### Reordering cards
 
 If the player drags and drops cards within their hand (not to the table area),
 the cards should be reordered on the server and rendered for that player.  This
 can happen at any time, even when it is not that player's turn.
+
+Cards must be reorderable across multiple rows in the hand area. For example,
+if the player has 3 rows of cards, it must be possible to drag from the first
+row to the any other row, and vice versa.
 
 ##### Playable and unplayable cards
 
