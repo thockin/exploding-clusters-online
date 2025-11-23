@@ -26,6 +26,7 @@ interface GameState {
   discardPile: Card[];
   removedPileCount?: number; // New: number of cards in the removed pile
   debugCardsCount?: number;
+  safeCardsCount?: number; // New: number of safe cards in the draw pile
   // Add other game state properties as they become relevant
 }
 
@@ -248,6 +249,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       discardPile: Card[];
       removedPileCount?: number; // New: number of cards in the removed pile
       debugCardsCount?: number;
+      safeCardsCount?: number; // New: number of safe cards in the draw pile
     }) => {
       setGameState(() => {
         const newState: GameState = {
@@ -263,7 +265,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           drawPileCount: data.drawPileCount || 0,
           discardPile: data.discardPile || [],
           removedPileCount: data.removedPileCount || 0, // Set new removed pile count
-          debugCardsCount: data.debugCardsCount
+          debugCardsCount: data.debugCardsCount,
+          safeCardsCount: data.safeCardsCount // Set new safe cards count
         };
         return newState;
       });

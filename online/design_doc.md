@@ -681,13 +681,14 @@ is in developer mode.  In developer mode, the following things are different:
 
   * The player list area shows a "Give me a DEBUG card" button at the bottom.
     If the player clicks that button, they get a DEBUG card added to their hand
-    from the deck. If there are no DEBUG cards in the deck, disable that
+    from the deck. If there are no DEBUG cards left in the deck, disable that
     button for all players.
 
-  * The player list area shows a "Give me another card" button at the bottom.
-    If the player clicks that button, they get the first card from the deck which is not    
-    EXPLODING CLUSTER or UPGRADE CLUSTER added to their hand. If there are no
-    such cards in the deck, disable that button for all players.
+  * The player list area shows a "Give me safe card" button at the bottom. If
+    the player clicks that button, they get the first card from the deck which
+    is not    EXPLODING CLUSTER or UPGRADE CLUSTER added to their hand. If
+    there are no safe left cards in the deck, disable that button for all
+    players.
 
   * The player list area shows a "Show the deck" button at the bottom. If
     the player clicks that button, they see the entire draw-pile as a list of

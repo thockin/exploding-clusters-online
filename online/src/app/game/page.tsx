@@ -580,7 +580,7 @@ export default function GameScreen() {
                     >
                         Give me a DEBUG card
                     </Button>
-                    <Button variant="warning" size="sm" onClick={handleDevDrawCard}>Draw a safe card</Button>
+                    <Button variant="warning" size="sm" onClick={handleDevDrawCard} disabled={(gameState.safeCardsCount || 0) === 0}>Give me a safe card</Button>
                     <Button variant="info" size="sm" onClick={handleShowDeck}>Show the deck</Button>
                     <Button variant="info" size="sm" onClick={handleShowRemovedPile}>Show removed cards</Button>
                 </div>

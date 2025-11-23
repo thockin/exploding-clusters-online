@@ -332,7 +332,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(rows.nth(1).locator('img')).toHaveCount(4);
     
     // Draw 9th card
-    await page.click('button:has-text("Draw a safe card")');
+    await page.click('button:has-text("Give me a safe card")');
     await expect(handSection.locator('img')).toHaveCount(9);
     
     // 9 cards -> 2 rows (5, 4)
@@ -341,7 +341,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(rows.nth(1).locator('img')).toHaveCount(4);
     
     // Draw 10th card
-    await page.click('button:has-text("Draw a safe card")');
+    await page.click('button:has-text("Give me a safe card")');
     await expect(handSection.locator('img')).toHaveCount(10);
     
     // 10 cards -> 2 rows (5, 5)
@@ -357,7 +357,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // 15 cards = 3 rows of 5 (overflows 2 rows).
     // So we need 15 cards. Current is 10. Add 5 more.
     for (let i = 0; i < 5; i++) {
-        await page.click('button:has-text("Draw a safe card")');
+        await page.click('button:has-text("Give me a safe card")');
         // Small wait to ensure processing if needed, though click should be awaited
     }
     await expect(handSection.locator('img')).toHaveCount(15);
@@ -375,7 +375,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // 19 cards = 3 rows (7, 6, 6).
     // Need 19 cards. Current 15. Add 4.
     for (let i = 0; i < 4; i++) {
-        await page.click('button:has-text("Draw a safe card")');
+        await page.click('button:has-text("Give me a safe card")');
     }
     await expect(handSection.locator('img')).toHaveCount(19);
     

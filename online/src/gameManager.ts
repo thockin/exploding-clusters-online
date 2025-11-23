@@ -239,6 +239,7 @@ export class GameManager {
     private emitGameUpdate(game: Game) {
         // Use inclusive check to catch potential type issues
         const debugCount = game.drawPile.filter(c => c.cardClass.includes('Debug')).length;
+        const safeCardsCount = game.drawPile.filter(c => c.cardClass !== 'Exploding Cluster' && c.cardClass !== 'Upgrade Cluster').length;
      
         this.emitToRoom(game.code, 'gameUpdate', {
             gameCode: game.code,
@@ -256,7 +257,8 @@ export class GameManager {
             drawPileCount: game.drawPile.length,
             discardPile: game.discardPile,
             removedPileCount: game.removedPile.length, // New: include removed pile count
-            debugCardsCount: debugCount
+            debugCardsCount: debugCount,
+            safeCardsCount: safeCardsCount
         });
     }
 
