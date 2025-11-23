@@ -338,10 +338,10 @@ The main "game" screen is split into several areas:
     game.
 
   * The hand area should have it's own vertical scroll functionality, when
-    needed.  The player list area, table area, and message area should be
-    fixed in place and size, unless the browser is resized.  If the hand area
-    is larger than the visible space, it can scroll without affecting the
-    other areas.
+    needed. The player list area, table area, and message area should be
+    fixed in place and size, unless the browser is resized. If the hand area
+    is larger than the visible space, it can scroll vertically without
+    affecting the other areas. Never scroll horizontally.
 
 ##### Message area - whose turn is it
 

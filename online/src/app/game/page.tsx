@@ -12,7 +12,7 @@ const FIXED_TABLE_PADDING = 20; // px
 const FIXED_PILE_GAP = 30; // px
 
 const CARD_WIDTH_PX = 100;
-const CARD_SMALL_WIDTH_PX = 75;
+const CARD_SMALL_WIDTH_PX = 80;
 const CARD_MARGIN_X_PX = 4; // m-1 means 0.25rem, assuming 1rem=16px, so 4px on each side
 const CARD_FULL_WIDTH_PX = CARD_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
 const CARD_SMALL_FULL_WIDTH_PX = CARD_SMALL_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
@@ -37,6 +37,7 @@ export default function GameScreen() {
   const [deckOverlay, setDeckOverlay] = useState<CardType[] | null>(null);
   const [removedOverlay, setRemovedOverlay] = useState<CardType[] | null>(null); // New: for removed pile overlay
   const [hostPromotionMessage, setHostPromotionMessage] = useState<string | null>(null);
+  const isDraggingRef = useRef(false);
 
   const gameStateRef = useRef(gameState);
   
@@ -132,14 +133,14 @@ export default function GameScreen() {
     if (handAreaRef.current) {
         setHandAreaWidth(handAreaRef.current.clientWidth);
         const observer = new ResizeObserver(entries => {
-            if (entries[0]) {
+            if (entries[0] && !isDraggingRef.current) {
                 setHandAreaWidth(entries[0].contentRect.width);
             }
         });
         observer.observe(handAreaRef.current);
         return () => observer.disconnect();
     }
-  }, [handAreaRef.current]);
+  }, [handAreaRef.current]); // Re-run if ref changes
 
   const handleGameEndConfirm = useCallback(() => {
       resetState();
@@ -255,6 +256,7 @@ export default function GameScreen() {
   };
 
   const onDragEnd = (result: DropResult) => {
+    isDraggingRef.current = false;
     console.log('onDragEnd', result);
     const { source, destination } = result;
     if (!destination) {
@@ -299,6 +301,12 @@ export default function GameScreen() {
         return;
     }
   };
+
+  const onDragStart = () => {
+      isDraggingRef.current = true;
+      console.log('onDragStart');
+  };
+  const onDragUpdate = () => console.log('onDragUpdate');
 
   if (!gameState || !socket) {
       if (gameEndData) {
@@ -467,6 +475,7 @@ export default function GameScreen() {
                                 alt={card.name} 
                                 width={cardWidth} 
                                 height={cardWidth * 1.4}
+                                draggable={false}
                               />
                             </div>
                           )}
@@ -484,8 +493,8 @@ export default function GameScreen() {
   const isSpectator = gameState && !gameState.players.some(p => p.id === playerId);
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <Container fluid className="p-3 d-flex flex-column" style={{ height: '100vh' }}>
+    <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart} onDragUpdate={onDragUpdate}>
+      <Container fluid className="p-3 d-flex flex-column" style={{ height: '100vh', overflow: 'hidden' }}>
         {overlayCard && (
           <div
             style={{
@@ -633,7 +642,7 @@ export default function GameScreen() {
           </Col>
         </Row>
         {!isSpectator && (
-        <Row className="bg-light p-3 d-flex flex-column position-relative" 
+        <div className="bg-light p-3 d-flex flex-column position-relative" 
              style={{ 
                  borderTop: '1px solid #ccc', 
                  flexShrink: 0,
@@ -645,7 +654,7 @@ export default function GameScreen() {
           <div 
             ref={handAreaRef}
             className="flex-grow-1"
-            style={{ overflowY: 'auto', overflowX: 'hidden', width: '100%' }}
+            style={{ overflowY: 'auto', width: '100%' }}
           >
              {renderHand()}
           </div>
@@ -656,7 +665,7 @@ export default function GameScreen() {
           >
             Leave Game
           </Button>
-        </Row>
+        </div>
         )}
         {isSpectator && (
           <Row className="bg-light p-3 position-relative" style={{ borderTop: '1px solid #ccc', flexShrink: 0 }}>
