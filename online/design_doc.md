@@ -637,6 +637,11 @@ is in developer mode.  In developer mode, the following things are different:
     from the deck. If there are no DEBUG cards in the deck, disable that
     button for all players.
 
+  * The player list area shows a "Give me another card" button at the bottom.
+    If the player clicks that button, they get the first card from the deck which is not    
+    EXPLODING CLUSTER or UPGRADE CLUSTER added to their hand. If there are no
+    such cards in the deck, disable that button for all players.
+
   * The player list area shows a "Show the deck" button at the bottom. If
     the player clicks that button, they see the entire draw-pile as a list of
     cards in a large overlay.
@@ -1381,14 +1386,26 @@ We need the following browsers tests to work:
       * Player presses Escape.
       * The card overlay disappears.
 
-  13) DEVMODE: Debug button limit
+  13) DEVMODE: Debug card button
       * Player 1 creates a game (in DEVMODE).
       * Player 2 joins the game.
       * Player 1 starts the game.
       * Player 1 repeatedly clicks "Give me a DEBUG card" button.
+      * Verify DEBUG cards appear in Player 1's hand.
       * The "Give me a DEBUG card" button becomes disabled.
 
-  14) DEVMODE: Show deck overlay escape
+  14) DEVMODE: Give a card button
+      * Player 1 creates a game (in DEVMODE).
+      * Player 2 joins the game.
+      * Player 1 starts the game.
+      * Player 1 clicks "Give me another card" button.
+      * Verify that a non-EXPLODING CLUSTER, non-UPGRADE CLUSTER card appears in Player 1's hand.
+      * Player 1 clicks "Give me another card" button.
+      * Verify that a non-EXPLODING CLUSTER, non-UPGRADE CLUSTER card appears in Player 1's hand.
+      * Player 1 clicks "Give me another card" button.
+      * Verify that a non-EXPLODING CLUSTER, non-UPGRADE CLUSTER card appears in Player 1's hand.
+
+  15) DEVMODE: Show deck overlay escape
       * Player 1 creates a game (in DEVMODE).
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1397,7 +1414,7 @@ We need the following browsers tests to work:
       * Player presses Escape.
       * The draw-pile overlay disappears.
 
-  15) DEVMODE: Show removed overlay escape
+  16) DEVMODE: Show removed overlay escape
       * Player 1 creates a game (in DEVMODE).
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1406,26 +1423,26 @@ We need the following browsers tests to work:
       * Player presses Escape.
       * The removed-pile overlay disappears.
 
-  16) Reorder cards in hand
+  17) Reorder cards in hand
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
       * Player 1 drags and drops cards in their hand to reorder them.
       * The new order is verified.
 
-  17) Correct number of debug cards
+  18) Correct number of debug cards
       * Creates and starts a game with two players.
       * Opens the "Show the deck" overlay.
       * Counts the number of debug cards remaining in the deck.
       * Verifies there are exactly 2 debug cards in the deck (6 total - 2 dealt - 2 removed).
 
-  18) Verify hand counts and debug card
+  19) Verify hand counts and debug card
       * Creates and starts a game with two players.
       * Verifies player 1 has exactly 8 cards.
       * Verifies player 2 has exactly 8 cards.
       * Verifies both players have at least 1 DEBUG card in their hand.
 
-  19) TODO: Card selection
+  20) TODO: Card selection
       * Player 1 creates a game.
       * Player 2 joins the game.
       * Player 1 starts the game.
@@ -1449,9 +1466,9 @@ We need the following browsers tests to work:
       * Player 1 clicks a non-DEVELOPER card in their hand.
       * The card is outlined to show selection.
 
-  20) TODO: playing cards
+  21) TODO: playing cards
 
-  21) TODO: drawing cards
+  22) TODO: drawing cards
   23) TODO: leave while drawing explodign cluster/upgrade cluster
 
 ### Implementation phases

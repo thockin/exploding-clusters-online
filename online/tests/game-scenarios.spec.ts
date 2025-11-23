@@ -299,6 +299,54 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(p3TurnArea).toHaveCSS('background-color', 'rgb(173, 216, 230)'); // lightblue
   });
 
+  test('Card Wrapping', async ({ browser }) => {
+    // Set viewport to constrain hand width to approx 7 cards
+    // With p-3 on container and p-3 on row, total padding is ~64px.
+    // 850 - 64 = 786px available.
+    // Card width 108px. 7 * 108 = 756px. 8 * 108 = 864px.
+    // So 8 cards should wrap (7.27 capacity).
+    const context = await browser.newContext({ viewport: { width: 850, height: 800 } });
+    const page = await context.newPage();
+    const code = await createGame(page, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    
+    await page.click('text=Start Game');
+    await page.waitForURL(/game/);
+    
+    // Wait for hand to render
+    const handSection = page.locator('h5:has-text("Your Hand")').locator('xpath=..');
+    await expect(handSection.locator('img')).toHaveCount(8);
+    
+    // Check rows
+    // Selector for row divs
+    const rows = handSection.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
+    
+    // 8 cards -> 2 rows of 4
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('img')).toHaveCount(4);
+    await expect(rows.nth(1).locator('img')).toHaveCount(4);
+    
+    // Draw 9th card
+    await page.click('button:has-text("Draw a safe card")');
+    await expect(handSection.locator('img')).toHaveCount(9);
+    
+    // 9 cards -> 2 rows (5, 4)
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('img')).toHaveCount(5);
+    await expect(rows.nth(1).locator('img')).toHaveCount(4);
+    
+    // Draw 10th card
+    await page.click('button:has-text("Draw a safe card")');
+    await expect(handSection.locator('img')).toHaveCount(10);
+    
+    // 10 cards -> 2 rows (5, 5)
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('img')).toHaveCount(5);
+    await expect(rows.nth(1).locator('img')).toHaveCount(5);
+  });
+
   test('Abandoned Turn', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();

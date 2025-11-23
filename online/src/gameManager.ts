@@ -84,6 +84,10 @@ export class GameManager {
                 this.giveDebugCard(socket, gameCode);
             });
 
+            socket.on('devDrawCard', (gameCode: string) => {
+                this.devDrawCard(socket, gameCode);
+            });
+
             socket.on('showDeck', (gameCode: string) => {
                 this.showDeck(socket, gameCode);
             });
@@ -609,6 +613,25 @@ export class GameManager {
             // Optionally create one if none exist?
              this.log(game, `DEVMODE: no DEBUG cards left in deck for player "${player.name}" (${player.socketId})`);
              this.emitGameUpdate(game); // Ensure client knows count is 0
+        }
+    }
+
+    private devDrawCard(socket: Socket, gameCode: string) {
+        const game = this.games.get(gameCode);
+        if (!game || !game.devMode) return;
+
+        const player = game.players.find(p => p.socketId === socket.id);
+        if (!player) return;
+
+        const cardIndex = game.drawPile.findIndex(c => c.cardClass !== 'Exploding Cluster' && c.cardClass !== 'Upgrade Cluster');
+        if (cardIndex > -1) {
+            const [card] = game.drawPile.splice(cardIndex, 1);
+            player.hand.push(card);
+            this.log(game, `DEVMODE: gave safe card ${card.name} to player "${player.name}" (${player.socketId})`);
+            this.updateGameNonce(game);
+        } else {
+             this.log(game, `DEVMODE: no safe cards left in deck for player "${player.name}" (${player.socketId})`);
+             this.emitGameUpdate(game);
         }
     }
 
