@@ -363,11 +363,11 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(handSection.locator('img')).toHaveCount(15);
 
     // 15 cards -> Should still be 2 rows, but SMALL size
-    // Small width 75px + 8px = 83px. 786px / 83px = 9 cards per row capacity.
+    // Small width 80px + 8px = 88px. 786px / 88px = 8 cards per row capacity.
     // 15 cards / 2 rows = 8 cards per row. Fits!
     await expect(rows).toHaveCount(2);
-    // Verify size 75px
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '75px');
+    // Verify size 80px
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
 
     // Add cards to force 3 rows even with SMALL size
     // Max small per row is 9.
@@ -381,7 +381,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     
     // 19 cards -> 3 rows (Small size)
     await expect(rows).toHaveCount(3);
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '75px');
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
 
     // Reduce cards to 14 (fits in 2 rows at standard size) -> should revert to standard
     // Discard 5 cards (19 -> 14)
