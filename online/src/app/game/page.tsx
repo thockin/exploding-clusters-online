@@ -633,11 +633,21 @@ export default function GameScreen() {
         </Row>
         {!isSpectator && (
         <Row className="bg-light p-3 d-flex flex-column position-relative" 
-             style={{ borderTop: '1px solid #ccc', flexShrink: 0 }} 
-             ref={handAreaRef}
+             style={{ 
+                 borderTop: '1px solid #ccc', 
+                 flexShrink: 0,
+                 height: '35vh',
+                 minHeight: '250px'
+             }} 
         >
-          <h5 className="text-start mb-2">Your Hand</h5>
-          {renderHand()}
+          <h5 className="text-start mb-2 flex-shrink-0">Your Hand</h5>
+          <div 
+            ref={handAreaRef}
+            className="flex-grow-1"
+            style={{ overflowY: 'auto', width: '100%' }}
+          >
+             {renderHand()}
+          </div>
           <Button 
              variant="secondary" 
              className="position-absolute bottom-0 end-0 m-3 w-auto"

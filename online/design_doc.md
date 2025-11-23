@@ -337,6 +337,12 @@ The main "game" screen is split into several areas:
     (neither in the draw-pile nor the discard-pile) for the remainder of the
     game.
 
+  * The hand area should have it's own vertical scroll functionality, when
+    needed.  The player list area, table area, and message area should be
+    fixed in place and size, unless the browser is resized.  If the hand area
+    is larger than the visible space, it can scroll without affecting the
+    other areas.
+
 ##### Message area - whose turn is it
 
 For the player whose turn it currently is, the top line of the message area,

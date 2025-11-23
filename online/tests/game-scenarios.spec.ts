@@ -386,6 +386,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     for (let i = 0; i < 5; i++) {
         // Always pick first card
         const cardToPlay = rows.first().locator('.m-1').first();
+        await cardToPlay.scrollIntoViewIfNeeded();
         const srcBox = await cardToPlay.boundingBox();
         const dstBox = await discardPile.boundingBox();
         if (srcBox && dstBox) {
@@ -679,6 +680,9 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     
     let card4 = row2Cards.nth(0).locator('img'); // Target
     
+    await card0.scrollIntoViewIfNeeded();
+    await card4.scrollIntoViewIfNeeded();
+
     // Bounding boxes
     let srcBox = await card0.boundingBox();
     let dstBox = await card4.boundingBox(); // We want to drop BEFORE card 4, so drop on left half of card 4?
