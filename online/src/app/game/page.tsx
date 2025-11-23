@@ -130,7 +130,7 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (handAreaRef.current) {
-        setHandAreaWidth(handAreaRef.current.offsetWidth);
+        setHandAreaWidth(handAreaRef.current.clientWidth);
         const observer = new ResizeObserver(entries => {
             if (entries[0]) {
                 setHandAreaWidth(entries[0].contentRect.width);
@@ -196,8 +196,9 @@ export default function GameScreen() {
     containerWidth: number 
   ): { maxWidth: number, cardWidth: number, cols: number } => {
     if (numCards === 0) return { maxWidth: 0, cardWidth: CARD_WIDTH_PX, cols: 1 };
-    // Fallback to single row if container width is not yet measured
-    if (containerWidth === 0) return { maxWidth: numCards * CARD_FULL_WIDTH_PX + 2, cardWidth: CARD_WIDTH_PX, cols: numCards };
+    // Fallback to single column (vertical stack) if container width is not yet measured
+    // This prevents a huge single row from causing horizontal overflow initially
+    if (containerWidth === 0) return { maxWidth: CARD_FULL_WIDTH_PX + 2, cardWidth: CARD_WIDTH_PX, cols: 1 };
 
     const getRowsAndCols = (cardFullWidth: number) => {
         const maxColsPossible = Math.floor(containerWidth / cardFullWidth);
@@ -644,7 +645,7 @@ export default function GameScreen() {
           <div 
             ref={handAreaRef}
             className="flex-grow-1"
-            style={{ overflowY: 'auto', width: '100%' }}
+            style={{ overflowY: 'auto', overflowX: 'hidden', width: '100%' }}
           >
              {renderHand()}
           </div>
