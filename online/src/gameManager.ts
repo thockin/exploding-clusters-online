@@ -239,8 +239,8 @@ export class GameManager {
 
     private emitGameUpdate(game: Game) {
         // Use inclusive check to catch potential type issues
-        const debugCount = game.drawPile.filter(c => c.cardClass.includes('Debug')).length;
-        const safeCardsCount = game.drawPile.filter(c => c.cardClass !== 'Exploding Cluster' && c.cardClass !== 'Upgrade Cluster').length;
+        const debugCount = game.drawPile.filter(c => c.cardClass.includes('DEBUG')).length;
+        const safeCardsCount = game.drawPile.filter(c => c.cardClass !== 'EXPLODING CLUSTER' && c.cardClass !== 'UPGRADE CLUSTER').length;
      
         this.emitToRoom(game.code, 'gameUpdate', {
             gameCode: game.code,
@@ -453,12 +453,12 @@ export class GameManager {
 
         // Initialize deck
         let deck = [...fullDeck];
-        const explodingClusters = deck.filter(c => c.cardClass === 'Exploding Cluster');
-        const upgradeClusters = deck.filter(c => c.cardClass === 'Upgrade Cluster');
+        const explodingClusters = deck.filter(c => c.cardClass === 'EXPLODING CLUSTER');
+        const upgradeClusters = deck.filter(c => c.cardClass === 'UPGRADE CLUSTER');
         // "The full deck is comprised of... 6 DEBUG cards".
-        const debugCards = deck.filter(c => c.cardClass === 'Debug');
+        const debugCards = deck.filter(c => c.cardClass === 'DEBUG');
         // Remove them all first
-        deck = deck.filter(c => c.cardClass !== 'Debug' && c.cardClass !== 'Exploding Cluster' && c.cardClass !== 'Upgrade Cluster');
+        deck = deck.filter(c => c.cardClass !== 'DEBUG' && c.cardClass !== 'EXPLODING CLUSTER' && c.cardClass !== 'UPGRADE CLUSTER');
 
         // Give 1 Debug card to each player
         for (const p of game.players) {
@@ -565,19 +565,19 @@ export class GameManager {
         // Actually: P1 has 2x A, 1x B. P2 has 1x A, 1x C.
         
         // Just pick first developer card found as Type A
-        const devCardA = deck.find(c => c.cardClass === 'Developer');
+        const devCardA = deck.find(c => c.cardClass === 'DEVELOPER');
         if (!devCardA) return; // Should not happen
         const nameA = devCardA.name;
 
         // Pick Type B (different from A)
-        const devCardB = deck.find(c => c.cardClass === 'Developer' && c.name !== nameA);
+        const devCardB = deck.find(c => c.cardClass === 'DEVELOPER' && c.name !== nameA);
         if (!devCardB) return;
         const nameB = devCardB.name;
 
         // Pick Type C (different from A and B, or just different from A? "one not [identical to P1's pair]")
         // P2 needs 2 DEVELOPER cards: one identical to P1's pair (A), one not.
         // "one not" could be B or C. Let's pick C to be safe/diverse.
-        const devCardC = deck.find(c => c.cardClass === 'Developer' && c.name !== nameA && c.name !== nameB);
+        const devCardC = deck.find(c => c.cardClass === 'DEVELOPER' && c.name !== nameA && c.name !== nameB);
         if (!devCardC) return; // Should not happen
         // If we are unlucky and only A and B are left (unlikely with 28 cards), we can use B.
         const nameC = devCardC ? devCardC.name : nameB; 
@@ -586,21 +586,21 @@ export class GameManager {
         const p2 = game.players.length > 1 ? game.players[1] : null;
 
         // P1 Hand
-        p1.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameA, 2));
-        p1.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameB, 1));
-        p1.hand.push(...findAndRemove(c => c.cardClass === 'Nak', 2));
-        p1.hand.push(...findAndRemove(c => c.cardClass === 'Shuffle', 1));
-        p1.hand.push(...findAndRemove(c => c.cardClass === 'Favor', 1));
+        p1.hand.push(...findAndRemove(c => c.cardClass === 'DEVELOPER' && c.name === nameA, 2));
+        p1.hand.push(...findAndRemove(c => c.cardClass === 'DEVELOPER' && c.name === nameB, 1));
+        p1.hand.push(...findAndRemove(c => c.cardClass === 'NAK', 2));
+        p1.hand.push(...findAndRemove(c => c.cardClass === 'SHUFFLE', 1));
+        p1.hand.push(...findAndRemove(c => c.cardClass === 'FAVOR', 1));
 
         if (p2) {
             // P2 Hand (1 NAK, 1 SKIP, 1 SHUFFLE NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER) = 7 cards
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'Nak', 1));
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'Skip', 1));
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'Shuffle Now', 1));
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'Attack', 1));
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'See the Future', 1));
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameB, 1)); // Matches P1's solo DEVELOPER
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'Developer' && c.name === nameC, 1)); // Different DEVELOPER
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'NAK', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'SKIP', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'SHUFFLE NOW', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'ATTACK', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'SEE THE FUTURE', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'DEVELOPER' && c.name === nameB, 1)); // Matches P1's solo DEVELOPER
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'DEVELOPER' && c.name === nameC, 1)); // Different DEVELOPER
         }
     }
 
@@ -611,7 +611,7 @@ export class GameManager {
         const player = game.players.find(p => p.socketId === socket.id);
         if (!player) return;
 
-        const debugCardIndex = game.drawPile.findIndex(c => c.cardClass === 'Debug');
+        const debugCardIndex = game.drawPile.findIndex(c => c.cardClass === 'DEBUG');
         if (debugCardIndex > -1) {
             const [debugCard] = game.drawPile.splice(debugCardIndex, 1);
             player.hand.push(debugCard);
@@ -631,7 +631,7 @@ export class GameManager {
         const player = game.players.find(p => p.socketId === socket.id);
         if (!player) return;
 
-        const cardIndex = game.drawPile.findIndex(c => c.cardClass !== 'Exploding Cluster' && c.cardClass !== 'Upgrade Cluster');
+        const cardIndex = game.drawPile.findIndex(c => c.cardClass !== 'EXPLODING CLUSTER' && c.cardClass !== 'UPGRADE CLUSTER');
         if (cardIndex > -1) {
             const [card] = game.drawPile.splice(cardIndex, 1);
             player.hand.push(card);
@@ -748,8 +748,8 @@ export class GameManager {
                 
                 // Check for pending Exploding/Upgrade Cluster cards in hand (just drawn)
                 // "If the player has just drawn an EXPLODING CLUSTER card, it is re-inserted at a random position..."
-                const specialCards = player.hand.filter(c => c.cardClass === 'Exploding Cluster' || c.cardClass === 'Upgrade Cluster');
-                const remainingHand = player.hand.filter(c => c.cardClass !== 'Exploding Cluster' && c.cardClass !== 'Upgrade Cluster');
+                const specialCards = player.hand.filter(c => c.cardClass === 'EXPLODING CLUSTER' || c.cardClass === 'UPGRADE CLUSTER');
+                const remainingHand = player.hand.filter(c => c.cardClass !== 'EXPLODING CLUSTER' && c.cardClass !== 'UPGRADE CLUSTER');
 
                 specialCards.forEach(card => {
                     const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
