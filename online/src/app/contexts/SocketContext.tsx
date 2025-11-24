@@ -38,6 +38,7 @@ interface SocketContextType {
   setPlayerName: (name: string | null) => void;
   playerId: string | null;
   myHand: any[]; // Using any[] for now, ideally Card[]
+  setMyHand: (hand: any[]) => void;
   gameState: GameState | null;
   isLoading: boolean; // New: indicates if context is restoring session
   rejoinError: string | null;
@@ -350,6 +351,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setPlayerName,
       playerId,
       myHand,
+      setMyHand,
       gameState,
       isLoading,
       rejoinError,

@@ -19,7 +19,7 @@ const CARD_SMALL_FULL_WIDTH_PX = CARD_SMALL_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
 
 export default function GameScreen() {
   const router = useRouter();
-  const { socket, gameCode, gameState, playerName, playerId, myHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
+  const { socket, gameCode, gameState, playerName, playerId, myHand, setMyHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedCard, setSelectedCard] = useState<CardType | null>(null);
@@ -297,6 +297,8 @@ export default function GameScreen() {
         const newHand = Array.from(myHand);
         const [reorderedItem] = newHand.splice(sourceGlobalIndex, 1);
         newHand.splice(destGlobalIndex, 0, reorderedItem);
+        
+        setMyHand(newHand); // Optimistic update to prevent flicker
         socket?.emit('reorder-hand', { gameCode, newHand });
         return;
     }
