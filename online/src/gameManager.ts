@@ -143,6 +143,7 @@ export class GameManager {
                     player.hand = []; // Clear hand
 
                     game.players.splice(playerIndex, 1); // Remove from array
+                    this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} has left the game, what a chicken!` });
 
                     // Handle owner migration if needed
                     if (game.state === 'lobby' && game.gameOwnerId === player.id) {
@@ -370,6 +371,7 @@ export class GameManager {
                 // For now, just fixing the lookup.
                 
                 this.log(game, `player "${playerName}" (${existingPlayer.socketId}) rejoined the game`);
+                this.emitToRoom(game.code, 'gameMessage', { message: `${playerName} has rejoined the game, hoorah!` });
                 this.emitGameUpdate(game); // Rejoining player does not change nonce
                 this.emitToSocket(socket.id, 'handUpdate', { hand: existingPlayer.hand });
                 return callback({ success: true, gameCode, nonce: game.nonce, playerId: existingPlayer.id });
@@ -738,6 +740,7 @@ export class GameManager {
             const oldSocketId = player.socketId;
             player.isDisconnected = true;
             player.socketId = ''; // Clear socketId so this socket can't be reused directly
+            this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} has disconnected, maybe they will be right back?` });
 
             // If current player disconnected, handle turn progression
             if (game.state === 'started' && game.turnOrder[game.currentTurnIndex] === player.id) {
