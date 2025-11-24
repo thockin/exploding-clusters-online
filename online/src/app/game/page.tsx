@@ -22,7 +22,7 @@ export default function GameScreen() {
   const { socket, gameCode, gameState, playerName, playerId, myHand, setMyHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [selectedCard, setSelectedCard] = useState<CardType | null>(null);
+  const [selectedCards, setSelectedCards] = useState<CardType[]>([]); // For single or combo selection
   const [overlayCard, setOverlayCard] = useState<CardType | null>(null);
   const [explodingCard, setExplodingCard] = useState<CardType | null>(null);
   const [windowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
@@ -179,13 +179,43 @@ export default function GameScreen() {
     router.push('/');
   }, [socket, gameCode, resetState, router]);
 
-  const handleCardClick = useCallback((card: CardType) => {
-    if (selectedCard?.id === card.id) {
-      setSelectedCard(null);
+  const handleCardClick = useCallback((card: CardType, event: React.MouseEvent) => {
+    console.log('handleCardClick', card.id, card.name, 'shift:', event.shiftKey, 'selected:', selectedCards.map(c => c.id));
+    // TODO: Add check for playable cards here (Phase 3)
+    
+    // If shift key is pressed, attempt combo selection
+    if (event.shiftKey) {
+      // Only DEVELOPER cards can be part of a combo
+      if (card.cardClass !== 'DEVELOPER') {
+        return; // Do nothing if not a DEVELOPER card
+      }
+
+      if (selectedCards.length === 0) {
+        // Start a new combo selection
+        setSelectedCards([card]);
+      } else if (selectedCards.length === 1) {
+        const existingCard = selectedCards[0];
+        // Only allow combo with identical DEVELOPER cards and not the same card instance
+        if (existingCard.cardClass === 'DEVELOPER' && 
+            existingCard.name === card.name && 
+            existingCard.id !== card.id) {
+          setSelectedCards(prev => [...prev, card]); // Form a combo
+        }
+      } else if (selectedCards.length === 2) {
+        // If two cards are already selected (a full combo), do nothing
+        return;
+      }
     } else {
-      setSelectedCard(card);
+      // Single click behavior
+      if (selectedCards.length === 1 && selectedCards[0].id === card.id) {
+        // If the same card is clicked again, deselect it
+        setSelectedCards([]);
+      } else {
+        // Otherwise, select the clicked card and deselect any others
+        setSelectedCards([card]);
+      }
     }
-  }, [selectedCard]);
+  }, [selectedCards]);
 
   const handleCardDoubleClick = useCallback((card: CardType) => {
     setOverlayCard(card);
@@ -462,14 +492,14 @@ export default function GameScreen() {
                               className="m-1"
                               style={{
                                 ...providedDraggable.draggableProps.style,
-                                border: selectedCard?.id === card.id ? '3px solid blue' : 'none',
+                                boxShadow: selectedCards.some(sc => sc.id === card.id) ? '0 0 0 3px blue' : 'none',
                                 borderRadius: '5px',
                                 width: `${cardWidth}px`,
                                 height: `${cardWidth * 1.4}px`,
                                 boxSizing: 'content-box',
                                 cursor: 'pointer',
                               }}
-                              onClick={() => handleCardClick(card)}
+                              onClick={(event) => handleCardClick(card, event)}
                               onDoubleClick={() => handleCardDoubleClick(card)}
                             >
                               <Image 
