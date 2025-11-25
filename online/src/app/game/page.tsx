@@ -76,7 +76,7 @@ export default function GameScreen() {
     if (!gameState && !isLoading && !gameEndData) {
       router.push('/');
     }
-    console.log({ myHand, isSpectator: !gameState?.players.some(p => p.id === playerId), playerId, gameCode });
+    console.debug({ myHand, isSpectator: !gameState?.players.some(p => p.id === playerId), playerId, gameCode });
   }, [gameState, isLoading, router, gameEndData, myHand, playerId, gameCode]);
   
   useEffect(() => {
@@ -212,7 +212,7 @@ export default function GameScreen() {
         // handleCardClick ignored (distance)
         return;
     }
-    console.log('handleCardClick', card.id, card.name, 'shift:', event.shiftKey, 'selected:', selectedCards.map(c => c.id));
+    console.debug('handleCardClick', card.id, card.name, 'shift:', event.shiftKey, 'selected:', selectedCards.map(c => c.id));
     // TODO: Add check for playable cards here (Phase 3)
     
     // If shift key is pressed, attempt combo selection
@@ -320,7 +320,7 @@ export default function GameScreen() {
   const onDragEnd = (result: DropResult) => {
     setIsDragging(false);
     setTimeout(() => { isDraggingRef.current = false; }, 1000);
-    console.log('onDragEnd', result);
+    console.debug('onDragEnd', result);
     const { source, destination } = result;
     if (!destination) {
         console.log('no destination');
@@ -447,10 +447,10 @@ export default function GameScreen() {
           // Emit the appropriate event to the server
           if (gameCode) {
               if (cardsToPlay.length === 1) {
-                  console.log(`Emitting play-card: code=${gameCode}, card=${cardsToPlay[0].id}`);
+                  console.debug(`Emitting play-card: code=${gameCode}, card=${cardsToPlay[0].id}`);
                   socket?.emit('play-card', { gameCode, cardId: cardsToPlay[0].id });
               } else if (cardsToPlay.length === 2) {
-                  console.log('Emitting playCombo for DEVELOPER cards');
+                  console.debug('Emitting playCombo for DEVELOPER cards');
                   socket?.emit('playCombo', { gameCode, cardIds: cardsToPlay.map(c => c.id) });
               }
           } else {
@@ -469,7 +469,7 @@ export default function GameScreen() {
   const onDragStart = (start: DragStart) => {
       isDraggingRef.current = true;
       setIsDragging(true);
-      console.log('onDragStart', start);
+      console.debug('onDragStart', start);
       
       if (start.source.droppableId.startsWith('hand-row-')) {
           const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
@@ -502,7 +502,7 @@ export default function GameScreen() {
           }
       }
   };
-  const onDragUpdate = () => console.log('onDragUpdate');
+  const onDragUpdate = () => console.debug('onDragUpdate');
 
   if (!gameState || !socket) {
       if (gameEndData) {
