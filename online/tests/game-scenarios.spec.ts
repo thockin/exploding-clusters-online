@@ -309,7 +309,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const context = await browser.newContext({ viewport: { width: 850, height: 800 } });
     const page = await context.newPage();
     
-    page.on('console', msg => console.log('CARD WRAPPING LOG:', msg.text()));
+    //page.on('console', msg => console.log('CARD WRAPPING LOG:', msg.text()));
 
     const code = await createGame(page, 'P1');
     const ctx2 = await browser.newContext();
@@ -453,8 +453,6 @@ test.describe('Exploding Clusters Game Scenarios', () => {
         currentName = 'P3'; 
         nextPlayerName = 'P1';
     }
-
-    console.log(`Current turn is: ${currentName}`);
 
     // Current player disconnects
     await currentPage.goto('about:blank');
@@ -647,9 +645,8 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const p1Turn = await page1.locator('text=It\'s your turn').isVisible();
     const targetPage = p1Turn ? page2 : page1;
     const targetName = p1Turn ? 'P2' : 'P1';
-    console.log(`Testing reorder with ${targetName} (Not current turn)`);
     
-    targetPage.on('console', msg => console.log('PAGE LOG:', msg.text()));
+    //targetPage.on('console', msg => console.log('PAGE LOG:', msg.text()));
 
     await targetPage.waitForSelector('h5:has-text("Your Hand")', { timeout: 15000 });
     const handSection = targetPage.locator('h5:has-text("Your Hand")').locator('xpath=..');
@@ -701,7 +698,6 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     
     if (!srcBox || !dstBox || !card1Box) throw new Error('Missing bounding box');
 
-    console.log(`Dragging Row 1 Item 0 to Row 1 Item 1`);
     // Simple drag like Card Wrapping test
     await targetPage.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
     await targetPage.mouse.down();
