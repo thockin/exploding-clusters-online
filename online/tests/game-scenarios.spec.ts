@@ -878,6 +878,8 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(card.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
   });
 
+
+
   test('Verify Hand Counts and DEBUG Card', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();

@@ -1,9 +1,7 @@
-Discard pile outline is still visible after playing
+multi-card reordering
 phantom outline
 Scale cards up in size as they get closert to discard pile (drag)
 visual glitch when playing a single developer card (should be unplayable)
-
-Remove "LOG" messages from tests
 
 Reduce card spacing in hand or even overlap them?
 

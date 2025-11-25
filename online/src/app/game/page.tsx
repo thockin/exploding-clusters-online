@@ -39,6 +39,7 @@ export default function GameScreen() {
   const [hostPromotionMessage, setHostPromotionMessage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
+  const clickStartPosRef = useRef({ x: 0, y: 0 });
   const isShiftKeyPressed = useRef(false);
 
   useEffect(() => {
@@ -198,6 +199,19 @@ export default function GameScreen() {
 
   const handleCardClick = useCallback((card: CardType, event: React.MouseEvent) => {
     event.stopPropagation();
+    
+    if (isDraggingRef.current) {
+        // handleCardClick ignored (isDraggingRef)
+        return;
+    }
+
+    // Calculate distance moved to distinguish click from drag
+    const moveX = Math.abs(event.clientX - clickStartPosRef.current.x);
+    const moveY = Math.abs(event.clientY - clickStartPosRef.current.y);
+    if (moveX > 30 || moveY > 30) {
+        // handleCardClick ignored (distance)
+        return;
+    }
     console.log('handleCardClick', card.id, card.name, 'shift:', event.shiftKey, 'selected:', selectedCards.map(c => c.id));
     // TODO: Add check for playable cards here (Phase 3)
     
@@ -304,8 +318,8 @@ export default function GameScreen() {
   };
 
   const onDragEnd = (result: DropResult) => {
-    isDraggingRef.current = false;
     setIsDragging(false);
+    setTimeout(() => { isDraggingRef.current = false; }, 1000);
     console.log('onDragEnd', result);
     const { source, destination } = result;
     if (!destination) {
@@ -331,9 +345,13 @@ export default function GameScreen() {
         const newHand = Array.from(myHand);
         const [reorderedItem] = newHand.splice(sourceGlobalIndex, 1);
         newHand.splice(destGlobalIndex, 0, reorderedItem);
-        
+
+        // Ensure selection persists
+        const currentSelection = selectedCards;
         setMyHand(newHand); // Optimistic update to prevent flicker
-        setSelectedCards([]); // Clear selection after reordering
+        if (currentSelection.length > 0) {
+             setSelectedCards(currentSelection);
+        }
         socket?.emit('reorder-hand', { gameCode, newHand });
         return;
     }
@@ -642,6 +660,16 @@ export default function GameScreen() {
                               ref={providedDraggable.innerRef}
                               {...providedDraggable.draggableProps}
                               {...providedDraggable.dragHandleProps}
+                              onMouseDown={(e) => {
+                                  (providedDraggable.dragHandleProps as any)?.onMouseDown?.(e);
+                                  clickStartPosRef.current = { x: e.clientX, y: e.clientY };
+                              }}
+                              onClickCapture={(e) => {
+                                  if (isDraggingRef.current) {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+                                  }
+                              }}
                               className="m-1"
                               style={{
                                 boxShadow: isSelected ? '0 0 0 3px blue' : 'none',
@@ -868,7 +896,10 @@ export default function GameScreen() {
                  height: '35vh',
                  minHeight: '250px'
              }}
-             onClick={() => setSelectedCards([])}
+             onClick={() => {
+                 if (isDraggingRef.current) return;
+                 setSelectedCards([]);
+             }}
         >
           <h5 className="text-start mb-2 flex-shrink-0">Your Hand</h5>
           <div 
