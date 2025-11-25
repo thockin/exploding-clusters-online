@@ -579,6 +579,7 @@ export default function GameScreen() {
                 src={gameState.discardPile[gameState.discardPile.length - 1].imageUrl}
                 alt="Discard Pile"
                 fill
+                sizes="(max-width: 768px) 100px, 150px"
                 style={{ objectFit: 'contain', borderRadius: '10px' }}
               />
             )}
