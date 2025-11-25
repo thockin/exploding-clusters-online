@@ -104,6 +104,10 @@ export class GameManager {
                 this.playCard(socket, data.gameCode, data.cardId);
             });
 
+            socket.on('playCombo', (data: { gameCode: string; cardIds: string[] }) => {
+                this.playCombo(socket, data.gameCode, data.cardIds);
+            });
+
             // Handle voluntary leave
             socket.on('leaveGame', (gameCode: string) => {
                 const game = this.games.get(gameCode);
@@ -460,7 +464,7 @@ export class GameManager {
         // Remove them all first
         deck = deck.filter(c => c.cardClass !== 'DEBUG' && c.cardClass !== 'EXPLODING CLUSTER' && c.cardClass !== 'UPGRADE CLUSTER');
 
-        // Give 1 Debug card to each player
+        // Give 1 DEBUG card to each player
         for (const p of game.players) {
             if (debugCards.length > 0) {
                 const c = debugCards.pop()!;
@@ -468,7 +472,7 @@ export class GameManager {
             }
         }
 
-        // Put remaining Debug cards back (max 2 or whatever is left)
+        // Put remaining DEBUG cards back (max 2 or whatever is left)
         // Design doc says: "Put 2 DEBUG cards back into the deck, or 1 DEBUG card if that is all that is left. Any extra DEBUG cards are removed from the game."
         const debugsToReturn = Math.min(debugCards.length, 2);
         
@@ -691,28 +695,139 @@ export class GameManager {
 
     private playCard(socket: Socket, gameCode: string, cardId: string) {
         const game = this.games.get(gameCode);
-        if (!game) return;
+        if (!game) {
+            this.log(null, `playCard failed: game ${gameCode} not found`);
+            this.emitToSocket(socket.id, 'gameMessage', { message: "Error: Game not found." });
+            return;
+        }
 
         const player = game.players.find(p => p.socketId === socket.id);
-        if (!player) return;
+        if (!player) {
+            this.log(game, `playCard failed: player not found for socket ${socket.id}`);
+            this.emitToSocket(socket.id, 'gameMessage', { message: "Error: Player not found." });
+            return;
+        }
 
         // Basic validation: check if it's player's turn (ignoring "now" cards for basic implementation)
         const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
-        // In DEVMODE or basic implementation, strict turn checking might be desired, but for this test P1 starts so it IS their turn.
+        
+        // TODO: Allow "now" cards (NAK, SHUFFLE NOW) to be played out of turn
+        
         if (!isMyTurn) {
              this.log(game, `player "${player.name}" tried to play card out of turn`);
+             this.emitToSocket(socket.id, 'gameMessage', { message: "It's not your turn!" });
+             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Revert optimistic update
              return;
         }
 
         const cardIndex = player.hand.findIndex(c => c.id === cardId);
         if (cardIndex === -1) {
              this.log(game, `player "${player.name}" tried to play card they don't have`);
+             this.emitToSocket(socket.id, 'gameMessage', { message: "You don't have that card!" });
+             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Revert optimistic update
              return;
         }
 
         const [card] = player.hand.splice(cardIndex, 1);
         game.discardPile.push(card);
         this.log(game, `player "${player.name}" played ${card.name} (${card.cardClass})`);
+        this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} played ${card.cardClass}.` });
+        
+        this.updateGameNonce(game);
+    }
+
+    private playCombo(socket: Socket, gameCode: string, cardIds: string[]) {
+        const game = this.games.get(gameCode);
+        if (!game) {
+            this.log(null, `playCombo failed: game ${gameCode} not found`);
+            this.emitToSocket(socket.id, 'gameMessage', { message: "Error: Game not found." });
+            return;
+        }
+
+        const player = game.players.find(p => p.socketId === socket.id);
+        if (!player) {
+            this.log(game, `playCombo failed: player not found for socket ${socket.id}`);
+            this.emitToSocket(socket.id, 'gameMessage', { message: "Error: Player not found." });
+            return;
+        }
+
+        if (!cardIds || cardIds.length !== 2) {
+             this.log(game, `player "${player.name}" tried to play invalid combo length: ${cardIds?.length}`);
+             this.emitToSocket(socket.id, 'gameMessage', { message: "Invalid combo selection." });
+             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); 
+             return;
+        }
+
+        const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
+        if (!isMyTurn) {
+             this.log(game, `player "${player.name}" tried to play combo out of turn`);
+             this.emitToSocket(socket.id, 'gameMessage', { message: "It's not your turn!" });
+             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+             return;
+        }
+
+        const cardsToPlay: Card[] = [];
+        const indicesToRemove: number[] = [];
+
+        // Find cards in hand
+        // We need to handle the case where we look for two indices. 
+        // findIndex returns the first match. If we splice one by one, indices shift.
+        // Better to find indices first, ensure they are distinct and valid.
+        // BUT the incoming IDs are unique (card-1, card-2). So simple find is safe.
+        
+        for (const id of cardIds) {
+            const idx = player.hand.findIndex(c => c.id === id);
+            if (idx === -1) {
+                this.log(game, `player "${player.name}" tried to play combo with card they don't have (id: ${id})`);
+                this.emitToSocket(socket.id, 'gameMessage', { message: "You don't have those cards!" });
+                this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+                return;
+            }
+            cardsToPlay.push(player.hand[idx]);
+            indicesToRemove.push(idx);
+        }
+
+        // Verify they are distinct indices (should be guaranteed by unique IDs if client is behaving, but check)
+        if (indicesToRemove[0] === indicesToRemove[1]) {
+             // This implies duplicates in cardIds or same ID found twice?
+             // Unique IDs should prevent this unless client sent same ID twice.
+             this.log(game, `player "${player.name}" tried to play combo with same card twice`);
+             this.emitToSocket(socket.id, 'gameMessage', { message: "Invalid combo." });
+             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+             return;
+        }
+
+        // Validate Combo logic: 2 identical DEVELOPER cards
+        const c1 = cardsToPlay[0];
+        const c2 = cardsToPlay[1];
+
+        if (c1.cardClass !== 'DEVELOPER' || c2.cardClass !== 'DEVELOPER') {
+             this.log(game, `player "${player.name}" tried to play invalid combo types: ${c1.cardClass}, ${c2.cardClass}`);
+             this.emitToSocket(socket.id, 'gameMessage', { message: "Invalid combo. Must be DEVELOPER cards." });
+             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+             return;
+        }
+
+        if (c1.name !== c2.name) {
+             this.log(game, `player "${player.name}" tried to play mismatched developer combo: ${c1.name} vs ${c2.name}`);
+             this.emitToSocket(socket.id, 'gameMessage', { message: "Invalid combo. Cards must match." });
+             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+             return;
+        }
+
+        // Remove cards from hand. Sort indices descending to splice safely.
+        indicesToRemove.sort((a, b) => b - a);
+        for (const idx of indicesToRemove) {
+            player.hand.splice(idx, 1);
+        }
+
+        // Add to discard pile
+        game.discardPile.push(...cardsToPlay);
+        
+        this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.cardClass})`);
+        this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} played a pair of ${c1.cardClass}.` });
+        
+        // TODO: Trigger special action (Steal a card) - Phase 4
         
         this.updateGameNonce(game);
     }

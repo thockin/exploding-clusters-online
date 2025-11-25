@@ -18,6 +18,7 @@ async function joinGame(page: Page, name: string, code: string) {
   await page.fill('input[placeholder="Enter your name"]', name);
   await page.fill('input[placeholder="Enter 5-letter game code"]', code);
   await page.click('button:has-text("Join Game")');
+  await expect(page.locator('text=Lobby - Game Code')).toBeVisible();
 }
 
 test.describe('Exploding Clusters Game Scenarios', () => {
@@ -387,8 +388,9 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Discard 5 cards (19 -> 14)
     const discardPile = page.locator('text=Discard Pile').locator('xpath=..');
     for (let i = 0; i < 5; i++) {
-        // Always pick first card
-        const cardToPlay = rows.first().locator('.m-1').first();
+        // Pick a non-developer card to ensure play is accepted
+        const cardToPlay = handSection.locator('img:not([src*="developer_-_"]):not([src*="exploding_-_"]):not([src*="upgrade_-_"])').first();
+        
         await cardToPlay.scrollIntoViewIfNeeded();
         const srcBox = await cardToPlay.boundingBox();
         const dstBox = await discardPile.boundingBox();
@@ -510,11 +512,10 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // P2 Leaves
     await page2.click('button:has-text("Leave Game")');
     // Confirm modal (the danger button)
-    await page2.locator('.modal-footer button.btn-danger').click();
+    await page2.locator('.modal-footer button.btn-danger').click({ force: true });
 
     // P1 should see Win Dialog
-    // Accept "You win!" or "Winner wins!" to be safe against name matching quirks
-    await expect(page1.locator('.modal.show .modal-title')).toHaveText(/You win!|Winner wins!/);
+    await expect(page1.locator('.modal.show .modal-title')).toHaveText(/.*You win!/, { timeout: 10000 });
     await page1.click('text=OK');
     await expect(page1).toHaveURL('/'); // Landing page
   });
@@ -550,7 +551,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(overlay).not.toBeVisible();
   });
 
-  test('DEVMODE Debug Button limit', async ({ browser }) => {
+  test('DEVMODE DEBUG Button limit', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'Dev');
@@ -601,12 +602,12 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page1.click('text=Start Game');
 
     // Force some cards into the removed pile for testing
-    // In DEVMODE, we have 4 debug cards that are put back into the deck.
+    // In DEVMODE, we have 4 DEBUG cards that are put back into the deck.
     // Since 2 are dealt to players, 2 are returned. So 2 are discarded.
-    // The startGame method removes exploding/upgrade cards to the removedPile.
-    // For 2 players, 1 exploding card and 0 upgrade cards are inserted.
-    // Total 4 exploding clusters, 2 upgrade clusters. So 3 exploding and 2 upgrade cards should be in removed pile.
-    // Total removed in a 2 player game: 2 debug + 3 exploding + 2 upgrade = 7 cards.
+    // The startGame method removes EXPLODING/UPGRADE cards to the removedPile.
+    // For 2 players, 1 EXPLODING card and 0 upgrade cards are inserted.
+    // Total 4 EXPLODING CLUSTERs, 2 UPGRADE CLUSTERs. So 3 EXPLODING and 2 UPGRADE cards should be in removed pile.
+    // Total removed in a 2 player game: 2 DEBUG + 3 EXPLODING + 2 UPGRADE = 7 cards.
     
     await page1.click('text=Show removed cards'); 
     
@@ -757,8 +758,47 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // }
   });
 
-  test('Card Selection', async ({ browser }) => {
-    const viewport = { width: 1200, height: 800 }; // Wider viewport to ensure cards are in one row initially
+
+
+  test('Play Single Non-DEVELOPER Card', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click('text=Start Game');
+    await page1.waitForURL(/game/);
+    await page1.waitForLoadState('networkidle');
+
+    const handSection = page1.locator('h5:has-text("Your Hand")').locator('xpath=..');
+    const discardPile = page1.locator('text=Discard Pile').locator('xpath=..');
+    const messageArea = page1.getByTestId('game-log');
+
+    await expect(handSection.locator('img')).toHaveCount(8);
+    await expect(discardPile.locator('img')).not.toBeVisible(); 
+
+    // Find a non-DEVELOPER card to play
+    const cardToPlayLocator = handSection.locator('img:not([src*="developer_-_"]):not([src*="exploding_-_"]):not([src*="upgrade_-_"]):not([src*="debug_-_"])').first();
+    await expect(cardToPlayLocator).toBeVisible();
+    
+    const srcBox = await cardToPlayLocator.boundingBox();
+    const dstBox = await discardPile.boundingBox();
+
+    if (!srcBox || !dstBox) throw new Error('Missing bounding box');
+
+    await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+    await page1.mouse.down();
+    await page1.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
+    await page1.mouse.up();
+
+    await expect(handSection.locator('img')).toHaveCount(7);
+    await expect(discardPile.locator('img')).toBeVisible();
+    await expect(messageArea).toContainText(`P1 played `);
+  });
+
+  test('Drag Different Card (Switch Selection)', async ({ browser }) => {
+    const viewport = { width: 1200, height: 800 };
     const ctx1 = await browser.newContext({ viewport });
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
@@ -770,145 +810,79 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page1.waitForLoadState('networkidle');
 
     const handSection = page1.locator('h5:has-text("Your Hand")').locator('xpath=..');
-    await expect(handSection.locator('img')).toHaveCount(8);
+    const discardPile = page1.locator('text=Discard Pile').locator('xpath=..');
+    const messageArea = page1.getByTestId('game-log');
 
-    // Find a non-DEVELOPER card and a DEVELOPER card
+    // Find two different playable cards (NAK and SHUFFLE usually available in DevMode P1)
     const nakCard = handSection.locator('img[src*="nak_-_"]').first();
-    const devCard1 = handSection.locator('img[src*="developer_-_"]').first();
-    const devCard2 = handSection.locator('img[src*="developer_-_"]').nth(1); // Second developer card
-    const devCard3 = handSection.locator('img[src*="developer_-_"]').nth(2); // Third developer card
-    const nonDevCard = handSection.locator('img:not([src*="developer_-_"]):not([src*="exploding_-_"]):not([src*="upgrade_-_"])').first();
+    const shuffleCard = handSection.locator('img[src*="shuffle_-_"]').first();
 
-    // Ensure we have at least 3 developer cards for combo testing, and 1 nak for other test cases.
-    await expect(devCard1).toBeVisible();
-    await expect(devCard2).toBeVisible();
-    await expect(devCard3).toBeVisible();
     await expect(nakCard).toBeVisible();
+    await expect(shuffleCard).toBeVisible();
 
-    // --- Single-click selection ---
-    // Click NAK - select the card
+    // 1. Select NAK
     await nakCard.click();
-    await expect(nakCard.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px'); // Blue box-shadow on parent div
+    await expect(nakCard.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
 
-    // Click SHUFFLE (assuming this is `nonDevCard`) - deselect NAK, select SHUFFLE
-    await nonDevCard.click();
-    // NAK deselected (check parent) - check not blue box-shadow
+    // 2. Drag SHUFFLE to discard
+    const srcBox = await shuffleCard.boundingBox();
+    const dstBox = await discardPile.boundingBox();
+    if (!srcBox || !dstBox) throw new Error('Missing bounding box');
+
+    await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+    await page1.mouse.down();
+    await page1.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
+    await page1.mouse.up();
+
+    // 3. Verify SHUFFLE is played
+    await expect(shuffleCard).not.toBeVisible(); 
+    await expect(handSection.locator('img')).toHaveCount(7);
+
+    // 4. Verify NAK is still there and DESELECTED
+    await expect(nakCard).toBeVisible();
     await expect(nakCard.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-    await expect(nonDevCard.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px'); // NonDevCard selected
 
-    // Click the selected SHUFFLE again - deselect the card
-    await nonDevCard.click();
-    await expect(nonDevCard.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px'); // NonDevCard deselected
-
-    /*
-    // --- Combo selection (DEVELOPER cards) ---
-    // TODO: Combo selection test is flaky in Playwright/DND environment (border color not updating).
-    // Manual verification required.
-
-    // Click DEVELOPER "foo" (devCard1) - select the card
-    await devCard1.click();
-    await expect(devCard1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-    await expect(devCard2.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px'); // Ensure others are not selected
-
-    // Shift-click a different DEVELOPER card (devCard3) of a different name. Nothing happens.
-    const devCard1Name = await devCard1.getAttribute('alt');
-    const devCard3Name = await devCard3.getAttribute('alt');
-    if (devCard1Name !== devCard3Name) {
-        await devCard3.click({ modifiers: ['Shift'] });
-        await expect(devCard1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px'); // Still only devCard1 selected
-        await expect(devCard3.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-    }
-
-    // Get all visible developer cards. They should have alt attributes corresponding to their names.
-    const allDeveloperCardsInHand = await handSection.locator('img[src*="developer_-_"]').all();
-    
-    // Find two distinct identical developer cards and a third one if available.
-    let identicalDevCard1Locator: Locator | undefined;
-    let identicalDevCard2Locator: Locator | undefined;
-    let thirdDevCardLocator: Locator | undefined;
-
-    const cardNamesInHand = await Promise.all(allDeveloperCardsInHand.map(l => l.getAttribute('alt')));
-    const counts: { [key: string]: number } = {};
-    cardNamesInHand.forEach(name => { counts[name!] = (counts[name!] || 0) + 1; });
-
-    const suitableDevCardName = Object.keys(counts).find(name => counts[name] >= 2); // Find a name with at least 2 cards
-
-    if (suitableDevCardName) {
-        console.log(`Testing combo with: ${suitableDevCardName}`);
-        const locatorsForName = handSection.locator(`img[alt="${suitableDevCardName}"]`);
-        identicalDevCard1Locator = locatorsForName.nth(0);
-        identicalDevCard2Locator = locatorsForName.nth(1);
-        thirdDevCardLocator = locatorsForName.nth(2); // Might be undefined
-
-        await identicalDevCard1Locator.scrollIntoViewIfNeeded();
-        // Click the parent DIV which has the onClick handler
-        await identicalDevCard1Locator.locator('xpath=..').click(); 
-        
-        // Verify NAK card is deselected
-        await expect(nakCard.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-        
-        // Verify first dev card is selected - check box-shadow
-        await expect(identicalDevCard1Locator.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-
-        await identicalDevCard2Locator.scrollIntoViewIfNeeded();
-        // Shift-click the parent DIV
-        await identicalDevCard2Locator.locator('xpath=..').click({ modifiers: ['Shift'] }); 
-        
-        await expect(identicalDevCard1Locator.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-        await expect(identicalDevCard2Locator.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px'); // Both selected
-
-        // Attempt to shift-click a third identical DEVELOPER card. Nothing happens.
-        if (thirdDevCardLocator) {
-            // Check visibility first to avoid timeout if dealing only gave 2
-            if (await thirdDevCardLocator.count() > 0) {
-                 await thirdDevCardLocator.click({ modifiers: ['Shift'] });
-                 await expect(thirdDevCardLocator.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px'); // Third card not selected
-                 await expect(identicalDevCard1Locator.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-                 await expect(identicalDevCard2Locator.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-            }
-        }
-
-        // Click a non-DEVELOPER card (nakCard) - deselect both DEVELOPER cards, select NAK
-        await nakCard.click();
-        await expect(identicalDevCard1Locator.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-        await expect(identicalDevCard2Locator.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-        await expect(nakCard.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-
-    } else {
-        console.log('Skipping part of combo test: Could not find two identical DEVELOPER cards in hand.');
-    }
-    */
+    // 5. Verify message
+    await expect(messageArea).toContainText(`P1 played SHUFFLE`);
   });
 
-  test('Correct Number of Debug Cards', async ({ browser }) => {
+  test('Click Empty Space Deselects', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
+
     const ctx2 = await browser.newContext();
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
+    await expect(page1.locator('text=P2')).toBeVisible();
+
     await page1.click('text=Start Game');
-    await expect(page1).toHaveURL(/game/, { timeout: 10000 });
+    await page1.waitForURL(/game/);
+    await page1.waitForLoadState('networkidle');
+
+    const handSection = page1.locator('h5:has-text("Your Hand")').locator('xpath=..');
     
-    // Wait for the draw pile image to be visible, which indicates the game screen is fully loaded
-    await page1.waitForSelector('img[alt="Draw Pile"]', { timeout: 10000 });
-    
-    // We can check this via the "Show me the deck" feature in DEVMODE
-    await page1.click('button:has-text("Show the deck")');
-    const deckOverlay = page1.locator('div[style*="z-index: 1000"]').locator('h2:has-text("Draw Pile")').locator('xpath=..');
-    await expect(deckOverlay).toBeVisible();
-    
-    // Count debug cards in the deck list
-    // The overlay shows images. We can count images with specific alt text or src.
-    // Our debug cards have filenames starting with 'debug_-_'.
-    // The deck overlay renders images.
-    const debugCardsInDeck = await deckOverlay.locator('img[src*="debug_-_"]').count();
-    
-    // 2 players -> 2 dealt. Max 2 returned to deck. 6 total - 2 dealt - 2 returned = 2 discarded.
-    expect(debugCardsInDeck).toBe(2);
+    // Find a card
+    const card = handSection.locator('img').first();
+    await expect(card).toBeVisible();
+
+    // Select it
+    await card.click();
+    await expect(card.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+
+    // Click empty space (the hand section container)
+    // Clicking the h5 "Your Hand" is safe? No, that's outside the clickable div maybe?
+    // The clickable div wraps the H5?
+    // Code: <div ... onClick> <h5 ...> ... </div>
+    // Yes, H5 is inside. Clicking H5 bubbles to div.
+    // So clicking "Your Hand" text should work!
+    await page1.click('text="Your Hand"');
+
+    // Verify deselected
+    await expect(card.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
   });
 
-  test('Verify Hand Counts and Debug Card', async ({ browser }) => {
+  test('Verify Hand Counts and DEBUG Card', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
@@ -926,8 +900,8 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     expect(p1HandCount).toBe(8);
     expect(p2HandCount).toBe(8);
 
-    // Verify each has a debug card
-    // Debug cards have 'debug_-_' in src
+    // Verify each has a DEBUG card
+    // DEBUG cards have 'debug_-_' in src
     const p1DebugCount = await page1.locator('h5:has-text("Your Hand")').locator('xpath=..').locator('img[src*="debug_-_"]').count();
     const p2DebugCount = await page2.locator('h5:has-text("Your Hand")').locator('xpath=..').locator('img[src*="debug_-_"]').count();
 

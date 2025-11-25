@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Container, Row, Col, ListGroup, Button, Modal } from 'react-bootstrap';
 import { useSocket, PlayerInfo } from '../contexts/SocketContext';
 import { Card as CardType } from './deck';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from '@hello-pangea/dnd';
 import Image from 'next/image';
 
 const FIXED_TABLE_PADDING = 20; // px
@@ -37,7 +37,24 @@ export default function GameScreen() {
   const [deckOverlay, setDeckOverlay] = useState<CardType[] | null>(null);
   const [removedOverlay, setRemovedOverlay] = useState<CardType[] | null>(null); // New: for removed pile overlay
   const [hostPromotionMessage, setHostPromotionMessage] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
+  const isShiftKeyPressed = useRef(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') isShiftKeyPressed.current = true;
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') isShiftKeyPressed.current = false;
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   const gameStateRef = useRef(gameState);
   
@@ -180,6 +197,7 @@ export default function GameScreen() {
   }, [socket, gameCode, resetState, router]);
 
   const handleCardClick = useCallback((card: CardType, event: React.MouseEvent) => {
+    event.stopPropagation();
     console.log('handleCardClick', card.id, card.name, 'shift:', event.shiftKey, 'selected:', selectedCards.map(c => c.id));
     // TODO: Add check for playable cards here (Phase 3)
     
@@ -287,6 +305,7 @@ export default function GameScreen() {
 
   const onDragEnd = (result: DropResult) => {
     isDraggingRef.current = false;
+    setIsDragging(false);
     console.log('onDragEnd', result);
     const { source, destination } = result;
     if (!destination) {
@@ -300,22 +319,7 @@ export default function GameScreen() {
         return;
     }
 
-    // Handle discard pile drop
-    if (destination.droppableId === 'discard-pile') {
-      let card = null;
-      if (source.droppableId.startsWith('hand-row-')) {
-          const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
-          const sourceRowIndex = parseInt(source.droppableId.replace('hand-row-', ''), 10);
-          const sourceGlobalIndex = sourceRowIndex * cols + source.index;
-          card = myHand[sourceGlobalIndex];
-      }
-      
-      if (card) {
-          socket?.emit('play-card', { gameCode, cardId: card.id });
-      }
-      return;
-    }
-
+    // Handle reordering within hand
     if (source.droppableId.startsWith('hand-row-') && destination.droppableId.startsWith('hand-row-')) {
         const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
         const sourceRowIndex = parseInt(source.droppableId.replace('hand-row-', ''), 10);
@@ -329,14 +333,156 @@ export default function GameScreen() {
         newHand.splice(destGlobalIndex, 0, reorderedItem);
         
         setMyHand(newHand); // Optimistic update to prevent flicker
+        setSelectedCards([]); // Clear selection after reordering
         socket?.emit('reorder-hand', { gameCode, newHand });
         return;
     }
+
+    // Handle discard pile drop
+    if (destination.droppableId === 'discard-pile') {
+      const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
+      const sourceRowIndex = parseInt(source.droppableId.replace('hand-row-', ''), 10);
+      const sourceGlobalIndex = sourceRowIndex * cols + source.index;
+      const draggedCard = myHand[sourceGlobalIndex];
+
+      let cardsToPlay: CardType[] = [];
+      let newSelectedCards: CardType[] = [];
+
+      // Logic as per updated Design Doc
+
+      // Case 0: No Selection
+      if (selectedCards.length === 0) {
+          cardsToPlay = [draggedCard];
+          newSelectedCards = [draggedCard];
+      }
+      // Case 1: Single Selection
+      else if (selectedCards.length === 1) {
+          const selected = selectedCards[0];
+          // Dragging the selected card
+          if (selected.id === draggedCard.id) {
+              cardsToPlay = [draggedCard];
+              newSelectedCards = [draggedCard];
+          }
+          // Dragging a different card
+          else {
+              // Check Shift-Drag for Developer Combo
+              if (isShiftKeyPressed.current && 
+                  selected.cardClass === 'DEVELOPER' && 
+                  draggedCard.cardClass === 'DEVELOPER' &&
+                  selected.name === draggedCard.name) {
+                  
+                  // "the second card is also selected and both cards are played"
+                  cardsToPlay = [selected, draggedCard];
+                  newSelectedCards = [selected, draggedCard];
+              } else {
+                  // "the selected card is deselected and the second card is selected and played"
+                  cardsToPlay = [draggedCard];
+                  newSelectedCards = [draggedCard];
+              }
+          }
+      }
+      // Case 2: Combo Selection
+      else if (selectedCards.length === 2) {
+          // Dragging one of the combo cards
+          if (selectedCards.some(c => c.id === draggedCard.id)) {
+              cardsToPlay = selectedCards;
+              newSelectedCards = selectedCards;
+          } else {
+              // "the combo is deselected and the new card is selected and played"
+              cardsToPlay = [draggedCard];
+              newSelectedCards = [draggedCard];
+          }
+      } else {
+          // Fallback (shouldn't happen with max 2 selection)
+          cardsToPlay = [draggedCard];
+          newSelectedCards = [draggedCard];
+      }
+
+      // Update selection UI immediately
+      setSelectedCards(newSelectedCards);
+
+      // Now handle the actual play
+      if (cardsToPlay.length > 0) {
+          // Rejection Logic: Single DEVELOPER card
+          if (cardsToPlay.length === 1 && cardsToPlay[0].cardClass === 'DEVELOPER') {
+              console.log('Cannot play a single DEVELOPER card');
+              // "Return it to the player's hand".
+              // Do NOT emit. Do NOT setMyHand. DnD will snap back.
+              // Do NOT clear selection (newSelectedCards is set, user sees what they tried to play).
+              // TODO: Display message to user? The design doc says "Return it... with a message".
+              // We need a way to show local message? 
+              // Current gameMessages come from server.
+              // We can manually append to gameMessages?
+              // But gameMessages is state from server.
+              // We can't easily inject local messages without refactoring SocketContext.
+              // But we can alert? No.
+              // We can assume server won't send message if we don't emit.
+              // Wait, "Return it to the player's hand with a message".
+              // If we don't play it, server doesn't know.
+              // We should show a toast or something?
+              // For now, console log is all we have locally unless we add local message state.
+              // BUT, checking `SocketContext`: `gameMessages` is `string[]`. `setGameMessages` is not exposed.
+              // Maybe we should ignore the "message" part for now or implement local toast later.
+              return; 
+          }
+
+          // Emit the appropriate event to the server
+          if (gameCode) {
+              if (cardsToPlay.length === 1) {
+                  console.log(`Emitting play-card: code=${gameCode}, card=${cardsToPlay[0].id}`);
+                  socket?.emit('play-card', { gameCode, cardId: cardsToPlay[0].id });
+              } else if (cardsToPlay.length === 2) {
+                  console.log('Emitting playCombo for DEVELOPER cards');
+                  socket?.emit('playCombo', { gameCode, cardIds: cardsToPlay.map(c => c.id) });
+              }
+          } else {
+              console.error("Game code not found, cannot play card.");
+              return; 
+          }
+
+          // Optimistic update and clear selection for successful plays
+          setSelectedCards([]);
+          setMyHand((prevHand: CardType[]) => prevHand.filter(c => !cardsToPlay.some(pc => pc.id === c.id)));
+      }
+      return; // Ensure we exit after handling the drop
+    }
   };
 
-  const onDragStart = () => {
+  const onDragStart = (start: DragStart) => {
       isDraggingRef.current = true;
-      console.log('onDragStart');
+      setIsDragging(true);
+      console.log('onDragStart', start);
+      
+      if (start.source.droppableId.startsWith('hand-row-')) {
+          const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
+          const sourceRowIndex = parseInt(start.source.droppableId.replace('hand-row-', ''), 10);
+          const sourceGlobalIndex = sourceRowIndex * cols + start.source.index;
+          const draggedCard = myHand[sourceGlobalIndex];
+
+          if (!draggedCard) return;
+
+          // If Shift is held, try to add to selection (Combo)
+          if (isShiftKeyPressed.current) {
+              // "If there is a single DEVELOPER card selected and the player shift-clicks and drags another identical card..."
+              if (selectedCards.length === 1) {
+                  const selected = selectedCards[0];
+                  if (selected.cardClass === 'DEVELOPER' && 
+                      draggedCard.cardClass === 'DEVELOPER' && 
+                      selected.name === draggedCard.name &&
+                      selected.id !== draggedCard.id) {
+                      
+                      // Add to selection
+                      setSelectedCards([selected, draggedCard]);
+                  }
+              }
+          } else {
+              // No Shift.
+              // If dragged card is NOT in selection, select it (switch selection).
+              if (!selectedCards.some(c => c.id === draggedCard.id)) {
+                  setSelectedCards([draggedCard]);
+              }
+          }
+      }
   };
   const onDragUpdate = () => console.log('onDragUpdate');
 
@@ -484,33 +630,70 @@ export default function GameScreen() {
                   >
                     {rowCards.map((card, index) => (
                         <Draggable key={card.id} draggableId={card.id} index={index}>
-                          {(providedDraggable) => (
+                          {(providedDraggable, snapshot) => {
+                            const isSelected = selectedCards.some(sc => sc.id === card.id);
+                            const shouldHide = isDragging && isSelected && !snapshot.isDragging;
+
+                            return (
                             <div
                               ref={providedDraggable.innerRef}
                               {...providedDraggable.draggableProps}
                               {...providedDraggable.dragHandleProps}
                               className="m-1"
                               style={{
-                                ...providedDraggable.draggableProps.style,
-                                boxShadow: selectedCards.some(sc => sc.id === card.id) ? '0 0 0 3px blue' : 'none',
+                                boxShadow: isSelected ? '0 0 0 3px blue' : 'none',
                                 borderRadius: '5px',
                                 width: `${cardWidth}px`,
                                 height: `${cardWidth * 1.4}px`,
                                 boxSizing: 'content-box',
                                 cursor: 'pointer',
+                                position: 'relative',
+                                opacity: shouldHide ? 0 : 1,
+                                ...providedDraggable.draggableProps.style,
                               }}
                               onClick={(event) => handleCardClick(card, event)}
                               onDoubleClick={() => handleCardDoubleClick(card)}
                             >
+                              {snapshot.isDragging && selectedCards.length > 1 && isSelected && (
+                                  <>
+                                    {selectedCards.filter(sc => sc.id !== card.id).map((sc, i) => (
+                                        <div
+                                            key={sc.id}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                width: '100%',
+                                                height: '100%',
+                                                transform: `translate(${15 * (i + 1)}px, ${15 * (i + 1)}px) rotate(${5 * (i + 1)}deg)`,
+                                                zIndex: -1 - i,
+                                                borderRadius: '5px',
+                                                boxShadow: '0 0 0 3px blue',
+                                                background: 'white',
+                                            }}
+                                        >
+                                            <Image 
+                                                src={sc.imageUrl} 
+                                                alt={sc.name} 
+                                                width={cardWidth} 
+                                                height={cardWidth * 1.4}
+                                                draggable={false}
+                                            />
+                                        </div>
+                                    ))}
+                                  </>
+                              )}
                               <Image 
                                 src={card.imageUrl} 
                                 alt={card.name} 
                                 width={cardWidth} 
                                 height={cardWidth * 1.4}
                                 draggable={false}
+                                style={{ zIndex: 1, position: 'relative', backgroundColor: 'white', borderRadius: '5px' }}
                               />
                             </div>
-                          )}
+                          );
+                          }}
                         </Draggable>
                     ))}
                     {provided.placeholder}
@@ -660,6 +843,7 @@ export default function GameScreen() {
               
               <div 
                   ref={messageAreaRef}
+                  data-testid="game-log"
                   style={{
                       textAlign: 'left', padding: '0.25rem',
                       overflowY: 'auto', flexGrow: 1,
@@ -680,7 +864,8 @@ export default function GameScreen() {
                  flexShrink: 0,
                  height: '35vh',
                  minHeight: '250px'
-             }} 
+             }}
+             onClick={() => setSelectedCards([])}
         >
           <h5 className="text-start mb-2 flex-shrink-0">Your Hand</h5>
           <div 

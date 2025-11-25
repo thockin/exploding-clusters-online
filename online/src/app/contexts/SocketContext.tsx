@@ -37,8 +37,8 @@ interface SocketContextType {
   playerName: string | null;
   setPlayerName: (name: string | null) => void;
   playerId: string | null;
-  myHand: any[]; // Using any[] for now, ideally Card[]
-  setMyHand: (hand: any[]) => void;
+  myHand: Card[]; // Using Card[]
+  setMyHand: React.Dispatch<React.SetStateAction<Card[]>>;
   gameState: GameState | null;
   isLoading: boolean; // New: indicates if context is restoring session
   rejoinError: string | null;
@@ -67,7 +67,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [myHand, setMyHand] = useState<any[]>([]);
+  const [myHand, setMyHand] = useState<Card[]>([]);
   const [isLoading, setIsLoading] = useState(true); // Start loading
   const [rejoinError, setRejoinError] = useState<string | null>(null);
   const [gameMessages, setGameMessages] = useState<string[]>([]);
@@ -317,9 +317,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           setGameEndData(data);
       }
       setGameState(null);
-      setGameCode(null);
-      setPlayerName(null);
-      sessionStorage.removeItem('exploding_session');
     });
 
     socketIo.on('error', (message: string) => {

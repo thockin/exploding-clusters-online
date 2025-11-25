@@ -551,8 +551,8 @@ If the player single-clicks an unplayable card in their hand, do nothing.
 If the player single-clicks a playable card while a different card is selected,
 deselect the previous card and select the new one.
 
-If the player single-clicks an unplayable card while a different card is selected,
-do nothing.
+If the player single-clicks an unplayable card while a different card is
+selected, do nothing.
 
 If a player single-clicks a playable DEVELOPER card (making it selected) and
 then shift-clicks (single-click while pressing the SHIFT key) on another
@@ -564,6 +564,9 @@ cards does nothing.
 
 If there is a valid combo selected, and the player single-clicks a different
 playable card, deselect both cards in the combo and select the new card.
+
+If any card or cards are selected, and the player clicks on the empty space in
+the hand area (not on a card), deselect all selected cards.
 
 For example:
   * Click NAK - select the card
@@ -579,33 +582,33 @@ For example:
 ##### Playing cards
 
 If there are no cards selected and the player clicks and drags a card to the
-discard-pile, that card is played (being selected is not a prerequisite).
+discard-pile, that card is selected (outlined) and played.
 
-If there is a single card selected and the player clicks and drags the selected
-card to the discard-pile, that card is played.
+If there is a single card selected and the player clicks and drags that
+selected card to the discard-pile, that card is played.
 
 If there is a single card selected and the player clicks and drags a different
-card to the discard-pile, the selected card is deselected and the second card
-is played.
-
-If there is a single DEVELOPER card selected and the player clicks and drags
-another identical card to the discard-pile, that is considered a valid combo,
-and both cards are played.
+card to the discard-pile, the originally selected card is deselected (outline
+removed) and the new card is selected (outlined) and played.
 
 If there is a valid combo of DEVELOPER cards selected and the player clicks and
-drags one of those cards to the discard-pile, both cards are played.
+drags one of those cards to the discard-pile, both cards are played together.
 
-If a single DEVELOPER card is played, that card is not played.  Return it to
-the player's hand with a message that "DEVELOPER cards must be played in
-pairs".
+If a single DEVELOPER card is dragged to the discard pile, that card is not
+played.  Return it to the player's hand.
 
 If there is a valid combo of cards selected and the player clicks and drags a
-different card to the discard-pile, that does not play any card, but the
-outline of the selected cards should flash 3 times.
+different card to the discard-pile, the combo is deselected (outline removed
+from both) and the new card is selected (outlined) and played.
+
+When dragging a combo of DEVELOPER cards to the discard-pile, both cards should
+be rendered as being dragged together.
 
 When a card or a combo is played, remove the card or cards from the player's
-hand, and put them on the discard-pile.  All players should see the top card of
-the discard-pile and receive a message about what was played.
+hand on the server, and put them on the discard-pile.  All players should see
+the top card of the discard-pile and receive a message about what was played,
+like "{player} played {card-class}" or "{player} played a pair of
+{card-class}".
 
 ##### Inspecting cards
 
@@ -1233,7 +1236,7 @@ hand.  The player is then asked to choose a card from 0 to N-1 (where N is the
 number of cards in the victim's hand). The victim gets a message saying
 "{player} stole a card from you" and to all other players saying "{player}
 stole a card from {victim}".  The card in the victim's hand at the chosen
-position flashes 3 times and then disappeard.  It is moved to the current
+position flashes 3 times and then disappears.  It is moved to the current
 player's hand.
 
 Playing an ATTACK card ends the current player's turn immediately, without
@@ -1557,7 +1560,8 @@ Implement card selection, including multi-card combos.
 ##### Phase 2.3: Playing cards
 
 Implement drag and drop of cards from the hand area to the discard-pile to play
-them (but do not implement the card actions yet).
+them (but do not implement the card actions yet).  This includes single and
+multi-card play.
 
 ##### Phase 2.4: Drawing cards
 
@@ -1588,6 +1592,6 @@ implemented, or which was not thought of during the design phase, but is
 actually needed.
 
 ## Part 3: Things not yet integrated in this doc
- - Game modifiers (less cards, more exploding cards, more upgrade cards)
+ - Game modifiers (less cards, more/less debug, exploding, upgrade cards, etc)
  - 3 card combos
  - Game PIN required to join
