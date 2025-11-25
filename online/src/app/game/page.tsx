@@ -565,8 +565,10 @@ export default function GameScreen() {
             style={{
               width: getCardSize().width,
               height: getCardSize().height,
-              border: snapshot.isDraggingOver ? '2px dashed #00FF00' : '2px dashed #FFA500',
-              borderRadius: '10px',
+              border: (gameState && gameState.discardPile.length > 0)
+                      ? 'none'
+                      : (snapshot.isDraggingOver ? '2px dashed #00FF00' : '2px dashed #FFA500'),
+              borderRadius: '25px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
