@@ -1104,7 +1104,11 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(currentDrawingOverlay).toBeVisible();
 
     // Verify other player sees draw pile flash (yellow border) and a message
-    await expect(otherPlayerPage.locator('.game-pile').first()).toHaveCSS('outline-color', 'rgb(255, 255, 0)'); // Yellow
+    // Wait for animation to start (it triggers on event)
+    const animatedHandCard = otherPlayerPage.locator('.hand-animation .hand-card img');
+    await expect(animatedHandCard).toBeVisible();
+    await expect(animatedHandCard).toHaveAttribute('src', /back\.png/); // Should be the generic back image
+
     await expect(otherPlayerPage.getByTestId('game-log')).toContainText(`${currentPlayerName} drew a card, it\'s ${nextPlayerName}\'s turn`);
     
     // Wait for 3 seconds for animation to complete
@@ -1161,5 +1165,77 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Turn should advance to P2
     const p2TurnArea = page2.locator('strong:has-text("It\'s your turn")').locator('xpath=..');
     await expect(p2TurnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)', { timeout: 5000 });
+  });
+
+  test('Play Combo', async ({ browser }) => {
+    const viewport = { width: 1200, height: 800 };
+    const ctx1 = await browser.newContext({ viewport });
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext({ viewport });
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click('text=Start Game');
+    await page1.waitForURL(/game/);
+    await page1.waitForLoadState('networkidle');
+
+    const handSection = page1.locator('h5:has-text("Your Hand")').locator('xpath=..');
+    const discardPile = page1.locator('text=Discard Pile').locator('xpath=..');
+    const messageArea = page1.getByTestId('game-log');
+
+    await expect(handSection.locator('img')).toHaveCount(8);
+
+    // In DEVMODE P1 Hand has 2 identical DEVELOPER cards
+    const devCards = handSection.locator('img[src*=\"developer_-_\"]');
+    const count = await devCards.count();
+    expect(count).toBeGreaterThanOrEqual(3);
+
+    // Find duplicates
+    let firstPairIndex = -1;
+    let secondPairIndex = -1;
+
+    for (let i = 0; i < count; i++) {
+        const src = await devCards.nth(i).getAttribute('src');
+        for (let j = i + 1; j < count; j++) {
+            const src2 = await devCards.nth(j).getAttribute('src');
+            if (src === src2) {
+                firstPairIndex = i;
+                secondPairIndex = j;
+                break;
+            }
+        }
+        if (firstPairIndex !== -1) break;
+    }
+
+    expect(firstPairIndex).not.toBe(-1);
+    
+    const card1 = devCards.nth(firstPairIndex);
+    const card2 = devCards.nth(secondPairIndex);
+
+    // Select first
+    await card1.click();
+    await expect(card1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+    
+    // Shift-select second
+    await page1.keyboard.down('Shift');
+    await card2.click();
+    await page1.keyboard.up('Shift');
+    
+    await expect(card1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+    await expect(card2.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+
+    // Drag combo to discard
+    const srcBox = await card1.boundingBox();
+    const dstBox = await discardPile.boundingBox();
+    if (!srcBox || !dstBox) throw new Error('Missing bounding box');
+
+    await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+    await page1.mouse.down();
+    await page1.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
+    await page1.mouse.up();
+
+    // Verify played
+    await expect(handSection.locator('img')).toHaveCount(6); // 8 - 2 = 6
+    await expect(messageArea).toContainText(`P1 played a pair of DEVELOPER`);
   });
 });

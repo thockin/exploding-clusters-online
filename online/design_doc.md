@@ -386,10 +386,16 @@ for all players.  If it is a regular card (not "EXPLODING CLUSTER" or "UPGRADE
 CLUSTER"), that card goes into their hand on the server and in their hand area,
 and their turn is over.
 
-When a player draws a card by clicking on the draw-pile, other players see the
-draw-pile flash yellow twice before the player list updates whose turn it it.
-We send a message to all players that "{player} drew a card", but not which
-card they drew.
+When a player draws a card by clicking on the draw-pile, other players see a
+hand come in from the top of the table area, centered on the draw pile.  The
+hand grabs the top card of the draw-pile, and then withdraws back up off the
+top of the screen with the top card of the deck.  During that time, game play
+is paused for all players.  If it is a regular card (not "EXPLODING CLUSTER" or
+"UPGRADE CLUSTER"), that card goes into the drawing player's hand on the server
+and in their hand area, and their turn is over.
+
+We send a message to all players that "{player} drew a card, it is
+{next-player}'s turn", but not which card they drew.
 
 ##### Drawing an EXPLODING CLUSTER card
 

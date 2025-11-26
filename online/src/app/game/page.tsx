@@ -931,7 +931,7 @@ export default function GameScreen() {
                 </div>
             )}
           </Col>
-          <Col md={9} className="d-flex flex-column" style={{ backgroundColor: '#228B22', borderRadius: '10px', padding: `${FIXED_TABLE_PADDING}px`, overflow: 'hidden', minHeight: 0 }} ref={tableAreaRef}>
+          <Col md={9} className="d-flex flex-column position-relative" style={{ backgroundColor: '#228B22', borderRadius: '10px', padding: `${FIXED_TABLE_PADDING}px`, overflow: 'hidden', minHeight: 0 }} ref={tableAreaRef}>
             <div 
                 className="d-flex justify-content-center align-items-center flex-grow-1" 
                 style={{ gap: `${FIXED_PILE_GAP}px` }}
@@ -944,13 +944,32 @@ export default function GameScreen() {
                         width: getCardSize().width, 
                         height: getCardSize().height,
                         cursor: 'pointer',
-                        outline: (drawingAnimation?.active && !drawingAnimation.card) ? '5px solid yellow' : 'none',
                         borderRadius: '5px' 
                     }}
                     onClick={handleDrawClick}
                   >
                     <Image src="/art/back.png" alt="Draw Pile" width={getCardSize().width} height={getCardSize().height} />
                     {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.drawPileCount} cards)</div>}
+                    
+                    {(drawingAnimation?.active && !drawingAnimation.card) && (
+                        <div className="hand-animation">
+                            <div className="hand-open" style={{ animation: 'toggleHand 2s step-end forwards' }}>
+                                <Image src="/art/hand_open.svg" alt="Hand Open" width={100} height={600} />
+                            </div>
+                            <div className="hand-closed" style={{ animation: 'toggleHandReverse 2s step-start forwards' }}>
+                                <Image src="/art/hand_closed.svg" alt="Hand Closed" width={100} height={600} />
+                            </div>
+                            <div className="hand-card" style={{ animation: 'toggleHandReverse 2s step-start forwards' }}>
+                                <Image 
+                                    src={'/art/back.png'} 
+                                    alt={'Card'} 
+                                    width={getCardSize().width} 
+                                    height={getCardSize().height} 
+                                    style={{position: 'absolute', left: `${(100 - getCardSize().width) / 2}px`}} /* Centered within hand div */
+                                /> 
+                            </div>
+                        </div>
+                    )}
                   </div>
               </div>
 

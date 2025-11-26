@@ -9,3 +9,58 @@
   color: red;
   animation: blinker 1s linear infinite;
 }
+
+@keyframes grabCard {
+  0% { top: -600px; } /* Start off-screen above */
+  40% { top: -450px; } /* Hand reaches down further over the card */
+  50% { top: -450px; } /* Pause to 'grab' */
+  100% { top: -2000px; } /* Retracts fully off-screen */
+}
+
+@keyframes showCard {
+  0%, 49% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+
+@keyframes toggleHand {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes toggleHandReverse {
+  0%, 49% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+
+.hand-animation {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 600px; /* Match SVG height */
+  animation: grabCard 2s ease-in-out forwards;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.hand-open {
+  position: absolute;
+  top: 0; left: 0;
+  animation: toggleHand 2s step-end forwards;
+}
+
+.hand-closed {
+  position: absolute;
+  top: 0; left: 0;
+  animation: toggleHandReverse 2s step-start forwards;
+}
+
+.hand-card {
+  position: absolute;
+  top: 520px; /* Aligned slightly below the center of the hand's grip in the SVG */
+  left: 10px; /* Centered in 100px width (card is ~80-100px?) */
+  width: 80px; /* Slightly smaller than hand area width? */
+  height: auto;
+  animation: showCard 2s step-start forwards;
+  z-index: -1; /* Behind hand */
+}

@@ -1,0 +1,12 @@
+<svg width="100" height="150" viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg">
+  <!-- Arm -->
+  <rect x="35" y="0" width="30" height="100" fill="#ffccaa" />
+  <!-- Hand -->
+  <circle cx="50" cy="110" r="35" fill="#ffccaa" />
+  <!-- Fingers -->
+  <ellipse cx="30" cy="130" rx="10" ry="20" fill="#ffccaa" />
+  <ellipse cx="50" cy="140" rx="10" ry="20" fill="#ffccaa" />
+  <ellipse cx="70" cy="130" rx="10" ry="20" fill="#ffccaa" />
+  <!-- Outline for definition -->
+  <path d="M35,0 L35,100 Q15,100 15,135 Q15,150 30,150 L70,150 Q85,150 85,135 Q85,100 65,100 L65,0" stroke="#dcb294" stroke-width="2" fill="none"/>
+</svg>
