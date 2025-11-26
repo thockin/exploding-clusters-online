@@ -138,19 +138,6 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (handAreaRef.current) {
-        setHandAreaWidth(handAreaRef.current.offsetWidth);
-        const observer = new ResizeObserver(entries => {
-            if (entries[0]) {
-                setHandAreaWidth(entries[0].contentRect.width);
-            }
-        });
-        observer.observe(handAreaRef.current);
-        return () => observer.disconnect();
-    }
-  }, [handAreaRef.current]); // Re-run if ref changes
-
-  useEffect(() => {
-    if (handAreaRef.current) {
         setHandAreaWidth(handAreaRef.current.clientWidth);
         const observer = new ResizeObserver(entries => {
             if (entries[0] && !isDraggingRef.current) {
@@ -944,7 +931,7 @@ export default function GameScreen() {
                 </div>
             )}
           </Col>
-          <Col md={9} className="d-flex flex-column" style={{ backgroundColor: '#228B22', borderRadius: '10px', padding: `${FIXED_TABLE_PADDING}px` }} ref={tableAreaRef}>
+          <Col md={9} className="d-flex flex-column" style={{ backgroundColor: '#228B22', borderRadius: '10px', padding: `${FIXED_TABLE_PADDING}px`, overflow: 'hidden', minHeight: 0 }} ref={tableAreaRef}>
             <div 
                 className="d-flex justify-content-center align-items-center flex-grow-1" 
                 style={{ gap: `${FIXED_PILE_GAP}px` }}
@@ -957,22 +944,22 @@ export default function GameScreen() {
                         width: getCardSize().width, 
                         height: getCardSize().height,
                         cursor: 'pointer',
-                        border: (drawingAnimation?.active && !drawingAnimation.card) ? '5px solid yellow' : 'none',
+                        outline: (drawingAnimation?.active && !drawingAnimation.card) ? '5px solid yellow' : 'none',
                         borderRadius: '5px' 
                     }}
                     onClick={handleDrawClick}
                   >
                     <Image src="/art/back.png" alt="Draw Pile" width={getCardSize().width} height={getCardSize().height} />
+                    {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.drawPileCount} cards)</div>}
                   </div>
-                  {gameState.devMode && <div className="text-white mt-1">({gameState.drawPileCount} cards)</div>}
               </div>
 
               {/* Discard Pile */}
               <div className="d-flex flex-column align-items-center">
-                  <div style={{ width: getCardSize().width, height: getCardSize().height }}>
+                  <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
                       {renderDiscardPile()}
+                      {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.discardPile.length} cards)</div>}
                   </div>
-                  {gameState.devMode && <div className="text-white mt-1">({gameState.discardPile.length} cards)</div>}
               </div>
             </div>
           </Col>
@@ -1034,6 +1021,7 @@ export default function GameScreen() {
           <Button 
              variant="secondary" 
              className="position-absolute bottom-0 end-0 m-3 w-auto"
+             style={{ zIndex: 10 }}
              onClick={() => setShowLeaveModal(true)}
           >
             Leave Game
@@ -1046,6 +1034,7 @@ export default function GameScreen() {
                  <Button 
                     variant="secondary" 
                     className="w-auto"
+                    style={{ zIndex: 10 }}
                     onClick={() => setShowLeaveModal(true)}
                  >
                    Leave Game

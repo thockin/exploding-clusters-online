@@ -1091,7 +1091,9 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const handSection = currentPlayerPage.locator('h5:has-text("Your Hand")').locator('xpath=..');
     await expect(handSection.locator('img')).toHaveCount(8, { timeout: 10000 });
     const initialHandCount = await handSection.locator('img').count();
+    const initialBox = await handSection.boundingBox();
     expect(initialHandCount).toBe(8); // DEVMODE starts with 8 cards
+    expect(initialBox).not.toBeNull();
 
     // Click the draw pile
     const drawPile = currentPlayerPage.locator('.game-pile').first();
@@ -1102,7 +1104,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(currentDrawingOverlay).toBeVisible();
 
     // Verify other player sees draw pile flash (yellow border) and a message
-    await expect(otherPlayerPage.locator('.game-pile').first()).toHaveCSS('border-color', 'rgb(255, 255, 0)'); // Yellow
+    await expect(otherPlayerPage.locator('.game-pile').first()).toHaveCSS('outline-color', 'rgb(255, 255, 0)'); // Yellow
     await expect(otherPlayerPage.getByTestId('game-log')).toContainText(`${currentPlayerName} drew a card, it\'s ${nextPlayerName}\'s turn`);
     
     // Wait for 3 seconds for animation to complete
@@ -1115,6 +1117,14 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Note: DEVMODE might have specific card logic, but for now we treat all as safe so hand count should +1
     const newHandCount = await handSection.locator('img').count();
     expect(newHandCount).toBe(initialHandCount + 1);
+    
+    // Verify layout stability
+    const finalBox = await handSection.boundingBox();
+    console.log('Initial Box:', initialBox);
+    console.log('Final Box:', finalBox);
+    expect(finalBox).not.toBeNull();
+    expect(Math.abs(finalBox!.height - initialBox!.height)).toBeLessThan(2); // Allow 1px rounding diff
+    expect(Math.abs(finalBox!.y - initialBox!.y)).toBeLessThan(2);
 
     // Verify turn advanced
     const nextPlayerTurnArea = otherPlayerPage.locator('strong:has-text("It\'s your turn")').locator('xpath=..');
