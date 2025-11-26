@@ -739,6 +739,7 @@ export default function GameScreen() {
                               className="m-1"
                               style={{
                                 boxShadow: isSelected ? '0 0 0 3px blue' : 'none',
+                                outline: 'none', // Prevent browser focus ring
                                 borderRadius: '5px',
                                 width: `${cardWidth}px`,
                                 height: `${cardWidth * 1.4}px`,

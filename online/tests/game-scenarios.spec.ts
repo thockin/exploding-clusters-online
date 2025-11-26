@@ -1003,4 +1003,65 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(newLast.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
     await expect(newSecondLast.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
   });
+
+  test('Card Selection Focus Ring', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    const code = await createGame(page, 'FocusTest');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page.click('text=Start Game');
+    await page.waitForURL(/game/);
+    
+    const handSection = page.locator('h5:has-text("Your Hand")').locator('xpath=..');
+    await expect(handSection.locator('img')).toHaveCount(8);
+
+    // Find identical DEVELOPER cards
+    const devCards = handSection.locator('img[src*="developer_-_"]');
+    const count = await devCards.count();
+    expect(count).toBeGreaterThanOrEqual(3);
+
+    let firstPairIndex = -1;
+    let secondPairIndex = -1;
+
+    for (let i = 0; i < count; i++) {
+        const src = await devCards.nth(i).getAttribute('src');
+        for (let j = i + 1; j < count; j++) {
+            const src2 = await devCards.nth(j).getAttribute('src');
+            if (src === src2) {
+                firstPairIndex = i;
+                secondPairIndex = j;
+                break;
+            }
+        }
+        if (firstPairIndex !== -1) break;
+    }
+
+    expect(firstPairIndex).not.toBe(-1);
+    
+    const card1 = devCards.nth(firstPairIndex);
+    const card2 = devCards.nth(secondPairIndex);
+
+    // Click first
+    await card1.click();
+    await expect(card1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+
+    // Shift-click second
+    await page.keyboard.down('Shift');
+    await card2.click();
+    await page.keyboard.up('Shift');
+
+    // Check selection style on card2
+    await expect(card2.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+
+    // Press Shift again to trigger focus ring behavior
+    await page.keyboard.down('Shift');
+    
+    // Assert that outline-style is 'none'
+    const card2Wrapper = card2.locator('xpath=..');
+    await expect(card2Wrapper).toHaveCSS('outline-style', 'none');
+    
+    await page.keyboard.up('Shift');
+  });
 });
