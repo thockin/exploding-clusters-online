@@ -1,3 +1,26 @@
+bugs:
+yellow outline vs card sliding off the top
+Allow play to proceed more quickly
+leave game is off screen
+logs
+
+2.4:
+   1. Interaction: Add a click handler to the Draw Pile in the UI.
+   2. Server Logic: Implement a drawCard event handler in GameManager.
+       * Validate it's the player's turn.
+       * Take the top card from the drawPile.
+       * Temporary Logic: For this phase, we treat all cards as "regular" (safe) cards. If we draw an Exploding/Upgrade cluster, we'll just add it
+         to the hand for now (or log it), as the specific logic for them is Phase 3.
+   3. UI/UX - Current Player:
+       * Show the drawn card in a large overlay for 3 seconds.
+       * "Game play is paused" (disable interactions).
+       * After 3s, add card to hand and clear overlay.
+   4. UI/UX - Other Players:
+       * See the draw pile flash yellow twice.
+       * Receive a message: "{player} drew a card".
+       * Do not see which card was drawn.
+   5. Turn Progression: The turn should end after the draw (and the 3s delay).
+
 Later:
 * Scale cards up in size as they get closert to discard pile (drag)
 * Visual glitch when playing a single developer card (should be unplayable)

@@ -12,5 +12,8 @@ Always change as little as possible to get the desired effect.
 
 Work on things one step at a time.  Don't try to do too much in one change.
 
-Unles specicifically requested, do not manipulate git.  That if for the human
+Unless specifically requested, do not manipulate git.  That is for the human
 to do.
+
+When running browser tests, use `npx playwright test --workers 4` to manage the
+impact on the machine.

@@ -41,6 +41,7 @@ export default function GameScreen() {
   const isDraggingRef = useRef(false);
   const clickStartPosRef = useRef({ x: 0, y: 0 });
   const isShiftKeyPressed = useRef(false);
+  const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: CardType, playerId?: string } | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -107,7 +108,8 @@ export default function GameScreen() {
       if (event.key === 'Escape') {
         setOverlayCard(null);
         setDeckOverlay(null);
-        setRemovedOverlay(null); // Close removed pile overlay
+        setRemovedOverlay(null);
+        setDrawingAnimation(null); // Clear drawing animation on Escape
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -316,6 +318,38 @@ export default function GameScreen() {
           socket.emit('showRemovedPile', gameCode);
       }
   };
+
+  const handleDrawClick = useCallback(() => {
+      if (!socket || !gameState) return;
+      
+      const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
+      if (currentPlayerId !== playerId) {
+          console.log("Not your turn to draw!");
+          return; // Or show toast
+      }
+      
+      socket.emit('drawCard', gameCode);
+  }, [socket, gameState, playerId, gameCode]);
+
+  useEffect(() => {
+      if (!socket) return;
+      
+      const onDrawAnimationStart = (data: { drawingPlayerId: string, card?: CardType, duration: number }) => {
+          console.debug('draw-animation-start', data);
+          setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId });
+          
+          // Clear animation after duration
+          setTimeout(() => {
+              setDrawingAnimation(null);
+          }, data.duration);
+      };
+      
+      socket.on('draw-animation-start', onDrawAnimationStart);
+      
+      return () => {
+          socket.off('draw-animation-start', onDrawAnimationStart);
+      };
+  }, [socket]);
 
   const onDragEnd = (result: DropResult) => {
     setIsDragging(false);
@@ -805,10 +839,15 @@ export default function GameScreen() {
 
   const isSpectator = gameState && !gameState.players.some(p => p.id === playerId);
 
+  // Determine which card to show in overlay: Drawing card takes precedence over inspection
+  const activeOverlayCard = drawingAnimation?.card || overlayCard;
+  // "Game play is paused" - block dismiss if drawing
+  const isDrawingPause = !!drawingAnimation?.active;
+
   return (
     <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart} onDragUpdate={onDragUpdate}>
       <Container fluid className="p-3 d-flex flex-column" style={{ height: '100vh', overflow: 'hidden' }}>
-        {overlayCard && (
+        {activeOverlayCard && (
           <div
             style={{
               position: 'fixed',
@@ -817,9 +856,15 @@ export default function GameScreen() {
               display: 'flex', justifyContent: 'center', alignItems: 'center',
               zIndex: 1000,
             }}
-            onClick={() => setOverlayCard(null)}
+            onClick={() => {
+                if (isDrawingPause) {
+                    setDrawingAnimation(null);
+                } else {
+                    setOverlayCard(null);
+                }
+            }}
           >
-            <Image src={overlayCard.imageUrl} alt={overlayCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
+            <Image src={activeOverlayCard.imageUrl} alt={activeOverlayCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
         )}
         
@@ -906,7 +951,17 @@ export default function GameScreen() {
             >
               {/* Draw Pile */}
               <div className="d-flex flex-column align-items-center">
-                  <div className="game-pile position-relative" style={{ width: getCardSize().width, height: getCardSize().height }}>
+                  <div 
+                    className="game-pile position-relative" 
+                    style={{ 
+                        width: getCardSize().width, 
+                        height: getCardSize().height,
+                        cursor: 'pointer',
+                        border: (drawingAnimation?.active && !drawingAnimation.card) ? '5px solid yellow' : 'none',
+                        borderRadius: '5px' 
+                    }}
+                    onClick={handleDrawClick}
+                  >
                     <Image src="/art/back.png" alt="Draw Pile" width={getCardSize().width} height={getCardSize().height} />
                   </div>
                   {gameState.devMode && <div className="text-white mt-1">({gameState.drawPileCount} cards)</div>}

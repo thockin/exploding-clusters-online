@@ -1303,12 +1303,10 @@ for source control.
 
 #### Logging
 
-This app should emit useful debugging logs, which can be used by humans or AIs
-when we hit a problem.  Make sure to include the game code in every log-line
-that relates to a game.
-
-If a log line is about a specific game, do not include the game code in the
-message, just in the log header.
+This app should emit useful debugging logs, both on the server's stdout or
+stderr and on the client's console, which can be used by humans or AIs when we
+hit a problem.  Make sure to include the game code in every log-line that
+relates to a game.
 
 When logging player names, always log both the player name, in double quotes,
 and the player ID.  For example `player "Joe Smith" (ABC123)`.
@@ -1320,8 +1318,18 @@ acronym. Thw words "game" and "player" and "server" are not proper nouns.
 
 Never end log lines with a period.
 
+##### Server logs
+
+If a log line is about a specific game, do not include the game code in the
+message, just in the log header.
+
 Add a server parameter which enables verbose logging, which includes logging
 every message sent and received by the server and client.
+
+##### Client logs
+
+Use `console.debug` for verbose logging on the client.  A normal game should
+not log very much to the console, unless debug logs are enabled.
 
 ### UI
 

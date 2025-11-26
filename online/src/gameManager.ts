@@ -108,6 +108,10 @@ export class GameManager {
                 this.playCombo(socket, data.gameCode, data.cardIds);
             });
 
+            socket.on('drawCard', (gameCode: string) => {
+                this.drawCard(socket, gameCode);
+            });
+
             // Handle voluntary leave
             socket.on('leaveGame', (gameCode: string) => {
                 const game = this.games.get(gameCode);
@@ -524,11 +528,11 @@ export class GameManager {
 
         // DEVMODE: Move Exploding Cluster to top
         if (game.devMode) {
-            const explodingIndex = game.drawPile.findIndex(c => c.cardClass === 'Exploding Cluster');
+            const explodingIndex = game.drawPile.findIndex(c => c.cardClass === 'EXPLODING CLUSTER');
             if (explodingIndex > -1) {
                 const [explodingCard] = game.drawPile.splice(explodingIndex, 1);
-                game.drawPile.unshift(explodingCard);
-                this.log(game, `DEVMODE: moved Exploding Cluster to top of deck`);
+                game.drawPile.push(explodingCard); // Push to end (which is the top for pop())
+                this.log(game, `DEVMODE: moved EXPLODING CLUSTER to top of deck`);
             }
         }
 
@@ -651,8 +655,8 @@ export class GameManager {
         const game = this.games.get(gameCode);
         if (!game || !game.devMode) return;
 
-        // Send the full deck to the requester
-        this.emitToSocket(socket.id, 'deckData', { deck: game.drawPile });
+        // Send the full deck to the requester, reversed so top is first
+        this.emitToSocket(socket.id, 'deckData', { deck: [...game.drawPile].reverse() });
     }
 
     private showRemovedPile(socket: Socket, gameCode: string) {
@@ -661,6 +665,91 @@ export class GameManager {
 
         // Send the removed pile to the requester
         this.emitToSocket(socket.id, 'removedData', { removedPile: game.removedPile });
+    }
+
+    private drawCard(socket: Socket, gameCode: string) {
+        const game = this.games.get(gameCode);
+        if (!game) return;
+
+        const player = game.players.find(p => p.socketId === socket.id);
+        if (!player) return;
+
+        // Validation
+        if (game.state !== 'started') {
+             this.emitToSocket(socket.id, 'gameMessage', { message: "Game not started." });
+             return;
+        }
+
+        if (game.turnOrder[game.currentTurnIndex] !== player.id) {
+             this.emitToSocket(socket.id, 'gameMessage', { message: "It's not your turn!" });
+             return;
+        }
+        
+        // Check if game is paused (e.g. another draw in progress)
+        if (game.timer) {
+             return; // Ignore if timer active
+        }
+
+        if (game.drawPile.length === 0) {
+             this.log(game, `draw pile empty, cannot draw`);
+             this.emitToSocket(socket.id, 'gameMessage', { message: "The deck is empty!" });
+             return;
+        }
+
+        const card = game.drawPile.pop()!;
+        this.log(game, `player "${player.name}" is drawing a card. Card is ${card.cardClass} (${card.name})`);
+
+        // Start animation phase
+        // Current player sees the card
+        this.emitToSocket(socket.id, 'draw-animation-start', { 
+            drawingPlayerId: player.id,
+            card: card, // They see the card
+            duration: 3000 
+        });
+
+        // Others see "someone drew" (no card info)
+        for (const p of game.players) {
+            if (p.id !== player.id && p.socketId) {
+                this.emitToSocket(p.socketId, 'draw-animation-start', {
+                    drawingPlayerId: player.id,
+                    duration: 3000
+                });
+            }
+        }
+        // Spectators
+        for (const s of game.spectators) {
+             this.emitToSocket(s.socketId, 'draw-animation-start', {
+                drawingPlayerId: player.id,
+                duration: 3000
+            });
+        }
+
+        // Notify "X drew a card" is now inside setTimeout to include next player's turn.
+
+        // Set timer to finalize
+        game.timer = setTimeout(() => {
+            game.timer = null;
+            
+            // Add to hand
+            player.hand.push(card);
+            
+            // Handle Exploding/Upgrade logic later (Phase 3). 
+            // For Phase 2.4: "If it is a regular card... that card goes into their hand... and their turn is over."
+            // We treat ALL cards as regular for now.
+
+            // Advance turn
+            game.currentTurnIndex = (game.currentTurnIndex + 1) % game.turnOrder.length;
+            const nextPlayerId = game.turnOrder[game.currentTurnIndex];
+            const nextPlayer = game.players.find(p => p.id === nextPlayerId);
+
+            if (nextPlayer) {
+                this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} drew a card, it's ${nextPlayer.name}'s turn` });
+            }
+
+            this.log(game, `draw animation finished. Turn advanced to ${game.turnOrder[game.currentTurnIndex]}`);
+            this.updateGameNonce(game); // Sends updated state (hand, turn, etc)
+
+        }, 3000);
     }
 
     private reorderHand(socket: Socket, gameCode: string, newHand: Card[]) {

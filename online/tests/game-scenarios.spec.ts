@@ -1064,4 +1064,92 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     
     await page.keyboard.up('Shift');
   });
+
+  test('Draw Card', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    // Start game
+    await page1.click('text=Start Game');
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    // Determine whose turn it is (In DEVMODE, P1 should always start)
+    await expect(page1.locator('strong:has-text("It\'s your turn")')).toBeVisible({ timeout: 10000 });
+    
+    const currentPlayerPage = page1;
+    const otherPlayerPage = page2;
+    const currentPlayerName = 'P1';
+    const nextPlayerName = 'P2'; // In DEVMODE, P1 is followed by P2
+
+    // Get initial hand count for current player
+    const handSection = currentPlayerPage.locator('h5:has-text("Your Hand")').locator('xpath=..');
+    await expect(handSection.locator('img')).toHaveCount(8, { timeout: 10000 });
+    const initialHandCount = await handSection.locator('img').count();
+    expect(initialHandCount).toBe(8); // DEVMODE starts with 8 cards
+
+    // Click the draw pile
+    const drawPile = currentPlayerPage.locator('.game-pile').first();
+    await drawPile.click();
+    
+    // Verify current player sees the overlay with the drawn card
+    const currentDrawingOverlay = currentPlayerPage.locator('div[style*="z-index: 1000"] img');
+    await expect(currentDrawingOverlay).toBeVisible();
+
+    // Verify other player sees draw pile flash (yellow border) and a message
+    await expect(otherPlayerPage.locator('.game-pile').first()).toHaveCSS('border-color', 'rgb(255, 255, 0)'); // Yellow
+    await expect(otherPlayerPage.getByTestId('game-log')).toContainText(`${currentPlayerName} drew a card, it\'s ${nextPlayerName}\'s turn`);
+    
+    // Wait for 3 seconds for animation to complete
+    await currentPlayerPage.waitForTimeout(3500); // Slightly > 3000ms
+
+    // Verify overlay is gone for current player
+    await expect(currentDrawingOverlay).not.toBeVisible();
+
+    // Verify hand count increased for current player
+    // Note: DEVMODE might have specific card logic, but for now we treat all as safe so hand count should +1
+    const newHandCount = await handSection.locator('img').count();
+    expect(newHandCount).toBe(initialHandCount + 1);
+
+    // Verify turn advanced
+    const nextPlayerTurnArea = otherPlayerPage.locator('strong:has-text("It\'s your turn")').locator('xpath=..');
+    await expect(nextPlayerTurnArea).toBeVisible();
+    await expect(nextPlayerTurnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)'); // lightgreen
+  });
+
+  test('Dismiss Draw Overlay', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    await page1.click('text=Start Game');
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    // P1 draws a card
+    const drawPile = page1.locator('.game-pile').first();
+    await drawPile.click();
+
+    // Verify overlay appears
+    const overlay = page1.locator('div[style*="z-index: 1000"] img');
+    await expect(overlay).toBeVisible();
+    
+    // Click to dismiss (should disappear immediately)
+    await overlay.click();
+    await expect(overlay).not.toBeVisible();
+    
+    // Wait for server-side timeout (3s) to complete the turn
+    // Turn should advance to P2
+    const p2TurnArea = page2.locator('strong:has-text("It\'s your turn")').locator('xpath=..');
+    await expect(p2TurnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)', { timeout: 5000 });
+  });
 });
