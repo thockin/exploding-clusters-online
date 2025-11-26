@@ -340,11 +340,77 @@ export default function GameScreen() {
         const destRowIndex = parseInt(destination.droppableId.replace('hand-row-', ''), 10);
 
         const sourceGlobalIndex = sourceRowIndex * cols + source.index;
-        const destGlobalIndex = destRowIndex * cols + destination.index;
+        let destGlobalIndex = destRowIndex * cols + destination.index;
 
-        const newHand = Array.from(myHand);
-        const [reorderedItem] = newHand.splice(sourceGlobalIndex, 1);
-        newHand.splice(destGlobalIndex, 0, reorderedItem);
+        // Fix row offset for cross-row drags
+        if (destRowIndex > sourceRowIndex) {
+            destGlobalIndex -= 1;
+        }
+
+        const draggedCard = myHand[sourceGlobalIndex];
+        // Check if dragging a card that is part of the selection
+        const isMultiMove = selectedCards.length > 1 && selectedCards.some(c => c.id === draggedCard.id);
+
+        let newHand: CardType[];
+
+        if (isMultiMove) {
+            // Get selected IDs for quick lookup
+            const selectedIds = new Set(selectedCards.map(c => c.id));
+            
+            // Get ordered selection (to maintain relative order)
+            const orderedSelection = myHand.filter(c => selectedIds.has(c.id));
+            
+            // Hand without ANY selected cards (final base)
+            const handWithoutSelection = myHand.filter(c => !selectedIds.has(c.id));
+            
+            // Hand with ONLY the dragged card removed (for dnd reference)
+            const handWithoutAnchor = myHand.filter(c => c.id !== draggedCard.id);
+            
+            console.debug('Multi-move trace', {
+                destGlobalIndex,
+                handWithoutAnchorLength: handWithoutAnchor.length,
+                handWithoutAnchorIds: handWithoutAnchor.map(c => c.id),
+                selectedIds: Array.from(selectedIds)
+            });
+
+            // Determine insertion reference
+            // dndDestIndex points to an index in handWithoutAnchor
+            // We need to find the first non-selected card at or after this position
+            let trueReferenceCard: CardType | null = null;
+            
+            // Start looking from the drop index
+            // Handle append case
+            if (destGlobalIndex >= handWithoutAnchor.length) {
+                trueReferenceCard = null;
+            } else {
+                for (let i = destGlobalIndex; i < handWithoutAnchor.length; i++) {
+                    const candidate = handWithoutAnchor[i];
+                    if (!selectedIds.has(candidate.id)) {
+                        trueReferenceCard = candidate;
+                        break;
+                    }
+                }
+            }
+
+            console.debug('trueReferenceCard', trueReferenceCard?.id);
+
+            // Find insertion index in the clean hand
+            let insertIndex = handWithoutSelection.length;
+            if (trueReferenceCard) {
+                const idx = handWithoutSelection.findIndex(c => c.id === trueReferenceCard!.id);
+                if (idx !== -1) insertIndex = idx;
+            }
+            
+            console.debug('insertIndex', insertIndex);
+
+            newHand = [...handWithoutSelection];
+            newHand.splice(insertIndex, 0, ...orderedSelection);
+
+        } else {
+            newHand = Array.from(myHand);
+            const [reorderedItem] = newHand.splice(sourceGlobalIndex, 1);
+            newHand.splice(destGlobalIndex, 0, reorderedItem);
+        }
 
         // Ensure selection persists
         const currentSelection = selectedCards;
