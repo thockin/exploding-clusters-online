@@ -6,6 +6,7 @@
     "dev": "nodemon --watch server.ts --exec \"ts-node --project tsconfig.server.json server.ts\"",
     "build": "next build && tsc --project tsconfig.server.json",
     "start": "NODE_ENV=production node .next/server.js",
+    "test": "jest",
     "lint": "eslint"
   },
   "dependencies": {
