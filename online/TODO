@@ -1,6 +1,6 @@
 Fix cursor-flagged isues
 Look at logs
-Don't send discard pile count to GameUpdate
+state: 'lobby' | 'started' | 'ended';
 
 Later:
 * Hand animation is ugly

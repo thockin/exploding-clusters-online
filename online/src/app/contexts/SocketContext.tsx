@@ -22,11 +22,12 @@ interface GameState {
   devMode: boolean;
   turnOrder: string[];
   currentTurnIndex: number;
-  drawPileCount: number;
-  discardPile: Card[];
-  removedPileCount?: number; // New: number of cards in the removed pile
-  debugCardsCount?: number;
-  safeCardsCount?: number; // New: number of safe cards in the draw pile
+  drawPileCount?: number;    // optional, devMode only
+  discardPile?: Card[];      // optional, devMode only
+  topDiscardCard?: Card;     // optional (may be no discarded cards)
+  removedPileCount?: number; // optional, devMode only
+  debugCardsCount?: number;  // optional, devMode only
+  safeCardsCount?: number;   // optional, devMode only
   // Add other game state properties as they become relevant
 }
 
@@ -238,21 +239,22 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setPlayerName(null);
     });
 
-    socketIo.on('gameUpdate', (data: { 
-      gameCode: string; 
-      nonce: string; 
-      players: PlayerInfo[]; 
-      state: 'lobby' | 'started' | 'ended'; 
-      gameOwnerId: string; 
-      spectators: { id: string; name: string }[]; 
+    socketIo.on('gameUpdate', (data: {
+      gameCode: string;
+      nonce: string;
+      players: PlayerInfo[];
+      state: 'lobby' | 'started' | 'ended';
+      gameOwnerId: string;
+      spectators: { id: string; name: string }[];
       devMode: boolean;
       turnOrder: string[];
       currentTurnIndex: number;
-      drawPileCount: number;
-      discardPile: Card[];
-      removedPileCount?: number; // New: number of cards in the removed pile
-      debugCardsCount?: number;
-      safeCardsCount?: number; // New: number of safe cards in the draw pile
+      drawPileCount?: number;    // optional
+      discardPile?: Card[];      // optional
+      topDiscardCard?: Card;     // optional
+      removedPileCount?: number; // optional
+      debugCardsCount?: number;  // optional
+      safeCardsCount?: number;   // optional
     }) => {
       setGameState(() => {
         const newState: GameState = {
@@ -265,11 +267,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           devMode: data.devMode,
           turnOrder: data.turnOrder || [],
           currentTurnIndex: data.currentTurnIndex || 0,
-          drawPileCount: data.drawPileCount || 0,
-          discardPile: data.discardPile || [],
-          removedPileCount: data.removedPileCount || 0, // Set new removed pile count
+          // Handle optional fields
+          drawPileCount: data.drawPileCount,
+          discardPile: data.discardPile,
+          topDiscardCard: data.topDiscardCard,
+          removedPileCount: data.removedPileCount,
           debugCardsCount: data.debugCardsCount,
-          safeCardsCount: data.safeCardsCount // Set new safe cards count
+          safeCardsCount: data.safeCardsCount
         };
         return newState;
       });

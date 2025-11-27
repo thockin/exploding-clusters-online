@@ -672,7 +672,7 @@ export default function GameScreen() {
             style={{
               width: getCardSize().width,
               height: getCardSize().height,
-              border: (gameState && gameState.discardPile.length > 0)
+              border: (gameState && gameState.topDiscardCard)
                       ? 'none'
                       : (snapshot.isDraggingOver ? '2px dashed #00FF00' : '2px dashed #FFA500'),
               borderRadius: '25px',
@@ -683,10 +683,10 @@ export default function GameScreen() {
             }}
           >
             <h5 style={{ color: '#FFA500', position: 'absolute' }}>Discard Pile</h5>
-             {gameState && gameState.discardPile.length > 0 && (
+             {gameState && gameState.topDiscardCard && (
               <Image
-                src={gameState.discardPile[gameState.discardPile.length - 1].imageUrl}
-                alt="Discard Pile"
+                src={gameState.topDiscardCard.imageUrl}
+                alt={gameState.topDiscardCard.name}
                 fill
                 sizes="(max-width: 768px) 100px, 150px"
                 style={{ objectFit: 'contain', borderRadius: '10px' }}
@@ -924,11 +924,11 @@ export default function GameScreen() {
                         variant="warning" 
                         size="sm" 
                         onClick={handleGiveDebugCard} 
-                        disabled={(gameState.debugCardsCount || 0) === 0}
+                        disabled={(gameState.debugCardsCount ?? 0) === 0}
                     >
                         Give me a DEBUG card
                     </Button>
-                    <Button variant="warning" size="sm" onClick={handleDevDrawCard} disabled={(gameState.safeCardsCount || 0) === 0}>Give me a safe card</Button>
+                    <Button variant="warning" size="sm" onClick={handleDevDrawCard} disabled={(gameState.safeCardsCount ?? 0) === 0}>Give me a safe card</Button>
                     <Button variant="info" size="sm" onClick={handleShowDeck}>Show the deck</Button>
                     <Button variant="info" size="sm" onClick={handleShowRemovedPile}>Show removed cards</Button>
                 </div>
@@ -952,7 +952,7 @@ export default function GameScreen() {
                     onClick={handleDrawClick}
                   >
                     <Image src="/art/back.png" alt="Draw Pile" width={getCardSize().width} height={getCardSize().height} />
-                    {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.drawPileCount} cards)</div>}
+                    {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
                     
                     {(drawingAnimation?.active && !drawingAnimation.card) && (
                         <div className="hand-animation">
@@ -980,7 +980,7 @@ export default function GameScreen() {
               <div className="d-flex flex-column align-items-center">
                   <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
                       {renderDiscardPile()}
-                      {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.discardPile.length} cards)</div>}
+                      {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.discardPile?.length !== undefined ? gameState.discardPile.length : '??'} cards)</div>}
                   </div>
               </div>
             </div>

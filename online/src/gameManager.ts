@@ -223,7 +223,6 @@ export class GameManager {
         let unique = false;
         while (!unique) {
             code = Array.from({ length: 5 }, () => alphabet[Math.floor(this.prng.random() * alphabet.length)]).join('');
-            // TODO: Implement swear word check
             if (!this.games.has(code)) {
                 unique = true;
             }
@@ -249,35 +248,44 @@ export class GameManager {
         this.io.to(socketId).emit(event, data);
     }
 
-        private getGameUpdateData(game: Game) {
+    private getGameUpdateData(game: Game) {
+        const topDiscardCard = game.discardPile.length > 0 ? game.discardPile[game.discardPile.length - 1] : undefined;
+
+        const baseData: any = { // eslint-disable-line @typescript-eslint/no-explicit-any
+            gameCode: game.code,
+            nonce: game.nonce,
+            players: game.players
+                .filter(p => !p.isDisconnected)
+                .map(p => ({ id: p.id, name: p.name, cards: p.hand.length, isOut: p.isOut, isDisconnected: p.isDisconnected })),
+            state: game.state,
+            gameOwnerId: game.gameOwnerId,
+            spectators: game.spectators,
+            devMode: game.devMode,
+            turnOrder: game.turnOrder,
+            currentTurnIndex: game.currentTurnIndex,
+            topDiscardCard: topDiscardCard, // Always send top card for rendering
+        };
+
+        if (game.devMode) {
             const debugCount = game.drawPile.filter(c => c.cardClass.includes('DEBUG')).length;
             const safeCardsCount = game.drawPile.filter(c => c.cardClass !== 'EXPLODING_CLUSTER' && c.cardClass !== 'UPGRADE_CLUSTER').length;
-         
+
             return {
-                gameCode: game.code,
-                nonce: game.nonce,
-                // Filter out disconnected players for the client view
-                players: game.players
-                    .filter(p => !p.isDisconnected)
-                    .map(p => ({ id: p.id, name: p.name, cards: p.hand.length, isOut: p.isOut, isDisconnected: p.isDisconnected })),
-                state: game.state,
-                gameOwnerId: game.gameOwnerId,
-                spectators: game.spectators,
-                devMode: game.devMode,
-                turnOrder: game.turnOrder,
-                currentTurnIndex: game.currentTurnIndex,
+                ...baseData,
                 drawPileCount: game.drawPile.length,
-                discardPile: game.discardPile,
+                discardPile: game.discardPile, // Full discard pile in DEVMODE
                 removedPileCount: game.removedPile.length,
                 debugCardsCount: debugCount,
                 safeCardsCount: safeCardsCount
             };
+        } else {
+            return baseData;
         }
-    
-        private emitGameUpdate(game: Game) {
-            const data = this.getGameUpdateData(game);
-            this.emitToRoom(game.code, 'gameUpdate', data);
-        }
+    }
+    private emitGameUpdate(game: Game) {
+        const data = this.getGameUpdateData(game);
+        this.emitToRoom(game.code, 'gameUpdate', data);
+    }
     private updateGameNonce(game: Game) {
         // Purge disconnected players whenever nonce changes
         const initialPlayers = game.players; // Keep a reference to original players
