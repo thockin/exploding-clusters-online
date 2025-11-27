@@ -132,7 +132,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const code = await createGame(page1, 'Host');
 
     const ctx2 = await browser.newContext();
-    let page2 = await ctx2.newPage();
+    const page2 = await ctx2.newPage();
     await joinGame(page2, 'Leaver', code);
     await expect(page2.locator('text=Lobby - Game Code')).toBeVisible();
     
@@ -644,7 +644,6 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // We check P1. If it's P1's turn, we use P2. Otherwise P1.
     const p1Turn = await page1.locator('text=It\'s your turn').isVisible();
     const targetPage = p1Turn ? page2 : page1;
-    const targetName = p1Turn ? 'P2' : 'P1';
     
     //targetPage.on('console', msg => console.log('PAGE LOG:', msg.text()));
 
@@ -678,23 +677,19 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // [0, 1, 2, 3, 4, 5, 6, 7] -> move 0 to 4 -> [1, 2, 3, 0, 4, 5, 6, 7]
     // New layout: [1, 2, 3, 0] [4, 5, 6, 7] (since 4 per row)
     
-    let card0 = row1Cards.nth(0).locator('img');
-    let card0Id = await card0.getAttribute('alt');
-    
-    let card4 = row2Cards.nth(0).locator('img'); // Target
-    let card4Id = await card4.getAttribute('alt'); // Define card4Id
+    const card0 = row1Cards.nth(0).locator('img');
+    const card0Id = await card0.getAttribute('alt');
     
     // Remove scrolls - 2 rows should fit in 35vh (approx 280px)
     // Row height ~140px. 2 rows = 280px. Tight but might fit.
     
     // Get bounding boxes
-    let card0Div = row1Cards.nth(0);
-    let card1Div = row1Cards.nth(1);
-    let card4Div = row2Cards.nth(0);
+    const card0Div = row1Cards.nth(0);
+    const card1Div = row1Cards.nth(1);
 
-    let srcBox = await card0Div.boundingBox();
-    let card1Box = await card1Div.boundingBox();
-    let dstBox = await card4Div.boundingBox(); 
+    const srcBox = await card0Div.boundingBox();
+    const card1Box = await card1Div.boundingBox();
+    const dstBox = await row2Cards.nth(0).boundingBox();
     
     if (!srcBox || !dstBox || !card1Box) throw new Error('Missing bounding box');
 
@@ -707,14 +702,14 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await targetPage.waitForTimeout(1000);
     
     // Verify 0 is now at index 1
-    let newRow1Idx1 = await row1Cards.nth(1).locator('img').getAttribute('alt');
+    const newRow1Idx1 = await row1Cards.nth(1).locator('img').getAttribute('alt');
     expect(newRow1Idx1).toBe(card0Id);
     
     // Reset
-    let currentCard0Div = row1Cards.nth(1); // 0 is here
-    let currentCard1Div = row1Cards.nth(0); // 1 is here
-    let currentCard0Box = await currentCard0Div.boundingBox();
-    let currentCard1Box = await currentCard1Div.boundingBox();
+    const currentCard0Div = row1Cards.nth(1); // 0 is here
+    const currentCard1Div = row1Cards.nth(0); // 1 is here
+    const currentCard0Box = await currentCard0Div.boundingBox();
+    const currentCard1Box = await currentCard1Div.boundingBox();
     
     await targetPage.mouse.move(currentCard0Box!.x + currentCard0Box!.width / 2, currentCard0Box!.y + currentCard0Box!.height / 2);
     await targetPage.mouse.down();

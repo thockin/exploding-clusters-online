@@ -222,7 +222,10 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const socketIo = io();
-    setSocket(socketIo);
+    setTimeout(() => {
+        setSocket(socketIo);
+    }, 0);
+
 
     socketIo.on('connect', () => {
       console.log('Connected to WebSocket server');
