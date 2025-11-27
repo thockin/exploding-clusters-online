@@ -2,6 +2,7 @@
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
+import { IncomingMessage, ServerResponse } from 'http';
 import { Card, fullDeck, shuffleDeck } from './app/game/deck';
 import { PseudoRandom } from './utils/PseudoRandom';
 
@@ -26,7 +27,7 @@ interface Game {
     drawPile: Card[]; 
     discardPile: Card[]; 
     removedPile: Card[]; // New: cards removed from the game
-    pendingOperations: any[]; // To be defined later
+    pendingOperations: any[]; // To be defined later // eslint-disable-next-line @typescript-eslint/no-explicit-any
     gameOwnerId: string;
     nonce: string; // For reconnection logic
     timer: NodeJS.Timeout | null;
@@ -59,6 +60,7 @@ export class GameManager {
             this.log(null, `socket connected: ${socket.id}`);
 
             if (this.verbose) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 socket.onAny((eventName: string, ...args: any[]) => {
                     this.log(null, `received event "${eventName}" from ${socket.id}: ${JSON.stringify(args)}`);
                 });
@@ -229,18 +231,16 @@ export class GameManager {
         return randomBytes(8).toString('hex');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private emitToRoom(room: string, event: string, data?: any) {
+    private emitToRoom(room: string, event: string, data?: unknown) {
         if (this.verbose) {
-            this.log(null, `sending event "${event}" to room ${room}: ${JSON.stringify(data)}`);
+            this.log(null, `sending event "${event}" to room ${room}: ${JSON.stringify(data as string)}`);
         }
         this.io.to(room).emit(event, data);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private emitToSocket(socketId: string, event: string, data?: any) {
+    private emitToSocket(socketId: string, event: string, data?: unknown) {
         if (this.verbose) {
-            this.log(null, `sending event "${event}" to socket ${socketId}: ${JSON.stringify(data)}`);
+            this.log(null, `sending event "${event}" to socket ${socketId}: ${JSON.stringify(data as string)}`);
         }
         this.io.to(socketId).emit(event, data);
     }
@@ -1069,8 +1069,8 @@ export class GameManager {
         }
     }
 
-    public handleInfozRequest(req: any, res: any) {
-        const url = req.url.split('?')[0];
+    public handleInfozRequest(req: IncomingMessage, res: ServerResponse) {
+        const url = req.url ? req.url.split('?')[0] : '/';
         
         if (url === '/infoz') {
             res.writeHead(200, { 'Content-Type': 'text/html' });
