@@ -1,10 +1,12 @@
-bugs:
-logs
+Fix lint
+Fix cursor-flagged isues
+Look at logs
+look at event names and pick a style "play-card" vs "playCard"
 
 Later:
 * Hand animation is ugly
   - need configurable skin colors?
-* Scale cards up in size as they get closert to discard pile (drag)
+* Scale cards up in size as they get closer to discard pile (drag)
 * Visual glitch when playing a single developer card (should be unplayable)
 * Reduce card spacing in hand or even overlap them?
 * copyrights on art and code
