@@ -222,7 +222,6 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const socketIo = io();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     setSocket(socketIo);
 
     socketIo.on('connect', () => {
