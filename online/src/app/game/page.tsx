@@ -66,7 +66,9 @@ export default function GameScreen() {
           if (prevGameState.gameOwnerId !== playerId && gameState.gameOwnerId === playerId) {
               const prevOwner = prevGameState.players.find(p => p.id === prevGameState.gameOwnerId);
               const prevOwnerName = prevOwner ? prevOwner.name : 'The previous host';
-              setHostPromotionMessage(`${prevOwnerName} left the game, so you have been selected as the new game owner. Congratulations on your promotion!`);
+              setTimeout(() => {
+                  setHostPromotionMessage(`${prevOwnerName} left the game, so you have been selected as the new game owner. Congratulations on your promotion!`);
+              }, 0);
           }
       }
   }, [gameState, playerId]);
@@ -147,7 +149,7 @@ export default function GameScreen() {
         observer.observe(handAreaRef.current);
         return () => observer.disconnect();
     }
-  }, [handAreaRef.current]); // Re-run if ref changes
+  }, []);
 
   const handleGameEndConfirm = useCallback(() => {
       resetState();
@@ -280,7 +282,7 @@ export default function GameScreen() {
 
     const maxWidth = chosenCols * chosenFullWidth + 2; // Buffer
     return { maxWidth, cardWidth: chosenCardWidth, cols: chosenCols };
-  }, [handAreaWidth]);
+  }, []);
 
   const handleGiveDebugCard = () => {
       if (socket && gameCode) {
@@ -748,6 +750,7 @@ export default function GameScreen() {
                               {...providedDraggable.draggableProps}
                               {...providedDraggable.dragHandleProps}
                               onMouseDown={(e) => {
+                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                   (providedDraggable.dragHandleProps as any)?.onMouseDown?.(e);
                                   clickStartPosRef.current = { x: e.clientX, y: e.clientY };
                               }}
