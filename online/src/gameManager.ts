@@ -249,32 +249,35 @@ export class GameManager {
         this.io.to(socketId).emit(event, data);
     }
 
-    private emitGameUpdate(game: Game) {
-        // Use inclusive check to catch potential type issues
-        const debugCount = game.drawPile.filter(c => c.cardClass.includes('DEBUG')).length;
-        const safeCardsCount = game.drawPile.filter(c => c.cardClass !== 'EXPLODING_CLUSTER' && c.cardClass !== 'UPGRADE_CLUSTER').length;
-
-        this.emitToRoom(game.code, 'gameUpdate', {
-            gameCode: game.code,
-            nonce: game.nonce,
-            // Filter out disconnected players for the client view
-            players: game.players
-                .filter(p => !p.isDisconnected)
-                .map(p => ({ id: p.id, name: p.name, cards: p.hand.length, isOut: p.isOut, isDisconnected: p.isDisconnected })),
-            state: game.state,
-            gameOwnerId: game.gameOwnerId,
-            spectators: game.spectators,
-            devMode: game.devMode,
-            turnOrder: game.turnOrder,
-            currentTurnIndex: game.currentTurnIndex,
-            drawPileCount: game.drawPile.length,
-            discardPile: game.discardPile,
-            removedPileCount: game.removedPile.length, // New: include removed pile count
-            debugCardsCount: debugCount,
-            safeCardsCount: safeCardsCount
-        });
-    }
-
+        private getGameUpdateData(game: Game) {
+            const debugCount = game.drawPile.filter(c => c.cardClass.includes('DEBUG')).length;
+            const safeCardsCount = game.drawPile.filter(c => c.cardClass !== 'EXPLODING_CLUSTER' && c.cardClass !== 'UPGRADE_CLUSTER').length;
+         
+            return {
+                gameCode: game.code,
+                nonce: game.nonce,
+                // Filter out disconnected players for the client view
+                players: game.players
+                    .filter(p => !p.isDisconnected)
+                    .map(p => ({ id: p.id, name: p.name, cards: p.hand.length, isOut: p.isOut, isDisconnected: p.isDisconnected })),
+                state: game.state,
+                gameOwnerId: game.gameOwnerId,
+                spectators: game.spectators,
+                devMode: game.devMode,
+                turnOrder: game.turnOrder,
+                currentTurnIndex: game.currentTurnIndex,
+                drawPileCount: game.drawPile.length,
+                discardPile: game.discardPile,
+                removedPileCount: game.removedPile.length,
+                debugCardsCount: debugCount,
+                safeCardsCount: safeCardsCount
+            };
+        }
+    
+        private emitGameUpdate(game: Game) {
+            const data = this.getGameUpdateData(game);
+            this.emitToRoom(game.code, 'gameUpdate', data);
+        }
     private updateGameNonce(game: Game) {
         // Purge disconnected players whenever nonce changes
         const initialPlayers = game.players; // Keep a reference to original players
@@ -439,6 +442,7 @@ export class GameManager {
 
         this.log(game, `spectator ${socket.id} joined the game`);
         this.emitGameUpdate(game); // Notify clients without changing nonce
+        this.emitToSocket(socket.id, 'gameUpdate', this.getGameUpdateData(game)); // Ensure delivery to joiner
         callback({ success: true, gameCode });
     }
 

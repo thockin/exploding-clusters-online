@@ -1,7 +1,6 @@
-Fix lint
 Fix cursor-flagged isues
 Look at logs
-look at event names and pick a style "play-card" vs "playCard"
+Don't send discard pile count to GameUpdate
 
 Later:
 * Hand animation is ugly
