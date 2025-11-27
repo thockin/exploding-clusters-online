@@ -27,7 +27,7 @@ interface Game {
     drawPile: Card[]; 
     discardPile: Card[]; 
     removedPile: Card[]; // New: cards removed from the game
-    pendingOperations: any[]; // To be defined later // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    pendingOperations: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
     gameOwnerId: string;
     nonce: string; // For reconnection logic
     timer: NodeJS.Timeout | null;
