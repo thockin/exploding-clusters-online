@@ -83,26 +83,30 @@ export class GameManager {
             });
 
             socket.on('giveDebugCard', (gameCode: string) => {
+                if (!devMode) return;
                 this.giveDebugCard(socket, gameCode);
             });
 
-            socket.on('devDrawCard', (gameCode: string) => {
-                this.devDrawCard(socket, gameCode);
+            socket.on('giveSafeCard', (gameCode: string) => {
+                if (!devMode) return;
+                this.giveSafeCard(socket, gameCode);
             });
 
             socket.on('showDeck', (gameCode: string) => {
+                if (!devMode) return;
                 this.showDeck(socket, gameCode);
             });
 
             socket.on('showRemovedPile', (gameCode: string) => {
+                if (!devMode) return;
                 this.showRemovedPile(socket, gameCode);
             });
 
-            socket.on('reorder-hand', ({ gameCode, newHand }: { gameCode: string; newHand: Card[] }) => {
+            socket.on('reorderHand', ({ gameCode, newHand }: { gameCode: string; newHand: Card[] }) => {
                 this.reorderHand(socket, gameCode, newHand);
             });
 
-            socket.on('play-card', (data: { gameCode: string; cardId: string }) => {
+            socket.on('playCard', (data: { gameCode: string; cardId: string }) => {
                 this.playCard(socket, data.gameCode, data.cardId);
             });
 
@@ -127,7 +131,7 @@ export class GameManager {
                 if (playerIndex !== -1) {
                     playerRemoved = true;
                     const player = game.players[playerIndex];
-                    
+
                     // If game started, remove from turnOrder
                     if (game.state === 'started') {
                         const turnIndex = game.turnOrder.indexOf(player.id);
@@ -193,7 +197,7 @@ export class GameManager {
                         this.emitGameUpdate(game); // Just update list (spectator left)
                     }
                 }
-                
+
                 this.playerToGameMap.delete(socket.id);
                 // Socket will disconnect naturally or we can force it?
                 // Client disconnects itself usually.
@@ -249,7 +253,7 @@ export class GameManager {
         // Use inclusive check to catch potential type issues
         const debugCount = game.drawPile.filter(c => c.cardClass.includes('DEBUG')).length;
         const safeCardsCount = game.drawPile.filter(c => c.cardClass !== 'EXPLODING_CLUSTER' && c.cardClass !== 'UPGRADE_CLUSTER').length;
-     
+
         this.emitToRoom(game.code, 'gameUpdate', {
             gameCode: game.code,
             nonce: game.nonce,
@@ -374,10 +378,10 @@ export class GameManager {
                 // We need 'isConnected' vs 'isOut'.
                 // For now, leaving isOut logic as is, assuming isOut=true means "exploded".
                 // But handleDisconnect sets isOut=true. This is problematic for reconnection.
-                
+
                 // Reverting handleDisconnect isOut logic might be needed later. 
                 // For now, just fixing the lookup.
-                
+
                 this.log(game, `player "${playerName}" (${existingPlayer.socketId}) rejoined the game`);
                 this.emitToRoom(game.code, 'gameMessage', { message: `${playerName} has rejoined the game, hoorah!` });
                 this.emitGameUpdate(game); // Rejoining player does not change nonce
@@ -479,13 +483,13 @@ export class GameManager {
         // Put remaining DEBUG cards back (max 2 or whatever is left)
         // Design doc says: "Put 2 DEBUG cards back into the deck, or 1 DEBUG card if that is all that is left. Any extra DEBUG cards are removed from the game."
         const debugsToReturn = Math.min(debugCards.length, 2);
-        
+
         for (let i = 0; i < debugsToReturn; i++) {
              deck.push(debugCards.pop()!);
         }
         // Move any remaining debugCards (excess) to the removedPile
         game.removedPile.push(...debugCards);
-        
+
         deck = shuffleDeck(deck, this.prng.random.bind(this.prng));
 
         // Deal hands
@@ -517,7 +521,7 @@ export class GameManager {
         let upgradeCount = 0;
         if (numPlayers >= 3 && numPlayers <= 4) upgradeCount = 1;
         else if (numPlayers === 5) upgradeCount = 2;
-        
+
         for (let i = 0; i < upgradeCount; i++) {
              if (upgradeClusters.length > 0) deck.push(upgradeClusters.pop()!);
         }
@@ -555,7 +559,7 @@ export class GameManager {
     private dealDevModeHands(game: Game, deck: Card[]) {
         // P1: 2 identical DEVELOPER, 1 other DEVELOPER, 2 NAK, 1 SHUFFLE, 1 FAVOR
         // P2: 2 NAK, 1 SHUFFLE_NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER (one identical to P1's pair, one not)
-        
+
         const findAndRemove = (criteria: (c: Card) => boolean, count: number): Card[] => {
             const found: Card[] = [];
             for (let i = 0; i < count; i++) {
@@ -571,7 +575,7 @@ export class GameManager {
         // (deck is shuffled, but fullDeck has 4 of each)
         // We need 3 copies of Type A, 1 copy of Type B, 1 copy of Type C (or just different from A)
         // Actually: P1 has 2x A, 1x B. P2 has 1x A, 1x C.
-        
+
         // Just pick first developer card found as Type A
         const devCardA = deck.find(c => c.cardClass === 'DEVELOPER');
         if (!devCardA) return; // Should not happen
@@ -614,7 +618,7 @@ export class GameManager {
 
     private giveDebugCard(socket: Socket, gameCode: string) {
         const game = this.games.get(gameCode);
-        if (!game || !game.devMode) return;
+        if (!game) return;
 
         const player = game.players.find(p => p.socketId === socket.id);
         if (!player) return;
@@ -632,9 +636,9 @@ export class GameManager {
         }
     }
 
-    private devDrawCard(socket: Socket, gameCode: string) {
+    private giveSafeCard(socket: Socket, gameCode: string) {
         const game = this.games.get(gameCode);
-        if (!game || !game.devMode) return;
+        if (!game) return;
 
         const player = game.players.find(p => p.socketId === socket.id);
         if (!player) return;
@@ -653,7 +657,7 @@ export class GameManager {
 
     private showDeck(socket: Socket, gameCode: string) {
         const game = this.games.get(gameCode);
-        if (!game || !game.devMode) return;
+        if (!game) return;
 
         // Send the full deck to the requester, reversed so top is first
         this.emitToSocket(socket.id, 'deckData', { deck: [...game.drawPile].reverse() });
@@ -661,7 +665,7 @@ export class GameManager {
 
     private showRemovedPile(socket: Socket, gameCode: string) {
         const game = this.games.get(gameCode);
-        if (!game || !game.devMode) return;
+        if (!game) return;
 
         // Send the removed pile to the requester
         this.emitToSocket(socket.id, 'removedData', { removedPile: game.removedPile });
@@ -684,7 +688,7 @@ export class GameManager {
              this.emitToSocket(socket.id, 'gameMessage', { message: "It's not your turn!" });
              return;
         }
-        
+
         // Check if game is paused (e.g. another draw in progress)
         if (game.timer) {
              return; // Ignore if timer active
@@ -729,10 +733,10 @@ export class GameManager {
         // Set timer to finalize
         game.timer = setTimeout(() => {
             game.timer = null;
-            
+
             // Add to hand
             player.hand.push(card);
-            
+
             // Handle Exploding/Upgrade logic later (Phase 3). 
             // For Phase 2.4: "If it is a regular card... that card goes into their hand... and their turn is over."
             // We treat ALL cards as regular for now.
@@ -799,11 +803,11 @@ export class GameManager {
 
         // Basic validation: check if it's player's turn (ignoring "now" cards for basic implementation)
         const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
-        
+
         // TODO: Allow "now" cards (NAK, SHUFFLE_NOW) to be played out of turn
-        
+
         if (!isMyTurn) {
-             this.log(game, `player "${player.name}" tried to play card out of turn`);
+             this.log(game, `player "${player.name}" tried to play a card out of turn`);
              this.emitToSocket(socket.id, 'gameMessage', { message: "It's not your turn!" });
              this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Revert optimistic update
              return;
@@ -821,7 +825,7 @@ export class GameManager {
         game.discardPile.push(card);
         this.log(game, `player "${player.name}" played ${card.name} (${card.cardClass})`);
         this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} played ${card.cardClass}.` });
-        
+
         this.updateGameNonce(game);
     }
 
@@ -840,18 +844,18 @@ export class GameManager {
             return;
         }
 
+        const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
+        if (!isMyTurn) {
+             this.log(game, `player "${player.name}" tried to play a combo out of turn`);
+             this.emitToSocket(socket.id, 'gameMessage', { message: "It's not your turn!" });
+             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+             return;
+        }
+
         if (!cardIds || cardIds.length !== 2) {
              this.log(game, `player "${player.name}" tried to play invalid combo length: ${cardIds?.length}`);
              this.emitToSocket(socket.id, 'gameMessage', { message: "Invalid combo selection." });
              this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); 
-             return;
-        }
-
-        const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
-        if (!isMyTurn) {
-             this.log(game, `player "${player.name}" tried to play combo out of turn`);
-             this.emitToSocket(socket.id, 'gameMessage', { message: "It's not your turn!" });
-             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
              return;
         }
 
@@ -863,7 +867,7 @@ export class GameManager {
         // findIndex returns the first match. If we splice one by one, indices shift.
         // Better to find indices first, ensure they are distinct and valid.
         // BUT the incoming IDs are unique (card-1, card-2). So simple find is safe.
-        
+
         for (const id of cardIds) {
             const idx = player.hand.findIndex(c => c.id === id);
             if (idx === -1) {
@@ -912,12 +916,12 @@ export class GameManager {
 
         // Add to discard pile
         game.discardPile.push(...cardsToPlay);
-        
+
         this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.cardClass})`);
         this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} played a pair of ${c1.cardClass}.` });
-        
+
         // TODO: Trigger special action (Steal a card) - Phase 4
-        
+
         this.updateGameNonce(game);
     }
 
@@ -949,7 +953,7 @@ export class GameManager {
             // If current player disconnected, handle turn progression
             if (game.state === 'started' && game.turnOrder[game.currentTurnIndex] === player.id) {
                 this.log(game, `current player "${player.name}" has left, advancing turn`);
-                
+
                 // Check for pending Exploding/Upgrade Cluster cards in hand (just drawn)
                 // "If the player has just drawn an EXPLODING CLUSTER card, it is re-inserted at a random position..."
                 const specialCards = player.hand.filter(c => c.cardClass === 'EXPLODING_CLUSTER' || c.cardClass === 'UPGRADE_CLUSTER');
@@ -964,7 +968,7 @@ export class GameManager {
                 // Move remaining hand to removedPile
                 game.removedPile.push(...remainingHand);
                 player.hand = [];
-                
+
                 // "Any pending operations for that player are discarded."
                 game.pendingOperations = [];
 
@@ -983,7 +987,7 @@ export class GameManager {
                 // We must use the index we found earlier, but verify it hasn't shifted?
                 // No, we haven't mutated players array yet in this function.
                 game.players.splice(playerIndex, 1);
-                
+
                 const nextPlayerId = game.turnOrder[game.currentTurnIndex];
                 const nextPlayer = game.players.find(p => p.id === nextPlayerId);
                 if (nextPlayer) {
@@ -1071,7 +1075,7 @@ export class GameManager {
 
     public handleInfozRequest(req: IncomingMessage, res: ServerResponse) {
         const url = req.url ? req.url.split('?')[0] : '/';
-        
+
         if (url === '/infoz') {
             res.writeHead(200, { 'Content-Type': 'text/html' });
             let html = '<html><body><h1>Current Games</h1><ul>';
@@ -1102,7 +1106,7 @@ export class GameManager {
             html += `<p>State: ${game.state}</p>`;
             html += `<p>Timestamp: ${new Date().toISOString()}</p>`;
             html += `<p>Nonce: ${game.nonce}</p>`;
-            
+
             html += `<h3>Players (${game.players.length})</h3><ul>`;
             game.players.forEach(p => {
                 const isTurn = game.turnOrder[game.currentTurnIndex] === p.id;

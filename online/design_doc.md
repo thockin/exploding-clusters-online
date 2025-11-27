@@ -380,6 +380,11 @@ played a pair of {card-class} cards".
 
 ##### Drawing a card
 
+Only the current player can draw a card, by clicking on the draw-pile.  If any
+other player clicks the draw pile, nothing happens.  If a client sends a
+draw-card event to the server when it is not that player's turn, the server
+ignores it.
+
 When a player draws a card by clicking on the draw-pile, they see the top
 card as a large overlay for 3 seconds.  During that time, game play is paused
 for all players.  If it is a regular card (not "EXPLODING CLUSTER" or "UPGRADE

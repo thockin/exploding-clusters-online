@@ -292,7 +292,7 @@ export default function GameScreen() {
 
   const handleDevDrawCard = () => {
       if (socket && gameCode) {
-          socket.emit('devDrawCard', gameCode);
+          socket.emit('giveSafeCard', gameCode);
       }
   };
   
@@ -441,7 +441,7 @@ export default function GameScreen() {
         if (currentSelection.length > 0) {
              setSelectedCards(currentSelection);
         }
-        socket?.emit('reorder-hand', { gameCode, newHand });
+        socket?.emit('reorderHand', { gameCode, newHand });
         return;
     }
 
@@ -536,8 +536,8 @@ export default function GameScreen() {
           // Emit the appropriate event to the server
           if (gameCode) {
               if (cardsToPlay.length === 1) {
-                  console.debug(`Emitting play-card: code=${gameCode}, card=${cardsToPlay[0].id}`);
-                  socket?.emit('play-card', { gameCode, cardId: cardsToPlay[0].id });
+                  console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
+                  socket?.emit('playCard', { gameCode, cardId: cardsToPlay[0].id });
               } else if (cardsToPlay.length === 2) {
                   console.debug('Emitting playCombo for DEVELOPER cards');
                   socket?.emit('playCombo', { gameCode, cardIds: cardsToPlay.map(c => c.id) });
