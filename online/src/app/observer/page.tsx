@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Container, Modal, Button } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
 import LobbyBase from '../components/LobbyBase';
 import GameScreen from '../game/page';
+import { GameState } from '../../constants';
 
 export default function ObserverPage() {
   const router = useRouter();
@@ -43,12 +41,14 @@ export default function ObserverPage() {
       return <Container className="mt-5 text-center"><h2>Loading observer...</h2></Container>;
   }
 
-  if (gameState.state === 'lobby') {
+  if (gameState.state === GameState.Lobby) {
       return <LobbyBase />;
-  } else if (gameState.state === 'started') {
+  } else if (gameState.state === GameState.Started) {
       // GameScreen internally checks for spectator status to adjust UI
       return <GameScreen />;
+  } else if (gameState.state === GameState.Ended) {
+      return <Container className="mt-5 text-center"><h2>Game Ended</h2></Container>;
   }
 
-  return <Container className="mt-5 text-center"><h2>Game Ended</h2></Container>;
+  return <Container className="mt-5 text-center"><h2>Unknown Game State</h2></Container>;
 }

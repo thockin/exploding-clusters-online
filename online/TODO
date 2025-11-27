@@ -1,6 +1,6 @@
 Fix cursor-flagged isues
 Look at logs
-state: 'lobby' | 'started' | 'ended';
+common types for repeated structs
 
 Later:
 * Hand animation is ugly

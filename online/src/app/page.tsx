@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button, Container, Row, Col, Card, Form, Alert, Modal } from 'react-bootstrap';
 import { useSocket } from './contexts/SocketContext';
+import { GameState } from '../constants';
 
 type FileMode = 'initial' | 'create' | 'join' | 'watch';
 
@@ -18,9 +19,9 @@ export default function Home() {
 
   useEffect(() => {
     if (gameCode && playerName && gameState && socket && playerId) {
-      if (gameState.state === 'lobby') {
+      if (gameState.state === GameState.Lobby) {
         router.push(`/lobby?gameCode=${gameCode}`);
-      } else if (gameState.state === 'started') {
+      } else if (gameState.state === GameState.Started) {
         router.push(`/game?gameCode=${gameCode}`);
       }
     }

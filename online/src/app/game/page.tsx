@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Container, Row, Col, ListGroup, Button, Modal } from 'react-bootstrap';
 import { useSocket, PlayerInfo } from '../contexts/SocketContext';
 import { Card as CardType } from './deck';
+import { GameState } from '../../constants';
 import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from '@hello-pangea/dnd';
 import Image from 'next/image';
 

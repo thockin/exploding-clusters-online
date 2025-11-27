@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Card } from '../game/deck';
+import { GameState } from '../../constants';
 
 export interface PlayerInfo {
   id: string;
@@ -16,7 +17,7 @@ interface GameState {
   gameCode: string;
   players: PlayerInfo[];
   spectators: { id: string; name: string }[]; // Assuming spectators might have names for future features
-  state: 'lobby' | 'started' | 'ended';
+  state: GameState;
   gameOwnerId: string;
   nonce: string;
   devMode: boolean;
@@ -243,7 +244,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       gameCode: string;
       nonce: string;
       players: PlayerInfo[];
-      state: 'lobby' | 'started' | 'ended';
+      state: GameState;
       gameOwnerId: string;
       spectators: { id: string; name: string }[];
       devMode: boolean;
@@ -313,7 +314,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     socketIo.on('gameStarted', () => {
       setGameState(prev => ({
         ...(prev as GameState),
-        state: 'started',
+        state: GameState.Started,
       }));
     });
 

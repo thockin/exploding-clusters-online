@@ -4,6 +4,7 @@ import { useEffect, Suspense, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Container, Row, Col, Card, ListGroup, Button, Modal } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
+import { GameState } from '../../constants';
 
 function LobbyContent() {
   const router = useRouter();
@@ -46,7 +47,7 @@ function LobbyContent() {
       return;
     }
 
-    if (gameState?.state === 'started') {
+    if (gameState?.state === GameState.Started) {
       // Players get redirected to /game. Spectators might be handled by ObserverPage or go to /game.
       // If we are in ObserverPage, we might want to stay there?
       // But let's assume if we are a spectator, we check if we are already handling it?

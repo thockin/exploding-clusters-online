@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto';
 import { IncomingMessage, ServerResponse } from 'http';
 import { Card, fullDeck, shuffleDeck } from './app/game/deck';
 import { PseudoRandom } from './utils/PseudoRandom';
+import { GameState } from './constants';
 
 // Define interfaces for game and player states
 interface Player {
@@ -21,7 +22,7 @@ interface Game {
     code: string;
     players: Player[];
     spectators: { id: string; socketId: string }[];
-    state: 'lobby' | 'started' | 'ended';
+    state: GameState;
     turnOrder: string[]; // Array of player IDs
     currentTurnIndex: number;
     drawPile: Card[]; 
@@ -133,7 +134,7 @@ export class GameManager {
                     const player = game.players[playerIndex];
 
                     // If game started, remove from turnOrder
-                    if (game.state === 'started') {
+                    if (game.state === GameState.Started) {
                         const turnIndex = game.turnOrder.indexOf(player.id);
                         if (turnIndex !== -1) {
                             game.turnOrder.splice(turnIndex, 1);
@@ -160,7 +161,7 @@ export class GameManager {
                     this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} has left the game, what a chicken!` });
 
                     // Handle owner migration if needed
-                    if (game.state === 'lobby' && game.gameOwnerId === player.id) {
+                    if (game.state === GameState.Lobby && game.gameOwnerId === player.id) {
                         if (game.players.length > 0) {
                             const connectedPlayers = game.players.filter(p => !p.isDisconnected);
                              // Prefer connected players, otherwise take any
@@ -181,7 +182,7 @@ export class GameManager {
                 if (game.players.length === 0 && game.spectators.length === 0) {
                     this.log(game, `game is empty after voluntary leave, purging`);
                     this.endGame(gameCode);
-                } else if (game.state === 'started' && game.players.length < 2) {
+                } else if (game.state === GameState.Started && game.players.length < 2) {
                     if (game.players.length === 1) {
                         const winner = game.players[0];
                         this.log(game, `game ended due to insufficient players after voluntary leave. winner: ${winner.name}`);
@@ -303,7 +304,7 @@ export class GameManager {
         }
 
         // Check for attrition win after purge
-        if (game.state === 'started' && game.players.length === 1) {
+        if (game.state === GameState.Started && game.players.length === 1) {
             const winner = game.players[0];
             this.log(game, `game won by attrition by ${winner.name}`);
             this.endGame(game.code, { winner: winner.name, reason: 'attrition' });
@@ -336,7 +337,7 @@ export class GameManager {
             code: gameCode,
             players: [player],
             spectators: [],
-            state: 'lobby',
+            state: GameState.Lobby,
             turnOrder: [],
             currentTurnIndex: -1,
             drawPile: [],
@@ -404,7 +405,7 @@ export class GameManager {
             return callback({ success: false, error: 'Cannot rejoin, game state has changed.', nonce: game.nonce });
         }
 
-        if (game.state !== 'lobby') {
+        if (game.state !== GameState.Lobby) {
             this.log(game, `attempted to join when not in lobby state (state=${game.state})`);
             return callback({ success: false, error: 'Sorry, that game has already started' });
         }
@@ -473,7 +474,7 @@ export class GameManager {
             return callback({ success: false, error: 'Cannot start game with less than 2 players.' });
         }
 
-        game.state = 'started';
+        game.state = GameState.Started;
 
         // Initialize deck
         let deck = [...fullDeck];
@@ -691,7 +692,7 @@ export class GameManager {
         if (!player) return;
 
         // Validation
-        if (game.state !== 'started') {
+        if (game.state !== GameState.Started) {
              this.emitToSocket(socket.id, 'gameMessage', { message: "Game not started." });
              return;
         }
@@ -958,7 +959,7 @@ export class GameManager {
             this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} has disconnected, maybe they will be right back?` });
 
             // If current player disconnected, handle turn progression
-            if (game.state === 'started' && game.turnOrder[game.currentTurnIndex] === player.id) {
+            if (game.state === GameState.Started && game.turnOrder[game.currentTurnIndex] === player.id) {
                 this.log(game, `current player "${player.name}" has left, advancing turn`);
 
                 // Check for pending Exploding/Upgrade Cluster cards in hand (just drawn)
@@ -1009,7 +1010,7 @@ export class GameManager {
 
             // Check for attrition win (only 1 connected player left)
             const connectedPlayers = game.players.filter(p => !p.isDisconnected && !p.isOut);
-            if (game.state === 'started' && connectedPlayers.length === 1) {
+            if (game.state === GameState.Started && connectedPlayers.length === 1) {
                  const winner = connectedPlayers[0];
                  this.log(game, `game won by attrition by ${winner.name} (others disconnected/out)`);
                  this.endGame(game.code, { winner: winner.name, reason: 'attrition' });
@@ -1017,7 +1018,7 @@ export class GameManager {
             }
 
             // If game owner leaves the lobby, assign a new game owner IF game is in lobby
-            if (game.state === 'lobby' && game.gameOwnerId === player.id && game.players.length > 1) {
+            if (game.state === GameState.Lobby && game.gameOwnerId === player.id && game.players.length > 1) {
                 // Find all players *other than the disconnecting one* who are currently *connected*
                 const potentialNewOwners = game.players.filter(p => p.id !== player.id && !p.isDisconnected);
 

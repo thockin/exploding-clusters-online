@@ -15,9 +15,12 @@ to do.
 
 # Code style
 
-Blank code lines should never have whitespace.
+Code and comment lines should never have trailing whitespace.
 
-Code lines should never have trailing whitespace.
+Blank lines should never have whitespace.
+
+Follow the indenting style (e.g. tabs vs. spaces) of the surrounding code and
+the conventions of the language.
 
 Always change as little as possible to get the desired effect.
 

@@ -43,9 +43,11 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await pageObs.fill('input[placeholder="Enter 5-letter game code"]', code);
     await pageObs.click('button:has-text("Watch Game")');
 
-    // Verify Lobby Sync
+    // Verify Lobby Sync on P1
     await expect(page1.locator('text=Player Two')).toBeVisible();
     await expect(page1.locator('text=Watching: 1 person')).toBeVisible();
+
+    // Verify Lobby Sync on Observer, waiting for the host to be visible
     await expect(pageObs.locator('text=Player One (Host)')).toBeVisible();
 
     // Start Game
