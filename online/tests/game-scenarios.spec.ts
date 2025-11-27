@@ -1124,8 +1124,8 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     
     // Verify layout stability
     const finalBox = await handSection.boundingBox();
-    console.log('Initial Box:', initialBox);
-    console.log('Final Box:', finalBox);
+    //console.log('Initial Box:', initialBox);
+    //console.log('Final Box:', finalBox);
     expect(finalBox).not.toBeNull();
     expect(Math.abs(finalBox!.height - initialBox!.height)).toBeLessThan(2); // Allow 1px rounding diff
     expect(Math.abs(finalBox!.y - initialBox!.y)).toBeLessThan(2);

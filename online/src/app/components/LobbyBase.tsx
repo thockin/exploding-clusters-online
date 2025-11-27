@@ -30,8 +30,11 @@ function LobbyContent() {
         if (prevId && prevId !== currentId && currentId === playerId) {
             // I have been promoted!
             const prevGameOwner = gameState.players.find(p => p.id === prevId);
-            setPreviousHostName(prevGameOwner ? prevGameOwner.name : 'The previous host');
-            setShowPromotionModal(true);
+            const name = prevGameOwner ? prevGameOwner.name : 'The previous host';
+            setTimeout(() => {
+                setPreviousHostName(name);
+                setShowPromotionModal(true);
+            }, 0);
         }
         previousGameOwnerIdRef.current = currentId;
     }
