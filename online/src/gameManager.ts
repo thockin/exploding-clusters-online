@@ -689,11 +689,6 @@ export class GameManager {
              return;
         }
 
-        // Check if game is paused (e.g. another draw in progress)
-        if (game.timer) {
-             return; // Ignore if timer active
-        }
-
         if (game.drawPile.length === 0) {
              this.log(game, `draw pile empty, cannot draw`);
              this.emitToSocket(socket.id, 'gameMessage', { message: "The deck is empty!" });
