@@ -1,25 +1,45 @@
 import { GameManager } from '../gameManager';
 
+// Define types for callbacks and responses
+interface GameResponse {
+    success: boolean;
+    gameCode?: string;
+    playerId?: string;
+    error?: string;
+    nonce?: string;
+}
+
+interface StartGameResponse {
+    success: boolean;
+    error?: string;
+}
+
+interface GameEndData {
+    winner: string;
+    reason: string;
+}
+
 // Mock Socket
 class MockSocket {
-    id: string;
-    callbacks: Record<string, Function> = {};
-    emitted: Record<string, any[]> = {};
+    readonly id: string;
+    callbacks: Record<string, (...args: unknown[]) => void> = {};
+    emitted: Record<string, unknown[]> = {};
     joinedRooms: string[] = [];
 
     constructor(id: string) {
         this.id = id;
     }
 
-    on(event: string, callback: Function) {
+    on(event: string, callback: (...args: unknown[]) => void) {
         this.callbacks[event] = callback;
     }
 
-    onAny(callback: Function) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    onAny(_callback: (...args: unknown[]) => void) {
         // ignore
     }
 
-    emit(event: string, data?: any) {
+    emit(event: string, data?: unknown) {
         if (!this.emitted[event]) this.emitted[event] = [];
         this.emitted[event].push(data);
     }
@@ -28,8 +48,7 @@ class MockSocket {
         this.joinedRooms.push(room);
     }
 
-    // Helper to trigger event
-    trigger(event: string, ...args: any[]) {
+    trigger(event: string, ...args: unknown[]) {
         if (this.callbacks[event]) {
             this.callbacks[event](...args);
         }
@@ -38,52 +57,55 @@ class MockSocket {
 
 // Mock Server
 class MockServer {
-    sockets: any;
-    rooms: Record<string, { emitted: Record<string, any[]> }> = {};
+    sockets: {
+        sockets: Map<string, MockSocket>;
+        in: (room: string) => { emit: (event: string, data?: unknown) => void; socketsLeave: (room: string) => void };
+    };
+    rooms: Record<string, { emitted: Record<string, unknown[]> }> = {};
+    connectionCallback: ((socket: MockSocket) => void) | null = null;
 
     constructor() {
         this.sockets = {
-            sockets: new Map(),
+            sockets: new Map<string, MockSocket>(),
             in: (room: string) => this.in(room)
         };
     }
 
-    on(event: string, callback: Function) {
-        // Connection listener
+    on(event: string, callback: (...args: unknown[]) => void) {
         if (event === 'connection') {
-            this.connectionCallback = callback;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            this.connectionCallback = callback as any;
         }
     }
 
-    connectionCallback: Function | null = null;
-
-    // Helper to connect a socket
     connectSocket(socket: MockSocket) {
         if (this.connectionCallback) {
             this.connectionCallback(socket);
         }
+        this.sockets.sockets.set(socket.id, socket);
     }
 
     to(room: string) {
         if (!this.rooms[room]) this.rooms[room] = { emitted: {} };
         return {
-            emit: (event: string, data?: any) => {
+            emit: (event: string, data?: unknown) => {
                 if (!this.rooms[room].emitted[event]) this.rooms[room].emitted[event] = [];
                 this.rooms[room].emitted[event].push(data);
             },
-            socketsLeave: (r: string) => {} 
+            socketsLeave: () => { }
         };
     }
-    
+
     in(room: string) { return this.to(room); }
 }
 
 describe('GameManager', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let gameManager: GameManager;
-    let mockServer: MockServer;
+    const mockServer = new MockServer();
 
     beforeEach(() => {
-        mockServer = new MockServer() as any;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         gameManager = new GameManager(mockServer as any);
     });
 
@@ -91,7 +113,7 @@ describe('GameManager', () => {
         const socket = new MockSocket('socket-1');
         mockServer.connectSocket(socket);
 
-        socket.trigger('createGame', 'Player1', (response: any) => {
+        socket.trigger('createGame', 'Player1', (response: GameResponse) => {
             expect(response.success).toBe(true);
             expect(response.gameCode).toHaveLength(5);
             expect(response.playerId).toBeDefined();
@@ -104,17 +126,14 @@ describe('GameManager', () => {
         mockServer.connectSocket(host);
         let gameCode: string;
 
-        host.trigger('createGame', 'Host', (res: any) => {
-            gameCode = res.gameCode;
+        host.trigger('createGame', 'Host', (res: GameResponse) => {
+            gameCode = res.gameCode!;
             
             const player2 = new MockSocket('p2');
             mockServer.connectSocket(player2);
             
-            player2.trigger('joinGame', gameCode, 'Player2', undefined, (res2: any) => {
+            player2.trigger('joinGame', gameCode, 'Player2', undefined, (res2: GameResponse) => {
                 expect(res2.success).toBe(true);
-                // Check if host got update?
-                // We can check mockServer.rooms[gameCode].emitted['playerJoined']
-                // But GameManager emits 'playerJoined' to room.
                 expect(mockServer.rooms[gameCode].emitted['playerJoined']).toBeDefined();
                 done();
             });
@@ -122,28 +141,24 @@ describe('GameManager', () => {
     });
 
     test('leaveGame triggers attrition win if < 2 players remain in started game', (done) => {
-        // Setup: Create game, join p2, start game.
         const host = new MockSocket('host');
         mockServer.connectSocket(host);
         let gameCode: string;
 
-        host.trigger('createGame', 'Host', (res: any) => {
-            gameCode = res.gameCode;
+        host.trigger('createGame', 'Host', (res: GameResponse) => {
+            gameCode = res.gameCode!;
             const p2 = new MockSocket('p2');
             mockServer.connectSocket(p2);
             
-            p2.trigger('joinGame', gameCode, 'Player2', undefined, (res2: any) => {
-                // Start Game
-                host.trigger('startGame', gameCode, (resStart: any) => {
+            p2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
+                host.trigger('startGame', gameCode, (resStart: StartGameResponse) => {
                     expect(resStart.success).toBe(true);
                     
-                    // Now P2 leaves
                     p2.trigger('leaveGame', gameCode);
                     
-                    // Expect 'gameEnded' event in room with winner info
                     const roomEmits = mockServer.rooms[gameCode].emitted['gameEnded'];
                     expect(roomEmits).toBeDefined();
-                    const lastEmit = roomEmits[roomEmits.length - 1];
+                    const lastEmit = roomEmits![roomEmits!.length - 1] as GameEndData;
                     expect(lastEmit).toBeDefined();
                     expect(lastEmit.reason).toBe('attrition');
                     expect(lastEmit.winner).toBe('Host');
@@ -158,18 +173,14 @@ describe('GameManager', () => {
         mockServer.connectSocket(host);
         let gameCode: string;
 
-        host.trigger('createGame', 'Host', (res: any) => {
-            gameCode = res.gameCode;
+        host.trigger('createGame', 'Host', (res: GameResponse) => {
+            gameCode = res.gameCode!;
             const p2 = new MockSocket('p2');
             mockServer.connectSocket(p2);
             
-            p2.trigger('joinGame', gameCode, 'Player2', undefined, (res2: any) => {
-                // Do NOT start game
-                
-                // P2 leaves
+            p2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
                 p2.trigger('leaveGame', gameCode);
                 
-                // Expect NO 'gameEnded' event
                 const roomEmits = mockServer.rooms[gameCode].emitted['gameEnded'];
                 expect(roomEmits).toBeUndefined();
                 done();
