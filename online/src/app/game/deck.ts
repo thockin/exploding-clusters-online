@@ -65,14 +65,10 @@ const cardDefinitions = [
 
 const generateDeck = (): Card[] => {
   const deck: Card[] = [];
-  let idCounter = 0;
 
   const createCard = (def: typeof cardDefinitions[0], ordinal: number) => ({
-    // Unique ID is tuple of {class}, {name}, {ordinal}. For simplicity in string ID: class-name-ordinal
-    // but let's keep the simple integer ID for now as per previous implementation or switch to UUID if preferred.
-    // The design doc says: "Each card has a unique "ID" which is the tuple of {class}, {name}, and {ordinal}."
-    // Using a stable string ID based on this tuple is robust.
-    id: `card-${idCounter++}`, // Keeping simple unique ID for DnD
+    // Unique ID is tuple of {class}, {name}, {ordinal}.
+    id: `${def.class}-${def.name.replace(/\s+/g, '_')}-${ordinal}`,
     // We could also add a semantic ID field if needed
     cardClass: def.class,
     name: def.name,
