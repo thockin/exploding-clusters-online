@@ -227,7 +227,7 @@ export class GameManager {
         return code;
     }
 
-    private generateNonce(devMode: boolean): string {
+    private generateNonce(): string {
         return randomBytes(8).toString('hex');
     }
 
@@ -295,7 +295,7 @@ export class GameManager {
             return; // Stop further updates
         }
 
-        game.nonce = this.generateNonce(game.devMode);
+        game.nonce = this.generateNonce();
         // Notify all clients in the game about the nonce change
         this.emitGameUpdate(game);
 
@@ -329,7 +329,7 @@ export class GameManager {
             removedPile: [], // Initialize new removed pile
             pendingOperations: [],
             gameOwnerId: playerId,
-            nonce: this.generateNonce(devMode),
+            nonce: this.generateNonce(),
             timer: null,
             devMode: devMode,
         };
