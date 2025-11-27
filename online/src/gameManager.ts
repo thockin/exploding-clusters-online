@@ -248,7 +248,7 @@ export class GameManager {
     private emitGameUpdate(game: Game) {
         // Use inclusive check to catch potential type issues
         const debugCount = game.drawPile.filter(c => c.cardClass.includes('DEBUG')).length;
-        const safeCardsCount = game.drawPile.filter(c => c.cardClass !== 'EXPLODING CLUSTER' && c.cardClass !== 'UPGRADE CLUSTER').length;
+        const safeCardsCount = game.drawPile.filter(c => c.cardClass !== 'EXPLODING_CLUSTER' && c.cardClass !== 'UPGRADE_CLUSTER').length;
      
         this.emitToRoom(game.code, 'gameUpdate', {
             gameCode: game.code,
@@ -461,12 +461,12 @@ export class GameManager {
 
         // Initialize deck
         let deck = [...fullDeck];
-        const explodingClusters = deck.filter(c => c.cardClass === 'EXPLODING CLUSTER');
-        const upgradeClusters = deck.filter(c => c.cardClass === 'UPGRADE CLUSTER');
+        const explodingClusters = deck.filter(c => c.cardClass === 'EXPLODING_CLUSTER');
+        const upgradeClusters = deck.filter(c => c.cardClass === 'UPGRADE_CLUSTER');
         // "The full deck is comprised of... 6 DEBUG cards".
         const debugCards = deck.filter(c => c.cardClass === 'DEBUG');
         // Remove them all first
-        deck = deck.filter(c => c.cardClass !== 'DEBUG' && c.cardClass !== 'EXPLODING CLUSTER' && c.cardClass !== 'UPGRADE CLUSTER');
+        deck = deck.filter(c => c.cardClass !== 'DEBUG' && c.cardClass !== 'EXPLODING_CLUSTER' && c.cardClass !== 'UPGRADE_CLUSTER');
 
         // Give 1 DEBUG card to each player
         for (const p of game.players) {
@@ -528,11 +528,11 @@ export class GameManager {
 
         // DEVMODE: Move Exploding Cluster to top
         if (game.devMode) {
-            const explodingIndex = game.drawPile.findIndex(c => c.cardClass === 'EXPLODING CLUSTER');
+            const explodingIndex = game.drawPile.findIndex(c => c.cardClass === 'EXPLODING_CLUSTER');
             if (explodingIndex > -1) {
                 const [explodingCard] = game.drawPile.splice(explodingIndex, 1);
                 game.drawPile.push(explodingCard); // Push to end (which is the top for pop())
-                this.log(game, `DEVMODE: moved EXPLODING CLUSTER to top of deck`);
+                this.log(game, `DEVMODE: moved EXPLODING_CLUSTER to top of deck`);
             }
         }
 
@@ -554,7 +554,7 @@ export class GameManager {
 
     private dealDevModeHands(game: Game, deck: Card[]) {
         // P1: 2 identical DEVELOPER, 1 other DEVELOPER, 2 NAK, 1 SHUFFLE, 1 FAVOR
-        // P2: 2 NAK, 1 SHUFFLE NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER (one identical to P1's pair, one not)
+        // P2: 2 NAK, 1 SHUFFLE_NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER (one identical to P1's pair, one not)
         
         const findAndRemove = (criteria: (c: Card) => boolean, count: number): Card[] => {
             const found: Card[] = [];
@@ -601,12 +601,12 @@ export class GameManager {
         p1.hand.push(...findAndRemove(c => c.cardClass === 'FAVOR', 1));
 
         if (p2) {
-            // P2 Hand (1 NAK, 1 SKIP, 1 SHUFFLE NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER) = 7 cards
+            // P2 Hand (1 NAK, 1 SKIP, 1 SHUFFLE_NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER) = 7 cards
             p2.hand.push(...findAndRemove(c => c.cardClass === 'NAK', 1));
             p2.hand.push(...findAndRemove(c => c.cardClass === 'SKIP', 1));
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'SHUFFLE NOW', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'SHUFFLE_NOW', 1));
             p2.hand.push(...findAndRemove(c => c.cardClass === 'ATTACK', 1));
-            p2.hand.push(...findAndRemove(c => c.cardClass === 'SEE THE FUTURE', 1));
+            p2.hand.push(...findAndRemove(c => c.cardClass === 'SEE_THE_FUTURE', 1));
             p2.hand.push(...findAndRemove(c => c.cardClass === 'DEVELOPER' && c.name === nameB, 1)); // Matches P1's solo DEVELOPER
             p2.hand.push(...findAndRemove(c => c.cardClass === 'DEVELOPER' && c.name === nameC, 1)); // Different DEVELOPER
         }
@@ -639,7 +639,7 @@ export class GameManager {
         const player = game.players.find(p => p.socketId === socket.id);
         if (!player) return;
 
-        const cardIndex = game.drawPile.findIndex(c => c.cardClass !== 'EXPLODING CLUSTER' && c.cardClass !== 'UPGRADE CLUSTER');
+        const cardIndex = game.drawPile.findIndex(c => c.cardClass !== 'EXPLODING_CLUSTER' && c.cardClass !== 'UPGRADE_CLUSTER');
         if (cardIndex > -1) {
             const [card] = game.drawPile.splice(cardIndex, 1);
             player.hand.push(card);
@@ -800,7 +800,7 @@ export class GameManager {
         // Basic validation: check if it's player's turn (ignoring "now" cards for basic implementation)
         const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
         
-        // TODO: Allow "now" cards (NAK, SHUFFLE NOW) to be played out of turn
+        // TODO: Allow "now" cards (NAK, SHUFFLE_NOW) to be played out of turn
         
         if (!isMyTurn) {
              this.log(game, `player "${player.name}" tried to play card out of turn`);
@@ -952,8 +952,8 @@ export class GameManager {
                 
                 // Check for pending Exploding/Upgrade Cluster cards in hand (just drawn)
                 // "If the player has just drawn an EXPLODING CLUSTER card, it is re-inserted at a random position..."
-                const specialCards = player.hand.filter(c => c.cardClass === 'EXPLODING CLUSTER' || c.cardClass === 'UPGRADE CLUSTER');
-                const remainingHand = player.hand.filter(c => c.cardClass !== 'EXPLODING CLUSTER' && c.cardClass !== 'UPGRADE CLUSTER');
+                const specialCards = player.hand.filter(c => c.cardClass === 'EXPLODING_CLUSTER' || c.cardClass === 'UPGRADE_CLUSTER');
+                const remainingHand = player.hand.filter(c => c.cardClass !== 'EXPLODING_CLUSTER' && c.cardClass !== 'UPGRADE_CLUSTER');
 
                 specialCards.forEach(card => {
                     const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));

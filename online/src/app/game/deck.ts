@@ -8,13 +8,13 @@ export interface Card {
 }
 
 const cardDefinitions = [
-  { class: 'EXPLODING CLUSTER', name: 'broken logo', image: 'exploding_-_broken_logo.png', now: false, combo: false, count: 1 },
-  { class: 'EXPLODING CLUSTER', name: 'deathstar', image: 'exploding_-_deathstar.png', now: false, combo: false, count: 1 },
-  { class: 'EXPLODING CLUSTER', name: 'ghost', image: 'exploding_-_ghost.png', now: false, combo: false, count: 1 },
-  { class: 'EXPLODING CLUSTER', name: 'phippy', image: 'exploding_-_phippy.png', now: false, combo: false, count: 1 },
+  { class: 'EXPLODING_CLUSTER', name: 'broken logo', image: 'exploding_-_broken_logo.png', now: false, combo: false, count: 1 },
+  { class: 'EXPLODING_CLUSTER', name: 'deathstar', image: 'exploding_-_deathstar.png', now: false, combo: false, count: 1 },
+  { class: 'EXPLODING_CLUSTER', name: 'ghost', image: 'exploding_-_ghost.png', now: false, combo: false, count: 1 },
+  { class: 'EXPLODING_CLUSTER', name: 'phippy', image: 'exploding_-_phippy.png', now: false, combo: false, count: 1 },
   
-  { class: 'UPGRADE CLUSTER', name: 'logos1', image: 'upgrade_-_logos1.png', now: false, combo: false, count: 1 },
-  { class: 'UPGRADE CLUSTER', name: 'logos2', image: 'upgrade_-_logos2.png', now: false, combo: false, count: 1 },
+  { class: 'UPGRADE_CLUSTER', name: 'logos1', image: 'upgrade_-_logos1.png', now: false, combo: false, count: 1 },
+  { class: 'UPGRADE_CLUSTER', name: 'logos2', image: 'upgrade_-_logos2.png', now: false, combo: false, count: 1 },
   
   { class: 'ATTACK', name: 'bikeshed', image: 'attack_-_bikeshed.png', now: false, combo: false, count: 1 },
   { class: 'ATTACK', name: 'dash dash force', image: 'attack_-_dash_dash_force.png', now: false, combo: false, count: 1 },
@@ -37,17 +37,17 @@ const cardDefinitions = [
   { class: 'NAK', name: 'prs welcome', image: 'nak_-_prs_welcome.png', now: true, combo: false, count: 1 },
   { class: 'NAK', name: 'slash close', image: 'nak_-_slash_close.png', now: true, combo: false, count: 1 },
   
-  { class: 'SEE THE FUTURE', name: 'dashboard', image: 'see_future_-_dashboard.png', now: false, combo: false, count: 1 },
-  { class: 'SEE THE FUTURE', name: 'date driven', image: 'see_future_-_date_driven.png', now: false, combo: false, count: 1 },
-  { class: 'SEE THE FUTURE', name: 'dry run', image: 'see_future_-_dry_run.png', now: false, combo: false, count: 1 },
-  { class: 'SEE THE FUTURE', name: 'learn from past', image: 'see_future_-_learn_from_past.png', now: false, combo: false, count: 1 },
-  { class: 'SEE THE FUTURE', name: 'release notes', image: 'see_future_-_release_notes.png', now: false, combo: false, count: 1 },
+  { class: 'SEE_THE_FUTURE', name: 'dashboard', image: 'see_future_-_dashboard.png', now: false, combo: false, count: 1 },
+  { class: 'SEE_THE_FUTURE', name: 'date driven', image: 'see_future_-_date_driven.png', now: false, combo: false, count: 1 },
+  { class: 'SEE_THE_FUTURE', name: 'dry run', image: 'see_future_-_dry_run.png', now: false, combo: false, count: 1 },
+  { class: 'SEE_THE_FUTURE', name: 'learn from past', image: 'see_future_-_learn_from_past.png', now: false, combo: false, count: 1 },
+  { class: 'SEE_THE_FUTURE', name: 'release notes', image: 'see_future_-_release_notes.png', now: false, combo: false, count: 1 },
   
   { class: 'SHUFFLE', name: 'double trouble', image: 'shuffle_-_double_trouble.png', now: false, combo: false, count: 1 },
   { class: 'SHUFFLE', name: 'node failure', image: 'shuffle_-_node_failure.png', now: false, combo: false, count: 1 },
   { class: 'SHUFFLE', name: 'rolling update', image: 'shuffle_-_rolling_update.png', now: false, combo: false, count: 1 },
   
-  { class: 'SHUFFLE NOW', name: 'eventually consistent', image: 'shuffle_now_-_eventually_consistent.png', now: true, combo: false, count: 1 },
+  { class: 'SHUFFLE_NOW', name: 'eventually consistent', image: 'shuffle_now_-_eventually_consistent.png', now: true, combo: false, count: 1 },
   
   { class: 'SKIP', name: 'oncall', image: 'skip_-_oncall.png', now: false, combo: false, count: 1 },
   { class: 'SKIP', name: 'ooo', image: 'skip_-_ooo.png', now: false, combo: false, count: 1 },

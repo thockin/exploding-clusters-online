@@ -892,6 +892,9 @@ different action, which will be detailed after the YAML.
 All the cards will be detailed in the following YAML document.  It is YAML for
 clarity, It doesn't need to be YAML in the implementation.
 
+In the code, card classes should use underscores instead of spaces, e.g.
+`EXPLODING_CLUSTER` instead of `EXPLODING CLUSTER`.
+
 ```
 cards:
   - class: EXPLODING CLUSTER
