@@ -80,9 +80,9 @@ export interface GameUpdatePayload {
   devMode: boolean;
   turnOrder: string[];
   currentTurnIndex: number;
-  drawPileCount?: number;    // optional, devMode only
-  discardPile?: Card[];      // optional, devMode only
   topDiscardCard?: Card;     // optional (may be no discarded cards)
+  drawPileCount?: number;    // optional, devMode only
+  discardPileCount?: number; // optional, devMode only
   removedPileCount?: number; // optional, devMode only
   debugCardsCount?: number;  // optional, devMode only
   safeCardsCount?: number;   // optional, devMode only

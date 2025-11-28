@@ -980,7 +980,7 @@ export default function GameScreen() {
               <div className="d-flex flex-column align-items-center">
                 <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
                   {renderDiscardPile()}
-                  {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.discardPile?.length !== undefined ? gameState.discardPile.length : '??'} cards)</div>}
+                  {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.discardPileCount !== undefined ? gameState.discardPileCount : '??'} cards)</div>}
                 </div>
               </div>
             </div>

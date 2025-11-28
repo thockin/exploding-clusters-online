@@ -227,7 +227,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
           currentTurnIndex: data.currentTurnIndex || 0,
           // Handle optional fields
           drawPileCount: data.drawPileCount,
-          discardPile: data.discardPile,
+          discardPileCount: data.discardPileCount,
           topDiscardCard: data.topDiscardCard,
           removedPileCount: data.removedPileCount,
           debugCardsCount: data.debugCardsCount,

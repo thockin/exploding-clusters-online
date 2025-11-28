@@ -274,7 +274,7 @@ export class GameManager {
       return {
         ...baseData,
         drawPileCount: game.drawPile.length,
-        discardPile: game.discardPile, // Full discard pile in DEVMODE
+        discardPileCount: game.discardPile.length,
         removedPileCount: game.removedPile.length,
         debugCardsCount: debugCount,
         safeCardsCount: safeCardsCount
