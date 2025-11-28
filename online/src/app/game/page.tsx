@@ -323,8 +323,8 @@ export default function GameScreen() {
   useEffect(() => {
       if (!socket) return;
       
-      const onDrawAnimationStart = (data: { drawingPlayerId: string, card?: CardType, duration: number }) => {
-          console.debug(SocketEvent.DrawAnimationStart, data);
+      const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: CardType, duration: number }) => {
+          console.debug(SocketEvent.DrawCardAnimation, data);
           setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId });
           
           // Clear animation after duration
@@ -333,10 +333,10 @@ export default function GameScreen() {
           }, data.duration);
       };
       
-      socket.on(SocketEvent.DrawAnimationStart, onDrawAnimationStart);
+      socket.on(SocketEvent.DrawCardAnimation, onDrawCardAnimation);
       
       return () => {
-          socket.off(SocketEvent.DrawAnimationStart, onDrawAnimationStart);
+          socket.off(SocketEvent.DrawCardAnimation, onDrawCardAnimation);
       };
   }, [socket]);
 

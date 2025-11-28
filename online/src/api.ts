@@ -14,17 +14,11 @@ export enum GameState {
 }
 
 export enum SocketEvent {
+  // client -> server
   CreateGame = 'createGame',
   JoinGame = 'joinGame',
   WatchGame = 'watchGame',
   StartGame = 'startGame',
-  GameUpdate = 'gameUpdate',
-  GameMessage = 'gameMessage',
-  HandUpdate = 'handUpdate',
-  PlayerJoined = 'playerJoined',
-  PlayerDisconnected = 'playerDisconnected',
-  GameStarted = 'gameStarted',
-  GameEnded = 'gameEnded',
   GiveDebugCard = 'giveDebugCard',
   GiveSafeCard = 'giveSafeCard',
   ShowDeck = 'showDeck',
@@ -34,10 +28,19 @@ export enum SocketEvent {
   PlayCombo = 'playCombo',
   DrawCard = 'drawCard',
   LeaveGame = 'leaveGame',
+
+  // server -> client
+  GameUpdate = 'gameUpdate',
+  GameMessage = 'gameMessage',
+  HandUpdate = 'handUpdate',
+  PlayerJoined = 'playerJoined',
+  PlayerDisconnected = 'playerDisconnected',
+  GameStarted = 'gameStarted',
+  GameEnded = 'gameEnded',
   DeckData = 'deckData',
   RemovedData = 'removedData',
-  PlayerExploding = 'player-exploding',
-  DrawAnimationStart = 'draw-animation-start'
+  PlayerExploding = 'playerExploding',
+  DrawCardAnimation = 'drawCardAnimation'
 }
 
 export interface PlayerInfo {
