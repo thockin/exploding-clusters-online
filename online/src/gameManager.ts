@@ -6,7 +6,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { fullDeck, shuffleDeck } from './app/game/deck';
 import { PseudoRandom } from './utils/PseudoRandom';
 import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent } from './api';
-import { validatePlayerName, sanitizePlayerName } from './utils/nameValidation';
+import { validatePlayerName, sanitizePlayerName, normalizeNameForComparison, escapeHtml } from './utils/nameValidation';
 
 // Define interfaces for game and player states
 interface Player {
@@ -337,7 +337,7 @@ export class GameManager {
     };
 
     if (game.devMode) {
-      const debugCount = game.drawPile.filter(c => c.cardClass.includes(CardClass.Debug)).length;
+      const debugCount = game.drawPile.filter(c => c.cardClass === CardClass.Debug).length;
       const safeCardsCount = game.drawPile.filter(c => c.cardClass !== CardClass.ExplodingCluster && c.cardClass !== CardClass.UpgradeCluster).length;
 
       return {
@@ -463,8 +463,12 @@ export class GameManager {
     // Reconnection logic
     if (clientNonce && clientNonce === game.nonce) {
       // Find player by NAME since socket ID changes on reconnect
-      const existingPlayer = game.players.find(p => p.name.toLowerCase() === sanitizedName.toLowerCase());
+      // Normalize both names for comparison (trim + lowercase)
+      const normalizedNewName = normalizeNameForComparison(sanitizedName);
+      const existingPlayer = game.players.find(p => normalizeNameForComparison(p.name) === normalizedNewName);
       if (existingPlayer) {
+        // Ensure stored name is trimmed (in case it wasn't before)
+        existingPlayer.name = sanitizePlayerName(existingPlayer.name);
         existingPlayer.socketId = socket.id;
         existingPlayer.isDisconnected = false; // Player is reconnected
         existingPlayer.isPlaying = false; // Reset playing flag on reconnect
@@ -509,7 +513,9 @@ export class GameManager {
     }
 
     // Check name against CONNECTED players
-    const existingPlayerWithSameName = connectedPlayers.find(p => p.name.toLowerCase() === sanitizedName.toLowerCase());
+    // Normalize both names for comparison (trim + lowercase)
+    const normalizedNewName = normalizeNameForComparison(sanitizedName);
+    const existingPlayerWithSameName = connectedPlayers.find(p => normalizeNameForComparison(p.name) === normalizedNewName);
     if (existingPlayerWithSameName) {
       this.log(game, `attempted to join with duplicate name: "${sanitizedName}", exists as ${existingPlayerWithSameName.socketId}`);
       return callback({ success: false, error: 'That name is already taken in this game. Please choose a different name.' });
@@ -1485,7 +1491,8 @@ export class GameManager {
       html += `<h3>Players (${game.players.length})</h3><ul>`;
       game.players.forEach(p => {
         const isTurn = game.turnOrder[game.currentTurnIndex] === p.id;
-        html += `<li>${p.name} ${isTurn ? '<strong>(TURN)</strong>' : ''} - Hand: ${p.hand.map(c => c.cardClass).join(', ')}</li>`;
+        const escapedName = escapeHtml(p.name);
+        html += `<li>${escapedName} ${isTurn ? '<strong>(TURN)</strong>' : ''} - Hand: ${p.hand.map(c => c.cardClass).join(', ')}</li>`;
       });
       html += '</ul>';
 

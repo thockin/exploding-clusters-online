@@ -68,3 +68,14 @@ export function sanitizePlayerName(name: string): string {
   return trimmed;
 }
 
+/**
+ * Normalizes a name for comparison (trim + lowercase)
+ * Used for case-insensitive name comparisons
+ */
+export function normalizeNameForComparison(name: string): string {
+  if (!name || typeof name !== 'string') {
+    return '';
+  }
+  return name.trim().toLowerCase();
+}
+
