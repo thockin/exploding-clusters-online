@@ -16,6 +16,7 @@ interface Player {
   isOut: boolean;
   isDisconnected: boolean;
   turnsToTake: number;
+  isPlaying: boolean; // Flag to prevent concurrent card plays from the same player
 }
 
 interface Game {
@@ -330,7 +331,7 @@ export class GameManager {
   private createGame(socket: Socket, playerName: string, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string }) => void) {
     const gameCode = this.generateGameCode();
     const playerId = uuidv4();
-    const player: Player = { id: playerId, name: playerName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0 };
+    const player: Player = { id: playerId, name: playerName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0, isPlaying: false };
     const devMode = process.env.DEVMODE === '1';
 
     const newGame: Game = {
@@ -377,6 +378,7 @@ export class GameManager {
       if (existingPlayer) {
         existingPlayer.socketId = socket.id;
         existingPlayer.isDisconnected = false; // Player is reconnected
+        existingPlayer.isPlaying = false; // Reset playing flag on reconnect
         this.playerToGameMap.set(socket.id, gameCode);
         socket.join(gameCode);
         // If they were marked out, mark them back in?
@@ -425,7 +427,7 @@ export class GameManager {
     }
 
     const playerId = uuidv4(); // Generate a new ID for a new player
-    const player: Player = { id: playerId, name: playerName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0 };
+    const player: Player = { id: playerId, name: playerName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0, isPlaying: false };
     game.players.push(player);
     this.playerToGameMap.set(socket.id, gameCode);
     socket.join(gameCode);
@@ -809,6 +811,14 @@ export class GameManager {
       return;
     }
 
+    // Prevent concurrent card plays from the same player (race condition protection)
+    if (player.isPlaying) {
+      this.log(game, `player "${player.name}" tried to play a card while another play is in progress`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current play to complete." });
+      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
+      return;
+    }
+
     // Basic validation: check if it's player's turn (ignoring "now" cards for basic implementation)
     const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
 
@@ -821,20 +831,29 @@ export class GameManager {
       return;
     }
 
-    const cardIndex = player.hand.findIndex(c => c.id === cardId);
-    if (cardIndex === -1) {
-      this.log(game, `player "${player.name}" tried to play card they don't have`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card!" });
-      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
-      return;
+    // Set playing flag to prevent concurrent plays
+    player.isPlaying = true;
+    
+    try {
+      const cardIndex = player.hand.findIndex(c => c.id === cardId);
+      if (cardIndex === -1) {
+        // Card already played or doesn't exist - could be a race condition
+        this.log(game, `player "${player.name}" tried to play card they don't have (id: ${cardId})`);
+        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card!" });
+        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
+        return;
+      }
+
+      const [card] = player.hand.splice(cardIndex, 1);
+      game.discardPile.push(card);
+      this.log(game, `player "${player.name}" played ${card.name} (${card.cardClass})`);
+      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.cardClass}.` });
+
+      this.updateGameNonce(game);
+    } finally {
+      // Always clear the playing flag, even if an error occurred
+      player.isPlaying = false;
     }
-
-    const [card] = player.hand.splice(cardIndex, 1);
-    game.discardPile.push(card);
-    this.log(game, `player "${player.name}" played ${card.name} (${card.cardClass})`);
-    this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.cardClass}.` });
-
-    this.updateGameNonce(game);
   }
 
   private playCombo(socket: Socket, gameCode: string, cardIds: string[]) {
@@ -849,6 +868,14 @@ export class GameManager {
     if (!player) {
       this.log(game, `playCombo failed: player not found for socket ${socket.id}`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Player not found." });
+      return;
+    }
+
+    // Prevent concurrent card plays from the same player (race condition protection)
+    if (player.isPlaying) {
+      this.log(game, `player "${player.name}" tried to play a combo while another play is in progress`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current play to complete." });
+      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
       return;
     }
 
@@ -867,70 +894,79 @@ export class GameManager {
       return;
     }
 
-    const cardsToPlay: Card[] = [];
-    const indicesToRemove: number[] = [];
+    // Set playing flag to prevent concurrent plays
+    player.isPlaying = true;
 
-    // Find cards in hand
-    // We need to handle the case where we look for two indices. 
-    // findIndex returns the first match. If we splice one by one, indices shift.
-    // Better to find indices first, ensure they are distinct and valid.
-    // BUT the incoming IDs are unique (card-1, card-2). So simple find is safe.
+    try {
+      const cardsToPlay: Card[] = [];
+      const indicesToRemove: number[] = [];
 
-    for (const id of cardIds) {
-      const idx = player.hand.findIndex(c => c.id === id);
-      if (idx === -1) {
-        this.log(game, `player "${player.name}" tried to play combo with card they don't have (id: ${id})`);
-        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have those cards!" });
+      // Find cards in hand
+      // We need to handle the case where we look for two indices. 
+      // findIndex returns the first match. If we splice one by one, indices shift.
+      // Better to find indices first, ensure they are distinct and valid.
+      // BUT the incoming IDs are unique (card-1, card-2). So simple find is safe.
+
+      for (const id of cardIds) {
+        const idx = player.hand.findIndex(c => c.id === id);
+        if (idx === -1) {
+          // Card already played or doesn't exist - could be a race condition
+          this.log(game, `player "${player.name}" tried to play combo with card they don't have (id: ${id})`);
+          this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have those cards!" });
+          this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+          return;
+        }
+        cardsToPlay.push(player.hand[idx]);
+        indicesToRemove.push(idx);
+      }
+
+      // Verify they are distinct indices (should be guaranteed by unique IDs if client is behaving, but check)
+      if (indicesToRemove[0] === indicesToRemove[1]) {
+        // This implies duplicates in cardIds or same ID found twice?
+        // Unique IDs should prevent this unless client sent same ID twice.
+        this.log(game, `player "${player.name}" tried to play combo with same card twice`);
+        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo." });
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
         return;
       }
-      cardsToPlay.push(player.hand[idx]);
-      indicesToRemove.push(idx);
+
+      // Validate Combo logic: 2 identical DEVELOPER cards
+      const c1 = cardsToPlay[0];
+      const c2 = cardsToPlay[1];
+
+      if (c1.cardClass !== CardClass.Developer || c2.cardClass !== CardClass.Developer) {
+        this.log(game, `player "${player.name}" tried to play invalid combo types: ${c1.cardClass}, ${c2.cardClass}`);
+        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo. Must be DEVELOPER cards." });
+        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+        return;
+      }
+
+      if (c1.name !== c2.name) {
+        this.log(game, `player "${player.name}" tried to play mismatched developer combo: ${c1.name} vs ${c2.name}`);
+        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo. Cards must match." });
+        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+        return;
+      }
+
+      // Remove cards from hand. Sort indices descending to splice safely.
+      indicesToRemove.sort((a, b) => b - a);
+      for (const idx of indicesToRemove) {
+        player.hand.splice(idx, 1);
+      }
+
+      // Add to discard pile
+      game.discardPile.push(...cardsToPlay);
+
+      this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.cardClass})`);
+      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.cardClass}.` });
+
+      // TODO: Trigger special action (Steal a card) - Phase 4
+
+      this.updateGameNonce(game);
+    } finally {
+      // Always clear the playing flag, even if an error occurred
+      player.isPlaying = false;
     }
-
-    // Verify they are distinct indices (should be guaranteed by unique IDs if client is behaving, but check)
-    if (indicesToRemove[0] === indicesToRemove[1]) {
-      // This implies duplicates in cardIds or same ID found twice?
-      // Unique IDs should prevent this unless client sent same ID twice.
-      this.log(game, `player "${player.name}" tried to play combo with same card twice`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo." });
-      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
-      return;
-    }
-
-    // Validate Combo logic: 2 identical DEVELOPER cards
-    const c1 = cardsToPlay[0];
-    const c2 = cardsToPlay[1];
-
-    if (c1.cardClass !== CardClass.Developer || c2.cardClass !== CardClass.Developer) {
-      this.log(game, `player "${player.name}" tried to play invalid combo types: ${c1.cardClass}, ${c2.cardClass}`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo. Must be DEVELOPER cards." });
-      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
-      return;
-    }
-
-    if (c1.name !== c2.name) {
-      this.log(game, `player "${player.name}" tried to play mismatched developer combo: ${c1.name} vs ${c2.name}`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo. Cards must match." });
-      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
-      return;
-    }
-
-    // Remove cards from hand. Sort indices descending to splice safely.
-    indicesToRemove.sort((a, b) => b - a);
-    for (const idx of indicesToRemove) {
-      player.hand.splice(idx, 1);
-    }
-
-    // Add to discard pile
-    game.discardPile.push(...cardsToPlay);
-
-    this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.cardClass})`);
-    this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.cardClass}.` });
-
-    // TODO: Trigger special action (Steal a card) - Phase 4
-
-    this.updateGameNonce(game);
   }
 
   private handleDisconnect(socket: Socket) {
