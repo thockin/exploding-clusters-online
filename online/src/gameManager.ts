@@ -123,14 +123,45 @@ export class GameManager {
 
       // Handle voluntary leave
       socket.on(SocketEvent.LeaveGame, (gameCode: string) => {
+        // Validate gameCode matches the socket's actual game (prevents leaving games you're not in)
+        const actualGameCode = this.playerToGameMap.get(socket.id);
+        if (!actualGameCode || actualGameCode !== gameCode) {
+          this.log(null, `LeaveGame: socket ${socket.id} attempted to leave game ${gameCode} but is in game ${actualGameCode || 'none'}`);
+          return; // Silently ignore invalid leave attempts
+        }
+
         const game = this.games.get(gameCode);
-        if (!game) return;
+        if (!game) {
+          // Game doesn't exist, but clean up the map entry anyway
+          this.playerToGameMap.delete(socket.id);
+          return;
+        }
+
+        // Idempotency check: If socket is already removed from both players and spectators, ignore
+        const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
+        const spectatorIndex = game.spectators.findIndex(s => s.socketId === socket.id);
+        
+        if (playerIndex === -1 && spectatorIndex === -1) {
+          // Already processed, just clean up map entry
+          this.playerToGameMap.delete(socket.id);
+          return;
+        }
+
+        // Prevent concurrent processing: Check if player is already disconnected/being processed
+        if (playerIndex !== -1) {
+          const player = game.players[playerIndex];
+          if (player.isDisconnected) {
+            // Already being handled by disconnect handler, skip to avoid double-processing
+            this.log(game, `LeaveGame: player "${player.name}" already disconnected, skipping leave processing`);
+            this.playerToGameMap.delete(socket.id);
+            return;
+          }
+        }
 
         this.log(game, `player ${socket.id} voluntarily left the game`);
 
         let playerRemoved = false;
         // Remove player completely
-        const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
         if (playerIndex !== -1) {
           playerRemoved = true;
           const player = game.players[playerIndex];
@@ -175,35 +206,41 @@ export class GameManager {
         }
 
         // Remove from spectators
-        const spectatorIndex = game.spectators.findIndex(s => s.socketId === socket.id);
         if (spectatorIndex !== -1) {
           game.spectators.splice(spectatorIndex, 1);
         }
 
-        // If empty, end game
-        if (game.players.length === 0 && game.spectators.length === 0) {
-          this.log(game, `game is empty after voluntary leave, purging`);
-          this.endGame(gameCode);
-        } else if (game.state === GameState.Started && game.players.length < 2) {
-          if (game.players.length === 1) {
-            const winner = game.players[0];
-            this.log(game, `game ended due to insufficient players after voluntary leave. winner: ${winner.name}`);
-            this.endGame(gameCode, { winner: winner.name, reason: 'attrition' });
-          } else {
-            this.log(game, `game ended due to insufficient players after voluntary leave`);
+        // Clean up map entry before game end checks to prevent re-processing
+        this.playerToGameMap.delete(socket.id);
+
+        // Atomic game end check: Only end game if it's actually empty and hasn't already ended
+        if (game.state !== GameState.Ended) {
+          if (game.players.length === 0 && game.spectators.length === 0) {
+            this.log(game, `game is empty after voluntary leave, purging`);
             this.endGame(gameCode);
+            return; // endGame handles cleanup, don't continue
+          } else if (game.state === GameState.Started && game.players.length < 2) {
+            if (game.players.length === 1) {
+              const winner = game.players[0];
+              this.log(game, `game ended due to insufficient players after voluntary leave. winner: ${winner.name}`);
+              this.endGame(gameCode, { winner: winner.name, reason: 'attrition' });
+              return; // endGame handles cleanup, don't continue
+            } else {
+              this.log(game, `game ended due to insufficient players after voluntary leave`);
+              this.endGame(gameCode);
+              return; // endGame handles cleanup, don't continue
+            }
           }
-        } else {
+        }
+
+        // Update game state if game hasn't ended
+        if (game.state !== GameState.Ended) {
           if (playerRemoved) {
             this.updateGameNonce(game); // Triggers update for everyone else
           } else {
             this.emitGameUpdate(game); // Just update list (spectator left)
           }
         }
-
-        this.playerToGameMap.delete(socket.id);
-        // Socket will disconnect naturally or we can force it?
-        // Client disconnects itself usually.
       });
 
       socket.on('disconnect', () => {
@@ -1164,7 +1201,8 @@ export class GameManager {
 
     const game = this.games.get(gameCode);
     if (!game) {
-      console.error(`Game ${gameCode} not found for disconnected socket ${socket.id}`);
+      // Game doesn't exist, clean up map entry
+      this.playerToGameMap.delete(socket.id);
       return;
     }
 
@@ -1172,6 +1210,13 @@ export class GameManager {
     const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
     if (playerIndex !== -1) {
       const player = game.players[playerIndex];
+      
+      // Idempotency check: If already marked as disconnected, skip to avoid double-processing
+      if (player.isDisconnected) {
+        this.log(game, `handleDisconnect: player "${player.name}" already marked as disconnected, skipping`);
+        return;
+      }
+      
       this.log(game, `player "${player.name}" (${player.socketId}) disconnected`);
 
       const oldSocketId = player.socketId;
@@ -1273,35 +1318,44 @@ export class GameManager {
 
   private endGame(gameCode: string, result?: { winner: string, reason: string }) {
     const game = this.games.get(gameCode);
-    if (game) {
-      // Clear any pending timers first to prevent callbacks from executing
-      if (game.timer) {
-        clearTimeout(game.timer);
-        game.timer = null;
-      }
-
-      // Clear isPlaying flags for all players to prevent operations from completing after game ends
-      for (const player of game.players) {
-        player.isPlaying = false;
-      }
-
-      // Set game state to Ended to prevent new operations
-      game.state = GameState.Ended;
-
-      this.emitToGame(gameCode, SocketEvent.GameEnded, result);
-
-      // Directly emit to the winner's socket if result and winner are available
-      if (result?.winner) {
-        const winnerPlayer = game.players.find(p => p.name === result.winner && !p.isDisconnected);
-        if (winnerPlayer && winnerPlayer.socketId) {
-          this.emitToSocket(winnerPlayer.socketId, SocketEvent.GameEnded, result);
-        }
-      }
-
-      this.games.delete(gameCode); // Delete game from map after emitting
-
-      this.log(null, `game ${gameCode} purged`);
+    if (!game) {
+      // Game already ended/deleted, idempotent - just return
+      return;
     }
+
+    // Idempotency check: If game is already ended, don't process again
+    if (game.state === GameState.Ended) {
+      this.log(null, `endGame called for already-ended game ${gameCode}, ignoring`);
+      return;
+    }
+
+    // Clear any pending timers first to prevent callbacks from executing
+    if (game.timer) {
+      clearTimeout(game.timer);
+      game.timer = null;
+    }
+
+    // Clear isPlaying flags for all players to prevent operations from completing after game ends
+    for (const player of game.players) {
+      player.isPlaying = false;
+    }
+
+    // Set game state to Ended to prevent new operations and make this idempotent
+    game.state = GameState.Ended;
+
+    this.emitToGame(gameCode, SocketEvent.GameEnded, result);
+
+    // Directly emit to the winner's socket if result and winner are available
+    if (result?.winner) {
+      const winnerPlayer = game.players.find(p => p.name === result.winner && !p.isDisconnected);
+      if (winnerPlayer && winnerPlayer.socketId) {
+        this.emitToSocket(winnerPlayer.socketId, SocketEvent.GameEnded, result);
+      }
+    }
+
+    this.games.delete(gameCode); // Delete game from map after emitting
+
+    this.log(null, `game ${gameCode} purged`);
   }
 
   // Centralized logging
