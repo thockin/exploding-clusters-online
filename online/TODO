@@ -1,4 +1,3 @@
-indents
 GmaeUpdatePayload.discardPile -> count
 Payer / PlayerInfo (is PlayerInfo even used?)
 Fix cursor-flagged isues

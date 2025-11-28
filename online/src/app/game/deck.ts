@@ -73,7 +73,7 @@ const generateDeck = (): Card[] => {
 
   for (const def of cardDefinitions) {
     for (let i = 0; i < def.count; i++) {
-        deck.push(createCard(def, i));
+      deck.push(createCard(def, i));
     }
   }
 

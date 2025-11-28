@@ -66,8 +66,8 @@ export interface PlayerInfo {
 }
 
 export interface SpectatorInfo {
-    id: string;
-    name?: string; // Optional name if we add it later
+  id: string;
+  name?: string; // Optional name if we add it later
 }
 
 export interface GameUpdatePayload {

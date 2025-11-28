@@ -16,7 +16,7 @@ function LobbyContent() {
 
   const handleLeaveGame = () => {
     if (socket && gameCode) {
-        socket.emit(SocketEvent.LeaveGame, gameCode);
+      socket.emit(SocketEvent.LeaveGame, gameCode);
     }
     setShowLeaveModal(false);
     resetState();
@@ -25,19 +25,19 @@ function LobbyContent() {
 
   useEffect(() => {
     if (gameState?.gameOwnerId) {
-        const prevId = previousGameOwnerIdRef.current;
-        const currentId = gameState.gameOwnerId;
+      const prevId = previousGameOwnerIdRef.current;
+      const currentId = gameState.gameOwnerId;
 
-        if (prevId && prevId !== currentId && currentId === playerId) {
-            // I have been promoted!
-            const prevGameOwner = gameState.players.find(p => p.id === prevId);
-            const name = prevGameOwner ? prevGameOwner.name : 'The previous host';
-            setTimeout(() => {
-                setPreviousHostName(name);
-                setShowPromotionModal(true);
-            }, 0);
-        }
-        previousGameOwnerIdRef.current = currentId;
+      if (prevId && prevId !== currentId && currentId === playerId) {
+        // I have been promoted!
+        const prevGameOwner = gameState.players.find(p => p.id === prevId);
+        const name = prevGameOwner ? prevGameOwner.name : 'The previous host';
+        setTimeout(() => {
+          setPreviousHostName(name);
+          setShowPromotionModal(true);
+        }, 0);
+      }
+      previousGameOwnerIdRef.current = currentId;
     }
   }, [gameState?.gameOwnerId, playerId, gameState?.players]);
 
@@ -54,7 +54,7 @@ function LobbyContent() {
       // Easiest: If I am a spectator, DO NOT redirect here. Let the parent (ObserverPage) or manual logic handle it.
       const isSpectator = !gameState.players.some(p => p.id === playerId);
       if (!isSpectator) {
-          router.push(`/game?gameCode=${gameCode}`);
+        router.push(`/game?gameCode=${gameCode}`);
       }
     }
   }, [gameCode, playerName, gameState, router, socket, playerId]);

@@ -28,11 +28,11 @@ export default function Home() {
   }, [gameCode, playerName, gameState, router, socket, playerId]);
 
   if (isLoading) {
-      return <Container className="mt-5 text-center"><h2>Loading session...</h2></Container>;
+    return <Container className="mt-5 text-center"><h2>Loading session...</h2></Container>;
   }
 
   const handleRejoinErrorClose = () => {
-      resetState(); // Clears error and session storage
+    resetState(); // Clears error and session storage
   };
 
   const handleCreateGame = async () => {

@@ -62,38 +62,38 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             
             // Check if explicit spectator flag OR legacy "Spectator" name
             if (sIsSpectator || sName === 'Spectator') {
-                // Restore spectator session
-                socket.emit(SocketEvent.WatchGame, sCode, (response: { success: boolean; gameCode?: string; error?: string }) => {
-                    if (response.success && response.gameCode) {
-                        setGameCode(response.gameCode);
-                        setPlayerName('Spectator');
-                        setIsSpectator(true);
-                        // gameState will be updated by gameUpdate event
-                    } else {
-                         sessionStorage.removeItem('exploding_session');
-                    }
-                    setIsLoading(false);
-                });
-            } else if (sName && sNonce) {
-                // Restore player session
-                socket.emit(SocketEvent.JoinGame, sCode, sName, sNonce, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }) => {
+              // Restore spectator session
+              socket.emit(SocketEvent.WatchGame, sCode, (response: { success: boolean; gameCode?: string; error?: string }) => {
                 if (response.success && response.gameCode) {
-                    setGameCode(response.gameCode);
-                    setPlayerName(sName);
-                    setPlayerId(response.playerId || sId); // Prefer server response, fallback to stored
-                    setIsSpectator(false);
-                    // gameState will be updated by gameUpdate event
+                  setGameCode(response.gameCode);
+                  setPlayerName('Spectator');
+                  setIsSpectator(true);
+                  // gameState will be updated by gameUpdate event
                 } else {
-                    sessionStorage.removeItem('exploding_session');
-                    // Only set error if it's NOT a "game does not exist" error
-                    if (response.error && !response.error.includes('does not exist')) {
-                        setRejoinError("Sorry, the game has changed since you left. Rejoining is not possible.");
-                    }
+                  sessionStorage.removeItem('exploding_session');
                 }
                 setIsLoading(false);
-                });
-            } else {
+              });
+            } else if (sName && sNonce) {
+              // Restore player session
+              socket.emit(SocketEvent.JoinGame, sCode, sName, sNonce, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }) => {
+                if (response.success && response.gameCode) {
+                  setGameCode(response.gameCode);
+                  setPlayerName(sName);
+                  setPlayerId(response.playerId || sId); // Prefer server response, fallback to stored
+                  setIsSpectator(false);
+                  // gameState will be updated by gameUpdate event
+                } else {
+                  sessionStorage.removeItem('exploding_session');
+                  // Only set error if it's NOT a "game does not exist" error
+                  if (response.error && !response.error.includes('does not exist')) {
+                    setRejoinError("Sorry, the game has changed since you left. Rejoining is not possible.");
+                  }
+                }
                 setIsLoading(false);
+              });
+            } else {
+              setIsLoading(false);
             }
             return; // Wait for emit callback
           }
@@ -106,13 +106,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     if (socket.connected) {
-        restoreSession();
+      restoreSession();
     } else {
-        socket.once('connect', restoreSession);
+      socket.once('connect', restoreSession);
     }
 
     return () => {
-        socket.off('connect', restoreSession);
+      socket.off('connect', restoreSession);
     };
   }, [socket]);
 
@@ -198,7 +198,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const socketIo = io();
     setTimeout(() => {
-        setSocket(socketIo);
+      setSocket(socketIo);
     }, 0);
 
 
@@ -251,7 +251,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setGameState(prev => {
         if (!prev) return null;
         if (prev.players.some(p => p.id === data.playerId)) {
-            return prev;
+          return prev;
         }
         const newPlayers = [...prev.players, { id: data.playerId, name: data.playerName, cards: 0 }];
         return { ...prev, players: newPlayers };
@@ -278,7 +278,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     socketIo.on(SocketEvent.GameEnded, (data?: { winner: string; reason: string }) => {
       console.log('Game ended.', data);
       if (data) {
-          setGameEndData(data);
+        setGameEndData(data);
       }
       setGameState(null);
     });
@@ -324,7 +324,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       startGame,
       resetState,
     }}>{
-      children
-    }</SocketContext.Provider>
+        children
+      }</SocketContext.Provider>
   );
 };

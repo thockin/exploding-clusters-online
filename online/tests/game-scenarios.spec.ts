@@ -82,11 +82,11 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Join 4 more (Total 5)
     const contexts = [];
     for (let i = 2; i <= 5; i++) {
-        const ctx = await browser.newContext();
-        contexts.push(ctx);
-        const p = await ctx.newPage();
-        await joinGame(p, `Player ${i}`, code);
-        await expect(p.locator('text=Lobby - Game Code')).toBeVisible();
+      const ctx = await browser.newContext();
+      contexts.push(ctx);
+      const p = await ctx.newPage();
+      await joinGame(p, `Player ${i}`, code);
+      await expect(p.locator('text=Lobby - Game Code')).toBeVisible();
     }
 
     // 6th Player
@@ -151,10 +151,10 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     
     // Ensure session storage is populated
     await page2.waitForFunction(() => {
-        const s = sessionStorage.getItem('exploding_session');
-        if (!s) return false;
-        const data = JSON.parse(s);
-        return data.gameCode && data.nonce;
+      const s = sessionStorage.getItem('exploding_session');
+      if (!s) return false;
+      const data = JSON.parse(s);
+      return data.gameCode && data.nonce;
     });
 
     // P2 Navigates away (Disconnects)
@@ -249,15 +249,15 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     expect(p2Host || p3Host).toBeTruthy();
     
     if (p2Host) {
-        await expect(page2.locator('button:has-text("Start Game")')).toBeVisible();
-        await expect(page3.locator('button:has-text("Start Game")')).not.toBeVisible();
-        // Check modal on P2
-        await expect(page2.locator('.modal-title:has-text("You are now the game owner")')).toBeVisible();
+      await expect(page2.locator('button:has-text("Start Game")')).toBeVisible();
+      await expect(page3.locator('button:has-text("Start Game")')).not.toBeVisible();
+      // Check modal on P2
+      await expect(page2.locator('.modal-title:has-text("You are now the game owner")')).toBeVisible();
     } else {
-        await expect(page3.locator('button:has-text("Start Game")')).toBeVisible();
-        await expect(page2.locator('button:has-text("Start Game")')).not.toBeVisible();
-         // Check modal on P3
-        await expect(page3.locator('.modal-title:has-text("You are now the game owner")')).toBeVisible();
+      await expect(page3.locator('button:has-text("Start Game")')).toBeVisible();
+      await expect(page2.locator('button:has-text("Start Game")')).not.toBeVisible();
+      // Check modal on P3
+      await expect(page3.locator('.modal-title:has-text("You are now the game owner")')).toBeVisible();
     }
 
     // P1 Reconnects
@@ -371,8 +371,8 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // 15 cards = 3 rows of 5 (overflows 2 rows).
     // So we need 15 cards. Current is 10. Add 5 more.
     for (let i = 0; i < 5; i++) {
-        await page.click('button:has-text("Give me a safe card")');
-        // Small wait to ensure processing if needed, though click should be awaited
+      await page.click('button:has-text("Give me a safe card")');
+      // Small wait to ensure processing if needed, though click should be awaited
     }
     await expect(handSection.locator('img')).toHaveCount(15);
 
@@ -389,7 +389,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // 19 cards = 3 rows (7, 6, 6).
     // Need 19 cards. Current 15. Add 4.
     for (let i = 0; i < 4; i++) {
-        await page.click('button:has-text("Give me a safe card")');
+      await page.click('button:has-text("Give me a safe card")');
     }
     await expect(handSection.locator('img')).toHaveCount(19);
     
@@ -401,19 +401,19 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Discard 5 cards (19 -> 14)
     const discardPile = page.locator('text=Discard Pile').locator('xpath=..');
     for (let i = 0; i < 5; i++) {
-        // Pick a non-developer card to ensure play is accepted
-        const cardToPlay = handSection.locator('img:not([src*="developer_-_"]):not([src*="exploding_-_"]):not([src*="upgrade_-_"])').first();
+      // Pick a non-developer card to ensure play is accepted
+      const cardToPlay = handSection.locator('img:not([src*="developer_-_"]):not([src*="exploding_-_"]):not([src*="upgrade_-_"])').first();
         
-        await cardToPlay.scrollIntoViewIfNeeded();
-        const srcBox = await cardToPlay.boundingBox();
-        const dstBox = await discardPile.boundingBox();
-        if (srcBox && dstBox) {
-            await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
-            await page.mouse.down();
-            await page.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 10 });
-            await page.mouse.up();
-            await expect(handSection.locator('img')).toHaveCount(19 - 1 - i);
-        }
+      await cardToPlay.scrollIntoViewIfNeeded();
+      const srcBox = await cardToPlay.boundingBox();
+      const dstBox = await discardPile.boundingBox();
+      if (srcBox && dstBox) {
+        await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 10 });
+        await page.mouse.up();
+        await expect(handSection.locator('img')).toHaveCount(19 - 1 - i);
+      }
     }
     
     await expect(handSection.locator('img')).toHaveCount(14);
@@ -441,7 +441,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // In DEVMODE, P1 always starts.
     if (process.env.DEVMODE === '1') {
-        await expect(page1.locator('.list-group-item:has-text("P1")')).toHaveClass(/bg-success-subtle/);
+      await expect(page1.locator('.list-group-item:has-text("P1")')).toHaveClass(/bg-success-subtle/);
     }
 
     // Identify whose turn it is (Robust for non-DEVMODE too)
@@ -454,17 +454,17 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     let nextPlayerName: string;
 
     if (isP1Turn) { 
-        currentPage = page1; 
-        currentName = 'P1'; 
-        nextPlayerName = 'P2'; // In DEVMODE turn order is P1, P2, P3
+      currentPage = page1; 
+      currentName = 'P1'; 
+      nextPlayerName = 'P2'; // In DEVMODE turn order is P1, P2, P3
     } else if (isP2Turn) { 
-        currentPage = page2; 
-        currentName = 'P2'; 
-        nextPlayerName = 'P3';
+      currentPage = page2; 
+      currentName = 'P2'; 
+      nextPlayerName = 'P3';
     } else { 
-        currentPage = page3; 
-        currentName = 'P3'; 
-        nextPlayerName = 'P1';
+      currentPage = page3; 
+      currentName = 'P3'; 
+      nextPlayerName = 'P1';
     }
 
     // Current player disconnects
@@ -482,17 +482,17 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Wait for turn to change to someone else (Next player)
     // In DEVMODE, if P1 leaves, P2 should be next.
     if (process.env.DEVMODE === '1') {
-         await expect(observerPage.locator(`.list-group-item:has-text("${nextPlayerName}")`)).toHaveClass(/bg-success-subtle/);
+      await expect(observerPage.locator(`.list-group-item:has-text("${nextPlayerName}")`)).toHaveClass(/bg-success-subtle/);
          
-         // If observer is the next player (P2), verify green turn area
-         if (nextPlayerName === 'P2' && observerPage === page2) {
-             const turnArea = observerPage.locator('strong:has-text("It\'s your turn")').locator('xpath=..');
-             await expect(turnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)');
-         }
+      // If observer is the next player (P2), verify green turn area
+      if (nextPlayerName === 'P2' && observerPage === page2) {
+        const turnArea = observerPage.locator('strong:has-text("It\'s your turn")').locator('xpath=..');
+        await expect(turnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)');
+      }
     } else {
-        const remainingPlayers = ['P1', 'P2', 'P3'].filter(n => n !== currentName);
-        const nextPlayerTurnSelector = remainingPlayers.map(n => `.list-group-item:has-text("${n}").bg-success-subtle`).join(',');
-        await expect(observerPage.locator(nextPlayerTurnSelector)).toBeVisible();
+      const remainingPlayers = ['P1', 'P2', 'P3'].filter(n => n !== currentName);
+      const nextPlayerTurnSelector = remainingPlayers.map(n => `.list-group-item:has-text("${n}").bg-success-subtle`).join(',');
+      await expect(observerPage.locator(nextPlayerTurnSelector)).toBeVisible();
     }
     
     // Reconnect
@@ -577,9 +577,9 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // Click until disabled
     for (let i=0; i<10; i++) {
-        if (await debugBtn.isDisabled()) break;
-        await debugBtn.click();
-        await page1.waitForTimeout(200); 
+      if (await debugBtn.isDisabled()) break;
+      await debugBtn.click();
+      await page1.waitForTimeout(200); 
     }
 
     await expect(debugBtn).toBeDisabled();
@@ -951,17 +951,17 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     let pairSrc = '';
 
     for (let i = 0; i < count; i++) {
-        const src = await devCards.nth(i).getAttribute('src');
-        for (let j = i + 1; j < count; j++) {
-            const src2 = await devCards.nth(j).getAttribute('src');
-            if (src === src2) {
-                firstPairIndex = i;
-                secondPairIndex = j;
-                pairSrc = src || '';
-                break;
-            }
+      const src = await devCards.nth(i).getAttribute('src');
+      for (let j = i + 1; j < count; j++) {
+        const src2 = await devCards.nth(j).getAttribute('src');
+        if (src === src2) {
+          firstPairIndex = i;
+          secondPairIndex = j;
+          pairSrc = src || '';
+          break;
         }
-        if (firstPairIndex !== -1) break;
+      }
+      if (firstPairIndex !== -1) break;
     }
 
     expect(firstPairIndex).not.toBe(-1);
@@ -1034,16 +1034,16 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     let secondPairIndex = -1;
 
     for (let i = 0; i < count; i++) {
-        const src = await devCards.nth(i).getAttribute('src');
-        for (let j = i + 1; j < count; j++) {
-            const src2 = await devCards.nth(j).getAttribute('src');
-            if (src === src2) {
-                firstPairIndex = i;
-                secondPairIndex = j;
-                break;
-            }
+      const src = await devCards.nth(i).getAttribute('src');
+      for (let j = i + 1; j < count; j++) {
+        const src2 = await devCards.nth(j).getAttribute('src');
+        if (src === src2) {
+          firstPairIndex = i;
+          secondPairIndex = j;
+          break;
         }
-        if (firstPairIndex !== -1) break;
+      }
+      if (firstPairIndex !== -1) break;
     }
 
     expect(firstPairIndex).not.toBe(-1);
@@ -1203,16 +1203,16 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     let secondPairIndex = -1;
 
     for (let i = 0; i < count; i++) {
-        const src = await devCards.nth(i).getAttribute('src');
-        for (let j = i + 1; j < count; j++) {
-            const src2 = await devCards.nth(j).getAttribute('src');
-            if (src === src2) {
-                firstPairIndex = i;
-                secondPairIndex = j;
-                break;
-            }
+      const src = await devCards.nth(i).getAttribute('src');
+      for (let j = i + 1; j < count; j++) {
+        const src2 = await devCards.nth(j).getAttribute('src');
+        if (src === src2) {
+          firstPairIndex = i;
+          secondPairIndex = j;
+          break;
         }
-        if (firstPairIndex !== -1) break;
+      }
+      if (firstPairIndex !== -1) break;
     }
 
     expect(firstPairIndex).not.toBe(-1);

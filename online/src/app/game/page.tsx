@@ -61,16 +61,16 @@ export default function GameScreen() {
   const gameStateRef = useRef(gameState);
   
   useEffect(() => {
-      const prevGameState = gameStateRef.current;
-      if (prevGameState && gameState) {
-          if (prevGameState.gameOwnerId !== playerId && gameState.gameOwnerId === playerId) {
-              const prevOwner = prevGameState.players.find(p => p.id === prevGameState.gameOwnerId);
-              const prevOwnerName = prevOwner ? prevOwner.name : 'The previous host';
-              setTimeout(() => {
-                  setHostPromotionMessage(`${prevOwnerName} left the game, so you have been selected as the new game owner. Congratulations on your promotion!`);
-              }, 0);
-          }
+    const prevGameState = gameStateRef.current;
+    if (prevGameState && gameState) {
+      if (prevGameState.gameOwnerId !== playerId && gameState.gameOwnerId === playerId) {
+        const prevOwner = prevGameState.players.find(p => p.id === prevGameState.gameOwnerId);
+        const prevOwnerName = prevOwner ? prevOwner.name : 'The previous host';
+        setTimeout(() => {
+          setHostPromotionMessage(`${prevOwnerName} left the game, so you have been selected as the new game owner. Congratulations on your promotion!`);
+        }, 0);
       }
+    }
   }, [gameState, playerId]);
 
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
@@ -99,9 +99,9 @@ export default function GameScreen() {
     socket.on(SocketEvent.PlayerExploding, onPlayerExploding);
 
     return () => {
-        socket.off(SocketEvent.DeckData, onDeckData);
-        socket.off(SocketEvent.RemovedData, onRemovedData);
-        socket.off(SocketEvent.PlayerExploding, onPlayerExploding);
+      socket.off(SocketEvent.DeckData, onDeckData);
+      socket.off(SocketEvent.RemovedData, onRemovedData);
+      socket.off(SocketEvent.PlayerExploding, onPlayerExploding);
     };
   }, [socket]);
 
@@ -128,8 +128,8 @@ export default function GameScreen() {
     const handleResize = () => {
       if (tableAreaRef.current) {
         setTableAreaSize({
-            width: tableAreaRef.current.offsetWidth,
-            height: tableAreaRef.current.offsetHeight
+          width: tableAreaRef.current.offsetWidth,
+          height: tableAreaRef.current.offsetHeight
         });
       }
     };
@@ -140,20 +140,20 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (handAreaRef.current) {
-        setHandAreaWidth(handAreaRef.current.clientWidth);
-        const observer = new ResizeObserver(entries => {
-            if (entries[0] && !isDraggingRef.current) {
-                setHandAreaWidth(entries[0].contentRect.width);
-            }
-        });
-        observer.observe(handAreaRef.current);
-        return () => observer.disconnect();
+      setHandAreaWidth(handAreaRef.current.clientWidth);
+      const observer = new ResizeObserver(entries => {
+        if (entries[0] && !isDraggingRef.current) {
+          setHandAreaWidth(entries[0].contentRect.width);
+        }
+      });
+      observer.observe(handAreaRef.current);
+      return () => observer.disconnect();
     }
   }, []);
 
   const handleGameEndConfirm = useCallback(() => {
-      resetState();
-      router.push('/');
+    resetState();
+    router.push('/');
   }, [resetState, router]);
 
   const getCardSize = useCallback((enlarged: boolean = false) => {
@@ -164,7 +164,7 @@ export default function GameScreen() {
       return { width: maxWidth, height: maxHeight };
     }
     if (tableAreaSize.width === 0 || tableAreaSize.height === 0) {
-        return { width: 100, height: 140 };
+      return { width: 100, height: 140 };
     }
     const padding = 20;
     const fixedGapPx = 30;
@@ -173,15 +173,15 @@ export default function GameScreen() {
     let cardW = availW / 2;
     let cardH = cardW / aspectRatio;
     if (cardH > availH) {
-        cardH = availH;
-        cardW = cardH * aspectRatio;
+      cardH = availH;
+      cardW = cardH * aspectRatio;
     }
     return { width: Math.floor(cardW), height: Math.floor(cardH) };
   }, [tableAreaSize, windowHeight]);
 
   const handleLeaveGame = useCallback(() => {
     if (socket && gameCode) {
-        socket.emit(SocketEvent.LeaveGame, gameCode);
+      socket.emit(SocketEvent.LeaveGame, gameCode);
     }
     setShowLeaveModal(false);
     resetState();
@@ -192,16 +192,16 @@ export default function GameScreen() {
     event.stopPropagation();
     
     if (isDraggingRef.current) {
-        // handleCardClick ignored (isDraggingRef)
-        return;
+      // handleCardClick ignored (isDraggingRef)
+      return;
     }
 
     // Calculate distance moved to distinguish click from drag
     const moveX = Math.abs(event.clientX - clickStartPosRef.current.x);
     const moveY = Math.abs(event.clientY - clickStartPosRef.current.y);
     if (moveX > 30 || moveY > 30) {
-        // handleCardClick ignored (distance)
-        return;
+      // handleCardClick ignored (distance)
+      return;
     }
     console.debug('handleCardClick', card.id, card.name, 'shift:', event.shiftKey, 'selected:', selectedCards.map(c => c.id));
     // TODO: Add check for playable cards here (Phase 3)
@@ -255,14 +255,14 @@ export default function GameScreen() {
     if (containerWidth === 0) return { maxWidth: CARD_FULL_WIDTH_PX + 2, cardWidth: CARD_WIDTH_PX, cols: 1 };
 
     const getRowsAndCols = (cardFullWidth: number) => {
-        const maxColsPossible = Math.floor(containerWidth / cardFullWidth);
-        if (maxColsPossible === 0) return { rows: numCards, cols: 1 }; 
+      const maxColsPossible = Math.floor(containerWidth / cardFullWidth);
+      if (maxColsPossible === 0) return { rows: numCards, cols: 1 }; 
         
-        for (let r = 1; r <= numCards; r++) {
-            const cols = Math.ceil(numCards / r);
-            if (cols <= maxColsPossible) return { rows: r, cols };
-        }
-        return { rows: numCards, cols: 1 };
+      for (let r = 1; r <= numCards; r++) {
+        const cols = Math.ceil(numCards / r);
+        if (cols <= maxColsPossible) return { rows: r, cols };
+      }
+      return { rows: numCards, cols: 1 };
     };
 
     const standard = getRowsAndCols(CARD_FULL_WIDTH_PX);
@@ -274,10 +274,10 @@ export default function GameScreen() {
     // "Once we shrink cards, they stay at the smaller size until the number of cards in the hand can all fit in two rows at the regular size."
     // This implies: If Standard > 2 rows, use Small.
     if (standard.rows > 2) {
-        const small = getRowsAndCols(CARD_SMALL_FULL_WIDTH_PX);
-        chosenCardWidth = CARD_SMALL_WIDTH_PX;
-        chosenFullWidth = CARD_SMALL_FULL_WIDTH_PX;
-        chosenCols = small.cols;
+      const small = getRowsAndCols(CARD_SMALL_FULL_WIDTH_PX);
+      chosenCardWidth = CARD_SMALL_WIDTH_PX;
+      chosenFullWidth = CARD_SMALL_FULL_WIDTH_PX;
+      chosenCols = small.cols;
     }
 
     const maxWidth = chosenCols * chosenFullWidth + 2; // Buffer
@@ -285,59 +285,59 @@ export default function GameScreen() {
   }, []);
 
   const handleGiveDebugCard = () => {
-      if (socket && gameCode) {
-          socket.emit(SocketEvent.GiveDebugCard, gameCode);
-      }
+    if (socket && gameCode) {
+      socket.emit(SocketEvent.GiveDebugCard, gameCode);
+    }
   };
 
   const handleDevDrawCard = () => {
-      if (socket && gameCode) {
-          socket.emit(SocketEvent.GiveSafeCard, gameCode);
-      }
+    if (socket && gameCode) {
+      socket.emit(SocketEvent.GiveSafeCard, gameCode);
+    }
   };
   
   const handleShowDeck = () => {
-      if (socket && gameCode) {
-          socket.emit(SocketEvent.ShowDeck, gameCode);
-      }
+    if (socket && gameCode) {
+      socket.emit(SocketEvent.ShowDeck, gameCode);
+    }
   };
 
   const handleShowRemovedPile = () => {
-      if (socket && gameCode) {
-          socket.emit(SocketEvent.ShowRemovedPile, gameCode);
-      }
+    if (socket && gameCode) {
+      socket.emit(SocketEvent.ShowRemovedPile, gameCode);
+    }
   };
 
   const handleDrawClick = useCallback(() => {
-      if (!socket || !gameState) return;
+    if (!socket || !gameState) return;
       
-      const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
-      if (currentPlayerId !== playerId) {
-          console.log("Not your turn to draw!");
-          return; // Or show toast
-      }
+    const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
+    if (currentPlayerId !== playerId) {
+      console.log("Not your turn to draw!");
+      return; // Or show toast
+    }
       
-      socket.emit(SocketEvent.DrawCard, gameCode);
+    socket.emit(SocketEvent.DrawCard, gameCode);
   }, [socket, gameState, playerId, gameCode]);
 
   useEffect(() => {
-      if (!socket) return;
+    if (!socket) return;
       
-      const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: Card, duration: number }) => {
-          console.debug(SocketEvent.DrawCardAnimation, data);
-          setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId });
+    const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: Card, duration: number }) => {
+      console.debug(SocketEvent.DrawCardAnimation, data);
+      setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId });
           
-          // Clear animation after duration
-          setTimeout(() => {
-              setDrawingAnimation(null);
-          }, data.duration);
-      };
+      // Clear animation after duration
+      setTimeout(() => {
+        setDrawingAnimation(null);
+      }, data.duration);
+    };
       
-      socket.on(SocketEvent.DrawCardAnimation, onDrawCardAnimation);
+    socket.on(SocketEvent.DrawCardAnimation, onDrawCardAnimation);
       
-      return () => {
-          socket.off(SocketEvent.DrawCardAnimation, onDrawCardAnimation);
-      };
+    return () => {
+      socket.off(SocketEvent.DrawCardAnimation, onDrawCardAnimation);
+    };
   }, [socket]);
 
   const onDragEnd = (result: DropResult) => {
@@ -346,103 +346,103 @@ export default function GameScreen() {
     console.debug('onDragEnd', result);
     const { source, destination } = result;
     if (!destination) {
-        console.log('no destination');
-        return;
+      console.log('no destination');
+      return;
     }
 
     const currentGameState = gameStateRef.current;
     if (!currentGameState) {
-        console.log('no gameState');
-        return;
+      console.log('no gameState');
+      return;
     }
 
     // Handle reordering within hand
     if (source.droppableId.startsWith('hand-row-') && destination.droppableId.startsWith('hand-row-')) {
-        const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
-        const sourceRowIndex = parseInt(source.droppableId.replace('hand-row-', ''), 10);
-        const destRowIndex = parseInt(destination.droppableId.replace('hand-row-', ''), 10);
+      const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
+      const sourceRowIndex = parseInt(source.droppableId.replace('hand-row-', ''), 10);
+      const destRowIndex = parseInt(destination.droppableId.replace('hand-row-', ''), 10);
 
-        const sourceGlobalIndex = sourceRowIndex * cols + source.index;
-        let destGlobalIndex = destRowIndex * cols + destination.index;
+      const sourceGlobalIndex = sourceRowIndex * cols + source.index;
+      let destGlobalIndex = destRowIndex * cols + destination.index;
 
-        // Fix row offset for cross-row drags
-        if (destRowIndex > sourceRowIndex) {
-            destGlobalIndex -= 1;
-        }
+      // Fix row offset for cross-row drags
+      if (destRowIndex > sourceRowIndex) {
+        destGlobalIndex -= 1;
+      }
 
-        const draggedCard = myHand[sourceGlobalIndex];
-        // Check if dragging a card that is part of the selection
-        const isMultiMove = selectedCards.length > 1 && selectedCards.some(c => c.id === draggedCard.id);
+      const draggedCard = myHand[sourceGlobalIndex];
+      // Check if dragging a card that is part of the selection
+      const isMultiMove = selectedCards.length > 1 && selectedCards.some(c => c.id === draggedCard.id);
 
-        let newHand: Card[];
+      let newHand: Card[];
 
-        if (isMultiMove) {
-            // Get selected IDs for quick lookup
-            const selectedIds = new Set(selectedCards.map(c => c.id));
+      if (isMultiMove) {
+        // Get selected IDs for quick lookup
+        const selectedIds = new Set(selectedCards.map(c => c.id));
             
-            // Get ordered selection (to maintain relative order)
-            const orderedSelection = myHand.filter(c => selectedIds.has(c.id));
+        // Get ordered selection (to maintain relative order)
+        const orderedSelection = myHand.filter(c => selectedIds.has(c.id));
             
-            // Hand without ANY selected cards (final base)
-            const handWithoutSelection = myHand.filter(c => !selectedIds.has(c.id));
+        // Hand without ANY selected cards (final base)
+        const handWithoutSelection = myHand.filter(c => !selectedIds.has(c.id));
             
-            // Hand with ONLY the dragged card removed (for dnd reference)
-            const handWithoutAnchor = myHand.filter(c => c.id !== draggedCard.id);
+        // Hand with ONLY the dragged card removed (for dnd reference)
+        const handWithoutAnchor = myHand.filter(c => c.id !== draggedCard.id);
             
-            console.debug('Multi-move trace', {
-                destGlobalIndex,
-                handWithoutAnchorLength: handWithoutAnchor.length,
-                handWithoutAnchorIds: handWithoutAnchor.map(c => c.id),
-                selectedIds: Array.from(selectedIds)
-            });
+        console.debug('Multi-move trace', {
+          destGlobalIndex,
+          handWithoutAnchorLength: handWithoutAnchor.length,
+          handWithoutAnchorIds: handWithoutAnchor.map(c => c.id),
+          selectedIds: Array.from(selectedIds)
+        });
 
-            // Determine insertion reference
-            // dndDestIndex points to an index in handWithoutAnchor
-            // We need to find the first non-selected card at or after this position
-            let trueReferenceCard: Card | null = null;
+        // Determine insertion reference
+        // dndDestIndex points to an index in handWithoutAnchor
+        // We need to find the first non-selected card at or after this position
+        let trueReferenceCard: Card | null = null;
             
-            // Start looking from the drop index
-            // Handle append case
-            if (destGlobalIndex >= handWithoutAnchor.length) {
-                trueReferenceCard = null;
-            } else {
-                for (let i = destGlobalIndex; i < handWithoutAnchor.length; i++) {
-                    const candidate = handWithoutAnchor[i];
-                    if (!selectedIds.has(candidate.id)) {
-                        trueReferenceCard = candidate;
-                        break;
-                    }
-                }
-            }
-
-            console.debug('trueReferenceCard', trueReferenceCard?.id);
-
-            // Find insertion index in the clean hand
-            let insertIndex = handWithoutSelection.length;
-            if (trueReferenceCard) {
-                const idx = handWithoutSelection.findIndex(c => c.id === trueReferenceCard!.id);
-                if (idx !== -1) insertIndex = idx;
-            }
-            
-            console.debug('insertIndex', insertIndex);
-
-            newHand = [...handWithoutSelection];
-            newHand.splice(insertIndex, 0, ...orderedSelection);
-
+        // Start looking from the drop index
+        // Handle append case
+        if (destGlobalIndex >= handWithoutAnchor.length) {
+          trueReferenceCard = null;
         } else {
-            newHand = Array.from(myHand);
-            const [reorderedItem] = newHand.splice(sourceGlobalIndex, 1);
-            newHand.splice(destGlobalIndex, 0, reorderedItem);
+          for (let i = destGlobalIndex; i < handWithoutAnchor.length; i++) {
+            const candidate = handWithoutAnchor[i];
+            if (!selectedIds.has(candidate.id)) {
+              trueReferenceCard = candidate;
+              break;
+            }
+          }
         }
 
-        // Ensure selection persists
-        const currentSelection = selectedCards;
-        setMyHand(newHand); // Optimistic update to prevent flicker
-        if (currentSelection.length > 0) {
-             setSelectedCards(currentSelection);
+        console.debug('trueReferenceCard', trueReferenceCard?.id);
+
+        // Find insertion index in the clean hand
+        let insertIndex = handWithoutSelection.length;
+        if (trueReferenceCard) {
+          const idx = handWithoutSelection.findIndex(c => c.id === trueReferenceCard!.id);
+          if (idx !== -1) insertIndex = idx;
         }
-        socket?.emit(SocketEvent.ReorderHand, { gameCode, newHand });
-        return;
+            
+        console.debug('insertIndex', insertIndex);
+
+        newHand = [...handWithoutSelection];
+        newHand.splice(insertIndex, 0, ...orderedSelection);
+
+      } else {
+        newHand = Array.from(myHand);
+        const [reorderedItem] = newHand.splice(sourceGlobalIndex, 1);
+        newHand.splice(destGlobalIndex, 0, reorderedItem);
+      }
+
+      // Ensure selection persists
+      const currentSelection = selectedCards;
+      setMyHand(newHand); // Optimistic update to prevent flicker
+      if (currentSelection.length > 0) {
+        setSelectedCards(currentSelection);
+      }
+      socket?.emit(SocketEvent.ReorderHand, { gameCode, newHand });
+      return;
     }
 
     // Handle discard pile drop
@@ -459,50 +459,50 @@ export default function GameScreen() {
 
       // Case 0: No Selection
       if (selectedCards.length === 0) {
-          cardsToPlay = [draggedCard];
-          newSelectedCards = [draggedCard];
+        cardsToPlay = [draggedCard];
+        newSelectedCards = [draggedCard];
       }
       // Case 1: Single Selection
       else if (selectedCards.length === 1) {
-          const selected = selectedCards[0];
-          // Dragging the selected card
-          if (selected.id === draggedCard.id) {
-              cardsToPlay = [draggedCard];
-              newSelectedCards = [draggedCard];
-          }
-          // Dragging a different card
-          else {
-              // Check Shift-Drag for Developer Combo
-              if (isShiftKeyPressed.current && 
+        const selected = selectedCards[0];
+        // Dragging the selected card
+        if (selected.id === draggedCard.id) {
+          cardsToPlay = [draggedCard];
+          newSelectedCards = [draggedCard];
+        }
+        // Dragging a different card
+        else {
+          // Check Shift-Drag for Developer Combo
+          if (isShiftKeyPressed.current && 
                   selected.cardClass === CardClass.Developer && 
                   draggedCard.cardClass === CardClass.Developer &&
                   selected.name === draggedCard.name) {
                   
-                  // "the second card is also selected and both cards are played"
-                  cardsToPlay = [selected, draggedCard];
-                  newSelectedCards = [selected, draggedCard];
-              } else {
-                  // "the selected card is deselected and the second card is selected and played"
-                  cardsToPlay = [draggedCard];
-                  newSelectedCards = [draggedCard];
-              }
+            // "the second card is also selected and both cards are played"
+            cardsToPlay = [selected, draggedCard];
+            newSelectedCards = [selected, draggedCard];
+          } else {
+            // "the selected card is deselected and the second card is selected and played"
+            cardsToPlay = [draggedCard];
+            newSelectedCards = [draggedCard];
           }
+        }
       }
       // Case 2: Combo Selection
       else if (selectedCards.length === 2) {
-          // Dragging one of the combo cards
-          if (selectedCards.some(c => c.id === draggedCard.id)) {
-              cardsToPlay = selectedCards;
-              newSelectedCards = selectedCards;
-          } else {
-              // "the combo is deselected and the new card is selected and played"
-              cardsToPlay = [draggedCard];
-              newSelectedCards = [draggedCard];
-          }
-      } else {
-          // Fallback (shouldn't happen with max 2 selection)
+        // Dragging one of the combo cards
+        if (selectedCards.some(c => c.id === draggedCard.id)) {
+          cardsToPlay = selectedCards;
+          newSelectedCards = selectedCards;
+        } else {
+          // "the combo is deselected and the new card is selected and played"
           cardsToPlay = [draggedCard];
           newSelectedCards = [draggedCard];
+        }
+      } else {
+        // Fallback (shouldn't happen with max 2 selection)
+        cardsToPlay = [draggedCard];
+        newSelectedCards = [draggedCard];
       }
 
       // Update selection UI immediately
@@ -510,110 +510,110 @@ export default function GameScreen() {
 
       // Now handle the actual play
       if (cardsToPlay.length > 0) {
-          // Rejection Logic: Single DEVELOPER card
-          if (cardsToPlay.length === 1 && cardsToPlay[0].cardClass === CardClass.Developer) {
-              console.log('Cannot play a single DEVELOPER card');
-              // "Return it to the player's hand".
-              // Do NOT emit. Do NOT setMyHand. DnD will snap back.
-              // Do NOT clear selection (newSelectedCards is set, user sees what they tried to play).
-              // TODO: Display message to user? The design doc says "Return it... with a message".
-              // We need a way to show local message? 
-              // Current gameMessages come from server.
-              // We can manually append to gameMessages?
-              // But gameMessages is state from server.
-              // We can't easily inject local messages without refactoring SocketContext.
-              // But we can alert? No.
-              // We can assume server won't send message if we don't emit.
-              // Wait, "Return it to the player's hand with a message".
-              // If we don't play it, server doesn't know.
-              // We should show a toast or something?
-              // For now, console log is all we have locally unless we add local message state.
-              // BUT, checking `SocketContext`: `gameMessages` is `string[]`. `setGameMessages` is not exposed.
-              // Maybe we should ignore the "message" part for now or implement local toast later.
-              return; 
-          }
+        // Rejection Logic: Single DEVELOPER card
+        if (cardsToPlay.length === 1 && cardsToPlay[0].cardClass === CardClass.Developer) {
+          console.log('Cannot play a single DEVELOPER card');
+          // "Return it to the player's hand".
+          // Do NOT emit. Do NOT setMyHand. DnD will snap back.
+          // Do NOT clear selection (newSelectedCards is set, user sees what they tried to play).
+          // TODO: Display message to user? The design doc says "Return it... with a message".
+          // We need a way to show local message? 
+          // Current gameMessages come from server.
+          // We can manually append to gameMessages?
+          // But gameMessages is state from server.
+          // We can't easily inject local messages without refactoring SocketContext.
+          // But we can alert? No.
+          // We can assume server won't send message if we don't emit.
+          // Wait, "Return it to the player's hand with a message".
+          // If we don't play it, server doesn't know.
+          // We should show a toast or something?
+          // For now, console log is all we have locally unless we add local message state.
+          // BUT, checking `SocketContext`: `gameMessages` is `string[]`. `setGameMessages` is not exposed.
+          // Maybe we should ignore the "message" part for now or implement local toast later.
+          return; 
+        }
 
-          // Emit the appropriate event to the server
-          if (gameCode) {
-              if (cardsToPlay.length === 1) {
-                  console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
-                  socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id });
-              } else if (cardsToPlay.length === 2) {
-                  console.debug('Emitting playCombo for DEVELOPER cards');
-                  socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id) });
-              }
-          } else {
-              console.error("Game code not found, cannot play card.");
-              return; 
+        // Emit the appropriate event to the server
+        if (gameCode) {
+          if (cardsToPlay.length === 1) {
+            console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
+            socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id });
+          } else if (cardsToPlay.length === 2) {
+            console.debug('Emitting playCombo for DEVELOPER cards');
+            socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id) });
           }
+        } else {
+          console.error("Game code not found, cannot play card.");
+          return; 
+        }
 
-          // Optimistic update and clear selection for successful plays
-          setSelectedCards([]);
-          setMyHand((prevHand: Card[]) => prevHand.filter(c => !cardsToPlay.some(pc => pc.id === c.id)));
+        // Optimistic update and clear selection for successful plays
+        setSelectedCards([]);
+        setMyHand((prevHand: Card[]) => prevHand.filter(c => !cardsToPlay.some(pc => pc.id === c.id)));
       }
       return; // Ensure we exit after handling the drop
     }
   };
 
   const onDragStart = (start: DragStart) => {
-      isDraggingRef.current = true;
-      setIsDragging(true);
-      console.debug('onDragStart', start);
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    console.debug('onDragStart', start);
       
-      if (start.source.droppableId.startsWith('hand-row-')) {
-          const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
-          const sourceRowIndex = parseInt(start.source.droppableId.replace('hand-row-', ''), 10);
-          const sourceGlobalIndex = sourceRowIndex * cols + start.source.index;
-          const draggedCard = myHand[sourceGlobalIndex];
+    if (start.source.droppableId.startsWith('hand-row-')) {
+      const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
+      const sourceRowIndex = parseInt(start.source.droppableId.replace('hand-row-', ''), 10);
+      const sourceGlobalIndex = sourceRowIndex * cols + start.source.index;
+      const draggedCard = myHand[sourceGlobalIndex];
 
-          if (!draggedCard) return;
+      if (!draggedCard) return;
 
-          // If Shift is held, try to add to selection (Combo)
-          if (isShiftKeyPressed.current) {
-              // "If there is a single DEVELOPER card selected and the player shift-clicks and drags another identical card..."
-              if (selectedCards.length === 1) {
-                  const selected = selectedCards[0];
-                  if (selected.cardClass === CardClass.Developer && 
+      // If Shift is held, try to add to selection (Combo)
+      if (isShiftKeyPressed.current) {
+        // "If there is a single DEVELOPER card selected and the player shift-clicks and drags another identical card..."
+        if (selectedCards.length === 1) {
+          const selected = selectedCards[0];
+          if (selected.cardClass === CardClass.Developer && 
                       draggedCard.cardClass === CardClass.Developer && 
                       selected.name === draggedCard.name &&
                       selected.id !== draggedCard.id) {
                       
-                      // Add to selection
-                      setSelectedCards([selected, draggedCard]);
-                  }
-              }
-          } else {
-              // No Shift.
-              // If dragged card is NOT in selection, select it (switch selection).
-              if (!selectedCards.some(c => c.id === draggedCard.id)) {
-                  setSelectedCards([draggedCard]);
-              }
+            // Add to selection
+            setSelectedCards([selected, draggedCard]);
           }
+        }
+      } else {
+        // No Shift.
+        // If dragged card is NOT in selection, select it (switch selection).
+        if (!selectedCards.some(c => c.id === draggedCard.id)) {
+          setSelectedCards([draggedCard]);
+        }
       }
+    }
   };
   const onDragUpdate = () => console.debug('onDragUpdate');
 
   if (!gameState || !socket) {
-      if (gameEndData) {
-          return (
-            <Container className="d-flex align-items-center justify-content-center" style={{ height: '100vh' }}>
-                <Modal show={true} onHide={handleGameEndConfirm} backdrop="static" keyboard={false} centered>
-                    <Modal.Header>
-                    <Modal.Title>
-                        {gameEndData.winner === playerName ? 'You win!' : `${gameEndData.winner} wins!`}
-                    </Modal.Title>
-                    </Modal.Header>
-                    <Modal.Body>
-                    <p>Winning by attrition is still winning.</p>
-                    </Modal.Body>
-                    <Modal.Footer>
-                    <Button variant="primary" onClick={handleGameEndConfirm} autoFocus>OK</Button>
-                    </Modal.Footer>
-                </Modal>
-            </Container>
-          );
-      }
-      return <div>Loading game...</div>;
+    if (gameEndData) {
+      return (
+        <Container className="d-flex align-items-center justify-content-center" style={{ height: '100vh' }}>
+          <Modal show={true} onHide={handleGameEndConfirm} backdrop="static" keyboard={false} centered>
+            <Modal.Header>
+              <Modal.Title>
+                {gameEndData.winner === playerName ? 'You win!' : `${gameEndData.winner} wins!`}
+              </Modal.Title>
+            </Modal.Header>
+            <Modal.Body>
+              <p>Winning by attrition is still winning.</p>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="primary" onClick={handleGameEndConfirm} autoFocus>OK</Button>
+            </Modal.Footer>
+          </Modal>
+        </Container>
+      );
+    }
+    return <div>Loading game...</div>;
   }
 
   const me = gameState.players.find(p => p.id === playerId);
@@ -644,21 +644,21 @@ export default function GameScreen() {
 
   let turnStatus = '';
   let turnStatusBgColor = '';
-   if (gameState && me && currentPlayer) {
-      const nextTurnIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
-      const nextPlayerId = gameState.turnOrder[nextTurnIndex];
+  if (gameState && me && currentPlayer) {
+    const nextTurnIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
+    const nextPlayerId = gameState.turnOrder[nextTurnIndex];
 
-      if (me.id === currentPlayerId) {
-        turnStatus = "It's your turn";
-        turnStatusBgColor = 'lightgreen';
-      } else if (me.id === nextPlayerId) {
-        turnStatus = "Your turn is next";
-        turnStatusBgColor = '#FFD580'; // light orange
-      } else {
-        turnStatus = `It is ${currentPlayer.name}'s turn`;
-        turnStatusBgColor = 'lightblue';
-      }
-   }
+    if (me.id === currentPlayerId) {
+      turnStatus = "It's your turn";
+      turnStatusBgColor = 'lightgreen';
+    } else if (me.id === nextPlayerId) {
+      turnStatus = "Your turn is next";
+      turnStatusBgColor = '#FFD580'; // light orange
+    } else {
+      turnStatus = `It is ${currentPlayer.name}'s turn`;
+      turnStatusBgColor = 'lightblue';
+    }
+  }
 
 
 
@@ -673,8 +673,8 @@ export default function GameScreen() {
               width: getCardSize().width,
               height: getCardSize().height,
               border: (gameState && gameState.topDiscardCard)
-                      ? 'none'
-                      : (snapshot.isDraggingOver ? '2px dashed #00FF00' : '2px dashed #FFA500'),
+                ? 'none'
+                : (snapshot.isDraggingOver ? '2px dashed #00FF00' : '2px dashed #FFA500'),
               borderRadius: '25px',
               display: 'flex',
               alignItems: 'center',
@@ -683,7 +683,7 @@ export default function GameScreen() {
             }}
           >
             <h5 style={{ color: '#FFA500', position: 'absolute' }}>Discard Pile</h5>
-             {gameState && gameState.topDiscardCard && (
+            {gameState && gameState.topDiscardCard && (
               <Image
                 src={gameState.topDiscardCard.imageUrl}
                 alt={gameState.topDiscardCard.name}
@@ -705,123 +705,123 @@ export default function GameScreen() {
     // Split hand into rows
     const rows: Card[][] = [];
     if (cols > 0) {
-        for (let i = 0; i < myHand.length; i += cols) {
-            rows.push(myHand.slice(i, i + cols));
-        }
+      for (let i = 0; i < myHand.length; i += cols) {
+        rows.push(myHand.slice(i, i + cols));
+      }
     } else {
-        rows.push(myHand);
+      rows.push(myHand);
     }
     
     if (rows.length === 0) {
-        rows.push([]);
+      rows.push([]);
     }
 
     return (
       <div 
         style={{ 
-            maxWidth: `${maxWidth}px`,
-            margin: '0 auto', // Center the container itself
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center'
+          maxWidth: `${maxWidth}px`,
+          margin: '0 auto', // Center the container itself
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
         }}
       >
         {rows.map((rowCards, rowIndex) => (
-            <Droppable key={rowIndex} droppableId={`hand-row-${rowIndex}`} direction="horizontal">
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    className="d-flex justify-content-center flex-nowrap w-100"
-                    style={{ 
-                        minHeight: `${cardWidth * 1.4 + 10}px`, // Ensure height for drop target + margin
-                        width: '100%',
-                    }}
-                  >
-                    {rowCards.map((card, index) => (
-                        <Draggable key={card.id} draggableId={card.id} index={index}>
-                          {(providedDraggable, snapshot) => {
-                            const isSelected = selectedCards.some(sc => sc.id === card.id);
-                            const shouldHide = isDragging && isSelected && !snapshot.isDragging;
+          <Droppable key={rowIndex} droppableId={`hand-row-${rowIndex}`} direction="horizontal">
+            {(provided) => (
+              <div
+                {...provided.droppableProps}
+                ref={provided.innerRef}
+                className="d-flex justify-content-center flex-nowrap w-100"
+                style={{ 
+                  minHeight: `${cardWidth * 1.4 + 10}px`, // Ensure height for drop target + margin
+                  width: '100%',
+                }}
+              >
+                {rowCards.map((card, index) => (
+                  <Draggable key={card.id} draggableId={card.id} index={index}>
+                    {(providedDraggable, snapshot) => {
+                      const isSelected = selectedCards.some(sc => sc.id === card.id);
+                      const shouldHide = isDragging && isSelected && !snapshot.isDragging;
 
-                            return (
-                            <div
-                              ref={providedDraggable.innerRef}
-                              {...providedDraggable.draggableProps}
-                              {...providedDraggable.dragHandleProps}
-                              onMouseDown={(e) => {
-                                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                  (providedDraggable.dragHandleProps as any)?.onMouseDown?.(e);
-                                  clickStartPosRef.current = { x: e.clientX, y: e.clientY };
-                              }}
-                              onClickCapture={(e) => {
-                                  if (isDraggingRef.current) {
-                                      e.stopPropagation();
-                                      e.preventDefault();
-                                  }
-                              }}
-                              className="m-1"
-                              style={{
-                                boxShadow: isSelected ? '0 0 0 3px blue' : 'none',
-                                outline: 'none', // Prevent browser focus ring
-                                borderRadius: '5px',
-                                width: `${cardWidth}px`,
-                                height: `${cardWidth * 1.4}px`,
-                                boxSizing: 'content-box',
-                                cursor: 'pointer',
-                                position: 'relative',
-                                opacity: shouldHide ? 0 : 1,
-                                ...providedDraggable.draggableProps.style,
-                              }}
-                              onClick={(event) => handleCardClick(card, event)}
-                              onDoubleClick={() => handleCardDoubleClick(card)}
-                            >
-                              {snapshot.isDragging && selectedCards.length > 1 && isSelected && (
-                                  <>
-                                    {selectedCards.filter(sc => sc.id !== card.id).map((sc, i) => (
-                                        <div
-                                            key={sc.id}
-                                            style={{
-                                                position: 'absolute',
-                                                top: 0,
-                                                left: 0,
-                                                width: '100%',
-                                                height: '100%',
-                                                transform: `translate(${15 * (i + 1)}px, ${15 * (i + 1)}px) rotate(${5 * (i + 1)}deg)`,
-                                                zIndex: -1 - i,
-                                                borderRadius: '5px',
-                                                boxShadow: '0 0 0 3px blue',
-                                                background: 'white',
-                                            }}
-                                        >
-                                            <Image 
-                                                src={sc.imageUrl} 
-                                                alt={sc.name} 
-                                                width={cardWidth} 
-                                                height={cardWidth * 1.4}
-                                                draggable={false}
-                                            />
-                                        </div>
-                                    ))}
-                                  </>
-                              )}
-                              <Image 
-                                src={card.imageUrl} 
-                                alt={card.name} 
-                                width={cardWidth} 
-                                height={cardWidth * 1.4}
-                                draggable={false}
-                                style={{ zIndex: 1, position: 'relative', backgroundColor: 'white', borderRadius: '5px' }}
-                              />
-                            </div>
-                          );
+                      return (
+                        <div
+                          ref={providedDraggable.innerRef}
+                          {...providedDraggable.draggableProps}
+                          {...providedDraggable.dragHandleProps}
+                          onMouseDown={(e) => {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (providedDraggable.dragHandleProps as any)?.onMouseDown?.(e);
+                            clickStartPosRef.current = { x: e.clientX, y: e.clientY };
                           }}
-                        </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-            </Droppable>
+                          onClickCapture={(e) => {
+                            if (isDraggingRef.current) {
+                              e.stopPropagation();
+                              e.preventDefault();
+                            }
+                          }}
+                          className="m-1"
+                          style={{
+                            boxShadow: isSelected ? '0 0 0 3px blue' : 'none',
+                            outline: 'none', // Prevent browser focus ring
+                            borderRadius: '5px',
+                            width: `${cardWidth}px`,
+                            height: `${cardWidth * 1.4}px`,
+                            boxSizing: 'content-box',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            opacity: shouldHide ? 0 : 1,
+                            ...providedDraggable.draggableProps.style,
+                          }}
+                          onClick={(event) => handleCardClick(card, event)}
+                          onDoubleClick={() => handleCardDoubleClick(card)}
+                        >
+                          {snapshot.isDragging && selectedCards.length > 1 && isSelected && (
+                            <>
+                              {selectedCards.filter(sc => sc.id !== card.id).map((sc, i) => (
+                                <div
+                                  key={sc.id}
+                                  style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    transform: `translate(${15 * (i + 1)}px, ${15 * (i + 1)}px) rotate(${5 * (i + 1)}deg)`,
+                                    zIndex: -1 - i,
+                                    borderRadius: '5px',
+                                    boxShadow: '0 0 0 3px blue',
+                                    background: 'white',
+                                  }}
+                                >
+                                  <Image 
+                                    src={sc.imageUrl} 
+                                    alt={sc.name} 
+                                    width={cardWidth} 
+                                    height={cardWidth * 1.4}
+                                    draggable={false}
+                                  />
+                                </div>
+                              ))}
+                            </>
+                          )}
+                          <Image 
+                            src={card.imageUrl} 
+                            alt={card.name} 
+                            width={cardWidth} 
+                            height={cardWidth * 1.4}
+                            draggable={false}
+                            style={{ zIndex: 1, position: 'relative', backgroundColor: 'white', borderRadius: '5px' }}
+                          />
+                        </div>
+                      );
+                    }}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
         ))}
       </div>
     );
@@ -847,11 +847,11 @@ export default function GameScreen() {
               zIndex: 1000,
             }}
             onClick={() => {
-                if (isDrawingPause) {
-                    setDrawingAnimation(null);
-                } else {
-                    setOverlayCard(null);
-                }
+              if (isDrawingPause) {
+                setDrawingAnimation(null);
+              } else {
+                setOverlayCard(null);
+              }
             }}
           >
             <Image src={activeOverlayCard.imageUrl} alt={activeOverlayCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
@@ -869,15 +869,15 @@ export default function GameScreen() {
             }}
             onClick={() => setDeckOverlay(null)}
           >
-             <h2 style={{color: 'white'}}>Draw Pile ({deckOverlay.length} cards)</h2>
-             <div className="d-flex flex-wrap justify-content-center">
-                 {deckOverlay.map((card, index) => (
-                     <div key={index} className="m-1">
-                        <Image src={card.imageUrl} alt={card.name} width={100} height={140} />
-                        <div style={{color: 'white', textAlign: 'center'}}>{index}</div>
-                     </div>
-                 ))}
-             </div>
+            <h2 style={{color: 'white'}}>Draw Pile ({deckOverlay.length} cards)</h2>
+            <div className="d-flex flex-wrap justify-content-center">
+              {deckOverlay.map((card, index) => (
+                <div key={index} className="m-1">
+                  <Image src={card.imageUrl} alt={card.name} width={100} height={140} />
+                  <div style={{color: 'white', textAlign: 'center'}}>{index}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         
@@ -892,15 +892,15 @@ export default function GameScreen() {
             }}
             onClick={() => setRemovedOverlay(null)}
           >
-             <h2 style={{color: 'white'}}>Removed Pile ({removedOverlay.length} cards)</h2>
-             <div className="d-flex flex-wrap justify-content-center">
-                 {removedOverlay.map((card, index) => (
-                     <div key={index} className="m-1">
-                        <Image src={card.imageUrl} alt={card.name} width={100} height={140} />
-                        <div style={{color: 'white', textAlign: 'center'}}>{index}</div>
-                     </div>
-                 ))}
-             </div>
+            <h2 style={{color: 'white'}}>Removed Pile ({removedOverlay.length} cards)</h2>
+            <div className="d-flex flex-wrap justify-content-center">
+              {removedOverlay.map((card, index) => (
+                <div key={index} className="m-1">
+                  <Image src={card.imageUrl} alt={card.name} width={100} height={140} />
+                  <div style={{color: 'white', textAlign: 'center'}}>{index}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -911,77 +911,77 @@ export default function GameScreen() {
               {playersToDisplay.map((player) => (
                 <ListGroup.Item key={player.id} className={getPlayerClassName(player)}>
                   <div>
-                      <span>{player.name} {player.id === gameState.gameOwnerId && '(Host)'} {player.isDisconnected && '(Disconnected)'}</span>
-                      <span className="float-end">{player.cards} cards</span>
+                    <span>{player.name} {player.id === gameState.gameOwnerId && '(Host)'} {player.isDisconnected && '(Disconnected)'}</span>
+                    <span className="float-end">{player.cards} cards</span>
                   </div>
                 </ListGroup.Item>
               ))}
             </ListGroup>
             
             {gameState.devMode && !isSpectator && (
-                <div className="mt-3 d-grid gap-2">
-                    <Button 
-                        variant="warning" 
-                        size="sm" 
-                        onClick={handleGiveDebugCard} 
-                        disabled={(gameState.debugCardsCount ?? 0) === 0}
-                    >
-                        Give me a DEBUG card
-                    </Button>
-                    <Button variant="warning" size="sm" onClick={handleDevDrawCard} disabled={(gameState.safeCardsCount ?? 0) === 0}>Give me a safe card</Button>
-                    <Button variant="info" size="sm" onClick={handleShowDeck}>Show the deck</Button>
-                    <Button variant="info" size="sm" onClick={handleShowRemovedPile}>Show removed cards</Button>
-                </div>
+              <div className="mt-3 d-grid gap-2">
+                <Button 
+                  variant="warning" 
+                  size="sm" 
+                  onClick={handleGiveDebugCard} 
+                  disabled={(gameState.debugCardsCount ?? 0) === 0}
+                >
+                  Give me a DEBUG card
+                </Button>
+                <Button variant="warning" size="sm" onClick={handleDevDrawCard} disabled={(gameState.safeCardsCount ?? 0) === 0}>Give me a safe card</Button>
+                <Button variant="info" size="sm" onClick={handleShowDeck}>Show the deck</Button>
+                <Button variant="info" size="sm" onClick={handleShowRemovedPile}>Show removed cards</Button>
+              </div>
             )}
           </Col>
           <Col md={9} className="d-flex flex-column position-relative" style={{ backgroundColor: '#228B22', borderRadius: '10px', padding: `${FIXED_TABLE_PADDING}px`, overflow: 'hidden', minHeight: 0 }} ref={tableAreaRef}>
             <div 
-                className="d-flex justify-content-center align-items-center flex-grow-1" 
-                style={{ gap: `${FIXED_PILE_GAP}px` }}
+              className="d-flex justify-content-center align-items-center flex-grow-1" 
+              style={{ gap: `${FIXED_PILE_GAP}px` }}
             >
               {/* Draw Pile */}
               <div className="d-flex flex-column align-items-center">
-                  <div 
-                    className="game-pile position-relative" 
-                    style={{ 
-                        width: getCardSize().width, 
-                        height: getCardSize().height,
-                        cursor: 'pointer',
-                        borderRadius: '5px' 
-                    }}
-                    onClick={handleDrawClick}
-                  >
-                    <Image src="/art/back.png" alt="Draw Pile" width={getCardSize().width} height={getCardSize().height} />
-                    {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
+                <div 
+                  className="game-pile position-relative" 
+                  style={{ 
+                    width: getCardSize().width, 
+                    height: getCardSize().height,
+                    cursor: 'pointer',
+                    borderRadius: '5px' 
+                  }}
+                  onClick={handleDrawClick}
+                >
+                  <Image src="/art/back.png" alt="Draw Pile" width={getCardSize().width} height={getCardSize().height} />
+                  {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
                     
-                    {(drawingAnimation?.active && !drawingAnimation.card) && (
-                        <div className="hand-animation">
-                            <div className="hand-open" style={{ animation: 'toggleHand 2s step-end forwards' }}>
-                                <Image src="/art/hand_open.svg" alt="Hand Open" width={100} height={600} />
-                            </div>
-                            <div className="hand-closed" style={{ animation: 'toggleHandReverse 2s step-start forwards' }}>
-                                <Image src="/art/hand_closed.svg" alt="Hand Closed" width={100} height={600} />
-                            </div>
-                            <div className="hand-card" style={{ animation: 'toggleHandReverse 2s step-start forwards' }}>
-                                <Image 
-                                    src={'/art/back.png'} 
-                                    alt={'Card'} 
-                                    width={getCardSize().width} 
-                                    height={getCardSize().height} 
-                                    style={{position: 'absolute', left: `${(100 - getCardSize().width) / 2}px`}} /* Centered within hand div */
-                                /> 
-                            </div>
-                        </div>
-                    )}
-                  </div>
+                  {(drawingAnimation?.active && !drawingAnimation.card) && (
+                    <div className="hand-animation">
+                      <div className="hand-open" style={{ animation: 'toggleHand 2s step-end forwards' }}>
+                        <Image src="/art/hand_open.svg" alt="Hand Open" width={100} height={600} />
+                      </div>
+                      <div className="hand-closed" style={{ animation: 'toggleHandReverse 2s step-start forwards' }}>
+                        <Image src="/art/hand_closed.svg" alt="Hand Closed" width={100} height={600} />
+                      </div>
+                      <div className="hand-card" style={{ animation: 'toggleHandReverse 2s step-start forwards' }}>
+                        <Image 
+                          src={'/art/back.png'} 
+                          alt={'Card'} 
+                          width={getCardSize().width} 
+                          height={getCardSize().height} 
+                          style={{position: 'absolute', left: `${(100 - getCardSize().width) / 2}px`}} /* Centered within hand div */
+                        /> 
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Discard Pile */}
               <div className="d-flex flex-column align-items-center">
-                  <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
-                      {renderDiscardPile()}
-                      {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.discardPile?.length !== undefined ? gameState.discardPile.length : '??'} cards)</div>}
-                  </div>
+                <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
+                  {renderDiscardPile()}
+                  {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.discardPile?.length !== undefined ? gameState.discardPile.length : '??'} cards)</div>}
+                </div>
               </div>
             </div>
           </Col>
@@ -995,7 +995,7 @@ export default function GameScreen() {
               flexGrow: isSpectator ? 1 : 0,
               display: 'flex', flexDirection: 'column',
             }}>
-               <div style={{
+              <div style={{
                 textAlign: 'center', padding: '0.25rem',
                 backgroundColor: turnStatusBgColor,
                 borderRadius: '5px', flexShrink: 0,
@@ -1004,64 +1004,64 @@ export default function GameScreen() {
               </div>
               
               <div 
-                  ref={messageAreaRef}
-                  data-testid="game-log"
-                  style={{
-                      textAlign: 'left', padding: '0.25rem',
-                      overflowY: 'auto', flexGrow: 1,
-                      borderTop: '1px solid #ccc', marginTop: '0.25rem'
-                  }}
+                ref={messageAreaRef}
+                data-testid="game-log"
+                style={{
+                  textAlign: 'left', padding: '0.25rem',
+                  overflowY: 'auto', flexGrow: 1,
+                  borderTop: '1px solid #ccc', marginTop: '0.25rem'
+                }}
               >
-                  {gameMessages.map((msg, i) => (
-                      <div key={i}>{msg}</div>
-                  ))}
+                {gameMessages.map((msg, i) => (
+                  <div key={i}>{msg}</div>
+                ))}
               </div>
             </div>
           </Col>
         </Row>
         {!isSpectator && (
-        <div className="bg-light p-3 d-flex flex-column position-relative" 
-             style={{ 
-                 borderTop: '1px solid #ccc', 
-                 flexShrink: 0,
-                 height: '35vh',
-                 minHeight: '250px'
-             }}
-             onClick={() => {
-                 if (isDraggingRef.current) return;
-                 setSelectedCards([]);
-             }}
-        >
-          <h5 className="text-start mb-2 flex-shrink-0">Your Hand</h5>
-          <div 
-            ref={handAreaRef}
-            className="flex-grow-1"
-            style={{ overflowY: 'auto', width: '100%' }}
+          <div className="bg-light p-3 d-flex flex-column position-relative" 
+            style={{ 
+              borderTop: '1px solid #ccc', 
+              flexShrink: 0,
+              height: '35vh',
+              minHeight: '250px'
+            }}
+            onClick={() => {
+              if (isDraggingRef.current) return;
+              setSelectedCards([]);
+            }}
           >
-             {renderHand()}
+            <h5 className="text-start mb-2 flex-shrink-0">Your Hand</h5>
+            <div 
+              ref={handAreaRef}
+              className="flex-grow-1"
+              style={{ overflowY: 'auto', width: '100%' }}
+            >
+              {renderHand()}
+            </div>
+            <Button 
+              variant="secondary" 
+              className="position-absolute bottom-0 end-0 m-3 w-auto"
+              style={{ zIndex: 10 }}
+              onClick={() => setShowLeaveModal(true)}
+            >
+              Leave Game
+            </Button>
           </div>
-          <Button 
-             variant="secondary" 
-             className="position-absolute bottom-0 end-0 m-3 w-auto"
-             style={{ zIndex: 10 }}
-             onClick={() => setShowLeaveModal(true)}
-          >
-            Leave Game
-          </Button>
-        </div>
         )}
         {isSpectator && (
           <Row className="bg-light p-3 position-relative" style={{ borderTop: '1px solid #ccc', flexShrink: 0 }}>
-             <div className="d-flex justify-content-end w-100">
-                 <Button 
-                    variant="secondary" 
-                    className="w-auto"
-                    style={{ zIndex: 10 }}
-                    onClick={() => setShowLeaveModal(true)}
-                 >
-                   Leave Game
-                 </Button>
-             </div>
+            <div className="d-flex justify-content-end w-100">
+              <Button 
+                variant="secondary" 
+                className="w-auto"
+                style={{ zIndex: 10 }}
+                onClick={() => setShowLeaveModal(true)}
+              >
+                Leave Game
+              </Button>
+            </div>
           </Row>
         )}
         
