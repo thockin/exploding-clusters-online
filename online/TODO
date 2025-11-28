@@ -1,6 +1,26 @@
+Audit events:
+  +  GameMessage = 'gameMessage',
+  +  HandUpdate = 'handUpdate',
+  +  PlayerJoined = 'playerJoined',
+  +  PlayerDisconnected = 'playerDisconnected',
+  +  GameStarted = 'gameStarted',
+  +  GameEnded = 'gameEnded',
+  +  ReorderHand = 'reorderHand',
+  +  PlayCard = 'playCard',
+  +  PlayCombo = 'playCombo',
+  +  DrawCard = 'drawCard',
+  +  LeaveGame = 'leaveGame',
+  +  ShowDeck = 'showDeck', -> ShowDrawPile
+  +  DeckData = 'deckData', -> DrawPileData
+  +  RemovedData = 'removedData', -> "removedPileData"
+  +  PlayerExploding = 'player-exploding',
+  +  DrawAnimationStart = 'draw-animation-start'
+Which events go which direction
+GmaeUpdatePayload.discardPile -> count
+Payer / PlayerInfo (is PlayerInfo even used?)
 Fix cursor-flagged isues
+- double events and races!
 Look at logs
-common types for repeated structs
 visual on observer in DEVMODE - card counts overlap the cards
 
 Later:

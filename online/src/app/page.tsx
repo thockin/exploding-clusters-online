@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button, Container, Row, Col, Card, Form, Alert, Modal } from 'react-bootstrap';
 import { useSocket } from './contexts/SocketContext';
-import { GameState } from '../constants';
+import { GameState } from '../api';
 
 type FileMode = 'initial' | 'create' | 'join' | 'watch';
 

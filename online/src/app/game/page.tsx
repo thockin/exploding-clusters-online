@@ -4,8 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Container, Row, Col, ListGroup, Button, Modal } from 'react-bootstrap';
 import { useSocket, PlayerInfo } from '../contexts/SocketContext';
-import { Card as CardType } from './deck';
-import { GameState } from '../../constants';
+import { Card as CardType, SocketEvent } from '../../api';
 import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from '@hello-pangea/dnd';
 import Image from 'next/image';
 
@@ -95,14 +94,14 @@ export default function GameScreen() {
     const onRemovedData = ({ removedPile }: { removedPile: CardType[] }) => setRemovedOverlay(removedPile);
     const onPlayerExploding = ({ card }: { card: CardType }) => setExplodingCard(card);
 
-    socket.on('deckData', onDeckData);
-    socket.on('removedData', onRemovedData);
-    socket.on('player-exploding', onPlayerExploding);
+    socket.on(SocketEvent.DeckData, onDeckData);
+    socket.on(SocketEvent.RemovedData, onRemovedData);
+    socket.on(SocketEvent.PlayerExploding, onPlayerExploding);
 
     return () => {
-        socket.off('deckData', onDeckData);
-        socket.off('removedData', onRemovedData);
-        socket.off('player-exploding', onPlayerExploding);
+        socket.off(SocketEvent.DeckData, onDeckData);
+        socket.off(SocketEvent.RemovedData, onRemovedData);
+        socket.off(SocketEvent.PlayerExploding, onPlayerExploding);
     };
   }, [socket]);
 
@@ -182,7 +181,7 @@ export default function GameScreen() {
 
   const handleLeaveGame = useCallback(() => {
     if (socket && gameCode) {
-        socket.emit('leaveGame', gameCode);
+        socket.emit(SocketEvent.LeaveGame, gameCode);
     }
     setShowLeaveModal(false);
     resetState();
@@ -287,25 +286,25 @@ export default function GameScreen() {
 
   const handleGiveDebugCard = () => {
       if (socket && gameCode) {
-          socket.emit('giveDebugCard', gameCode);
+          socket.emit(SocketEvent.GiveDebugCard, gameCode);
       }
   };
 
   const handleDevDrawCard = () => {
       if (socket && gameCode) {
-          socket.emit('giveSafeCard', gameCode);
+          socket.emit(SocketEvent.GiveSafeCard, gameCode);
       }
   };
   
   const handleShowDeck = () => {
       if (socket && gameCode) {
-          socket.emit('showDeck', gameCode);
+          socket.emit(SocketEvent.ShowDeck, gameCode);
       }
   };
 
   const handleShowRemovedPile = () => {
       if (socket && gameCode) {
-          socket.emit('showRemovedPile', gameCode);
+          socket.emit(SocketEvent.ShowRemovedPile, gameCode);
       }
   };
 
@@ -318,14 +317,14 @@ export default function GameScreen() {
           return; // Or show toast
       }
       
-      socket.emit('drawCard', gameCode);
+      socket.emit(SocketEvent.DrawCard, gameCode);
   }, [socket, gameState, playerId, gameCode]);
 
   useEffect(() => {
       if (!socket) return;
       
       const onDrawAnimationStart = (data: { drawingPlayerId: string, card?: CardType, duration: number }) => {
-          console.debug('draw-animation-start', data);
+          console.debug(SocketEvent.DrawAnimationStart, data);
           setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId });
           
           // Clear animation after duration
@@ -334,10 +333,10 @@ export default function GameScreen() {
           }, data.duration);
       };
       
-      socket.on('draw-animation-start', onDrawAnimationStart);
+      socket.on(SocketEvent.DrawAnimationStart, onDrawAnimationStart);
       
       return () => {
-          socket.off('draw-animation-start', onDrawAnimationStart);
+          socket.off(SocketEvent.DrawAnimationStart, onDrawAnimationStart);
       };
   }, [socket]);
 
@@ -442,7 +441,7 @@ export default function GameScreen() {
         if (currentSelection.length > 0) {
              setSelectedCards(currentSelection);
         }
-        socket?.emit('reorderHand', { gameCode, newHand });
+        socket?.emit(SocketEvent.ReorderHand, { gameCode, newHand });
         return;
     }
 
@@ -538,10 +537,10 @@ export default function GameScreen() {
           if (gameCode) {
               if (cardsToPlay.length === 1) {
                   console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
-                  socket?.emit('playCard', { gameCode, cardId: cardsToPlay[0].id });
+                  socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id });
               } else if (cardsToPlay.length === 2) {
                   console.debug('Emitting playCombo for DEVELOPER cards');
-                  socket?.emit('playCombo', { gameCode, cardIds: cardsToPlay.map(c => c.id) });
+                  socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id) });
               }
           } else {
               console.error("Game code not found, cannot play card.");

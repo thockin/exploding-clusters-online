@@ -1,11 +1,5 @@
-export interface Card {
-  id: string;
-  name: string;
-  cardClass: string;
-  imageUrl: string;
-  now?: boolean;
-  combo?: boolean;
-}
+import { Card } from '../../api';
+export type { Card };
 
 const cardDefinitions = [
   { class: 'EXPLODING_CLUSTER', name: 'broken logo', image: 'exploding_-_broken_logo.png', now: false, combo: false, count: 1 },

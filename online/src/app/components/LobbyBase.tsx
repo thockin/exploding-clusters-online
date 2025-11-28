@@ -4,7 +4,7 @@ import { useEffect, Suspense, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Container, Row, Col, Card, ListGroup, Button, Modal } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
-import { GameState } from '../../constants';
+import { GameState, SocketEvent } from '../../api';
 
 function LobbyContent() {
   const router = useRouter();
@@ -16,7 +16,7 @@ function LobbyContent() {
 
   const handleLeaveGame = () => {
     if (socket && gameCode) {
-        socket.emit('leaveGame', gameCode);
+        socket.emit(SocketEvent.LeaveGame, gameCode);
     }
     setShowLeaveModal(false);
     resetState();

@@ -6,7 +6,7 @@ import { Container, Modal, Button } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
 import LobbyBase from '../components/LobbyBase';
 import GameScreen from '../game/page';
-import { GameState } from '../../constants';
+import { GameState } from '../../api';
 
 export default function ObserverPage() {
   const router = useRouter();

@@ -3,9 +3,9 @@ import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { IncomingMessage, ServerResponse } from 'http';
-import { Card, fullDeck, shuffleDeck } from './app/game/deck';
+import { fullDeck, shuffleDeck } from './app/game/deck';
 import { PseudoRandom } from './utils/PseudoRandom';
-import { GameState } from './constants';
+import { Card, GameState, GameUpdatePayload, SocketEvent } from './api';
 
 // Define interfaces for game and player states
 interface Player {
@@ -67,60 +67,60 @@ export class GameManager {
                 });
             }
 
-            socket.on('createGame', (playerName: string, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string }) => void) => {
+            socket.on(SocketEvent.CreateGame, (playerName: string, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string }) => void) => {
                 this.createGame(socket, playerName, callback);
             });
 
-            socket.on('joinGame', (gameCode: string, playerName: string, nonce: string | undefined, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string; }) => void) => {
+            socket.on(SocketEvent.JoinGame, (gameCode: string, playerName: string, nonce: string | undefined, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string; }) => void) => {
                 this.joinGame(socket, gameCode, playerName, nonce, callback);
             });
 
-            socket.on('watchGame', (gameCode: string, callback: (response: { success: boolean; gameCode?: string; error?: string }) => void) => {
+            socket.on(SocketEvent.WatchGame, (gameCode: string, callback: (response: { success: boolean; gameCode?: string; error?: string }) => void) => {
                 this.watchGame(socket, gameCode, callback);
             });
 
-            socket.on('startGame', (gameCode: string, callback: (response: { success: boolean; error?: string }) => void) => {
+            socket.on(SocketEvent.StartGame, (gameCode: string, callback: (response: { success: boolean; error?: string }) => void) => {
                 this.startGame(socket, gameCode, callback);
             });
 
-            socket.on('giveDebugCard', (gameCode: string) => {
+            socket.on(SocketEvent.GiveDebugCard, (gameCode: string) => {
                 if (!devMode) return;
                 this.giveDebugCard(socket, gameCode);
             });
 
-            socket.on('giveSafeCard', (gameCode: string) => {
+            socket.on(SocketEvent.GiveSafeCard, (gameCode: string) => {
                 if (!devMode) return;
                 this.giveSafeCard(socket, gameCode);
             });
 
-            socket.on('showDeck', (gameCode: string) => {
+            socket.on(SocketEvent.ShowDeck, (gameCode: string) => {
                 if (!devMode) return;
                 this.showDeck(socket, gameCode);
             });
 
-            socket.on('showRemovedPile', (gameCode: string) => {
+            socket.on(SocketEvent.ShowRemovedPile, (gameCode: string) => {
                 if (!devMode) return;
                 this.showRemovedPile(socket, gameCode);
             });
 
-            socket.on('reorderHand', ({ gameCode, newHand }: { gameCode: string; newHand: Card[] }) => {
+            socket.on(SocketEvent.ReorderHand, ({ gameCode, newHand }: { gameCode: string; newHand: Card[] }) => {
                 this.reorderHand(socket, gameCode, newHand);
             });
 
-            socket.on('playCard', (data: { gameCode: string; cardId: string }) => {
+            socket.on(SocketEvent.PlayCard, (data: { gameCode: string; cardId: string }) => {
                 this.playCard(socket, data.gameCode, data.cardId);
             });
 
-            socket.on('playCombo', (data: { gameCode: string; cardIds: string[] }) => {
+            socket.on(SocketEvent.PlayCombo, (data: { gameCode: string; cardIds: string[] }) => {
                 this.playCombo(socket, data.gameCode, data.cardIds);
             });
 
-            socket.on('drawCard', (gameCode: string) => {
+            socket.on(SocketEvent.DrawCard, (gameCode: string) => {
                 this.drawCard(socket, gameCode);
             });
 
             // Handle voluntary leave
-            socket.on('leaveGame', (gameCode: string) => {
+            socket.on(SocketEvent.LeaveGame, (gameCode: string) => {
                 const game = this.games.get(gameCode);
                 if (!game) return;
 
@@ -158,7 +158,7 @@ export class GameManager {
                     player.hand = []; // Clear hand
 
                     game.players.splice(playerIndex, 1); // Remove from array
-                    this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} has left the game, what a chicken!` });
+                    this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${player.name} has left the game, what a chicken!` });
 
                     // Handle owner migration if needed
                     if (game.state === GameState.Lobby && game.gameOwnerId === player.id) {
@@ -249,10 +249,10 @@ export class GameManager {
         this.io.to(socketId).emit(event, data);
     }
 
-    private getGameUpdateData(game: Game) {
+    private getGameUpdateData(game: Game): GameUpdatePayload {
         const topDiscardCard = game.discardPile.length > 0 ? game.discardPile[game.discardPile.length - 1] : undefined;
 
-        const baseData: any = { // eslint-disable-line @typescript-eslint/no-explicit-any
+        const baseData: GameUpdatePayload = {
             gameCode: game.code,
             nonce: game.nonce,
             players: game.players
@@ -260,7 +260,7 @@ export class GameManager {
                 .map(p => ({ id: p.id, name: p.name, cards: p.hand.length, isOut: p.isOut, isDisconnected: p.isDisconnected })),
             state: game.state,
             gameOwnerId: game.gameOwnerId,
-            spectators: game.spectators,
+            spectators: game.spectators.map(s => ({ id: s.id })),
             devMode: game.devMode,
             turnOrder: game.turnOrder,
             currentTurnIndex: game.currentTurnIndex,
@@ -285,7 +285,7 @@ export class GameManager {
     }
     private emitGameUpdate(game: Game) {
         const data = this.getGameUpdateData(game);
-        this.emitToRoom(game.code, 'gameUpdate', data);
+        this.emitToRoom(game.code, SocketEvent.GameUpdate, data);
     }
     private updateGameNonce(game: Game) {
         // Purge disconnected players whenever nonce changes
@@ -318,7 +318,7 @@ export class GameManager {
         // Send individual hand updates
         for (const player of game.players) {
             if (player.socketId) {
-                this.emitToSocket(player.socketId, 'handUpdate', { hand: player.hand });
+                this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
             }
         }
 
@@ -395,9 +395,9 @@ export class GameManager {
                 // For now, just fixing the lookup.
 
                 this.log(game, `player "${playerName}" (${existingPlayer.socketId}) rejoined the game`);
-                this.emitToRoom(game.code, 'gameMessage', { message: `${playerName} has rejoined the game, hoorah!` });
+                this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${playerName} has rejoined the game, hoorah!` });
                 this.emitGameUpdate(game); // Rejoining player does not change nonce
-                this.emitToSocket(socket.id, 'handUpdate', { hand: existingPlayer.hand });
+                this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: existingPlayer.hand });
                 return callback({ success: true, gameCode, nonce: game.nonce, playerId: existingPlayer.id });
             }
         } else if (clientNonce && clientNonce !== game.nonce) {
@@ -433,7 +433,7 @@ export class GameManager {
         this.log(game, `player "${playerName}" (${socket.id}) joined the game`);
         this.updateGameNonce(game);
         // Notify all players in the game about the new player
-        this.emitToRoom(game.code, 'playerJoined', { playerId: player.id, playerName: player.name });
+        this.emitToRoom(game.code, SocketEvent.PlayerJoined, { playerId: player.id, playerName: player.name });
         callback({ success: true, gameCode, nonce: game.nonce, playerId: player.id });
     }
 
@@ -451,7 +451,7 @@ export class GameManager {
 
         this.log(game, `spectator ${socket.id} joined the game`);
         this.emitGameUpdate(game); // Notify clients without changing nonce
-        this.emitToSocket(socket.id, 'gameUpdate', this.getGameUpdateData(game)); // Ensure delivery to joiner
+        this.emitToSocket(socket.id, SocketEvent.GameUpdate, this.getGameUpdateData(game)); // Ensure delivery to joiner
         callback({ success: true, gameCode });
     }
 
@@ -565,7 +565,7 @@ export class GameManager {
 
         this.log(game, `game started`);
         this.updateGameNonce(game);
-        this.emitToRoom(game.code, 'gameStarted');
+        this.emitToRoom(game.code, SocketEvent.GameStarted);
         callback({ success: true });
     }
 
@@ -673,7 +673,7 @@ export class GameManager {
         if (!game) return;
 
         // Send the full deck to the requester, reversed so top is first
-        this.emitToSocket(socket.id, 'deckData', { deck: [...game.drawPile].reverse() });
+        this.emitToSocket(socket.id, SocketEvent.DeckData, { deck: [...game.drawPile].reverse() });
     }
 
     private showRemovedPile(socket: Socket, gameCode: string) {
@@ -681,7 +681,7 @@ export class GameManager {
         if (!game) return;
 
         // Send the removed pile to the requester
-        this.emitToSocket(socket.id, 'removedData', { removedPile: game.removedPile });
+        this.emitToSocket(socket.id, SocketEvent.RemovedData, { removedPile: game.removedPile });
     }
 
     private drawCard(socket: Socket, gameCode: string) {
@@ -693,18 +693,18 @@ export class GameManager {
 
         // Validation
         if (game.state !== GameState.Started) {
-             this.emitToSocket(socket.id, 'gameMessage', { message: "Game not started." });
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game not started." });
              return;
         }
 
         if (game.turnOrder[game.currentTurnIndex] !== player.id) {
-             this.emitToSocket(socket.id, 'gameMessage', { message: "It's not your turn!" });
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
              return;
         }
 
         if (game.drawPile.length === 0) {
              this.log(game, `draw pile empty, cannot draw`);
-             this.emitToSocket(socket.id, 'gameMessage', { message: "The deck is empty!" });
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "The deck is empty!" });
              return;
         }
 
@@ -713,7 +713,7 @@ export class GameManager {
 
         // Start animation phase
         // Current player sees the card
-        this.emitToSocket(socket.id, 'draw-animation-start', { 
+        this.emitToSocket(socket.id, SocketEvent.DrawAnimationStart, { 
             drawingPlayerId: player.id,
             card: card, // They see the card
             duration: 3000 
@@ -722,7 +722,7 @@ export class GameManager {
         // Others see "someone drew" (no card info)
         for (const p of game.players) {
             if (p.id !== player.id && p.socketId) {
-                this.emitToSocket(p.socketId, 'draw-animation-start', {
+                this.emitToSocket(p.socketId, SocketEvent.DrawAnimationStart, {
                     drawingPlayerId: player.id,
                     duration: 3000
                 });
@@ -730,7 +730,7 @@ export class GameManager {
         }
         // Spectators
         for (const s of game.spectators) {
-             this.emitToSocket(s.socketId, 'draw-animation-start', {
+             this.emitToSocket(s.socketId, SocketEvent.DrawAnimationStart, {
                 drawingPlayerId: player.id,
                 duration: 3000
             });
@@ -755,7 +755,7 @@ export class GameManager {
             const nextPlayer = game.players.find(p => p.id === nextPlayerId);
 
             if (nextPlayer) {
-                this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} drew a card, it's ${nextPlayer.name}'s turn` });
+                this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${player.name} drew a card, it's ${nextPlayer.name}'s turn` });
             }
 
             this.log(game, `draw animation finished. Turn advanced to ${game.turnOrder[game.currentTurnIndex]}`);
@@ -783,7 +783,7 @@ export class GameManager {
             !player.hand.every(card => newHand.some(newCard => newCard.id === card.id))) {
             this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}).`);
             // Optionally, send an error back to the client or revert their UI.
-            this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Revert client hand
+            this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert client hand
             return;
         }
 
@@ -791,21 +791,21 @@ export class GameManager {
         if (this.verbose) {
             this.log(game, `Player "${player.name}" (${player.socketId}) reordered their hand.`);
         }
-        this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Update only the reordering player
+        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Update only the reordering player
     }
 
     private playCard(socket: Socket, gameCode: string, cardId: string) {
         const game = this.games.get(gameCode);
         if (!game) {
             this.log(null, `playCard failed: game ${gameCode} not found`);
-            this.emitToSocket(socket.id, 'gameMessage', { message: "Error: Game not found." });
+            this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Game not found." });
             return;
         }
 
         const player = game.players.find(p => p.socketId === socket.id);
         if (!player) {
             this.log(game, `playCard failed: player not found for socket ${socket.id}`);
-            this.emitToSocket(socket.id, 'gameMessage', { message: "Error: Player not found." });
+            this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Player not found." });
             return;
         }
 
@@ -816,23 +816,23 @@ export class GameManager {
 
         if (!isMyTurn) {
              this.log(game, `player "${player.name}" tried to play a card out of turn`);
-             this.emitToSocket(socket.id, 'gameMessage', { message: "It's not your turn!" });
-             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Revert optimistic update
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
+             this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
              return;
         }
 
         const cardIndex = player.hand.findIndex(c => c.id === cardId);
         if (cardIndex === -1) {
              this.log(game, `player "${player.name}" tried to play card they don't have`);
-             this.emitToSocket(socket.id, 'gameMessage', { message: "You don't have that card!" });
-             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); // Revert optimistic update
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card!" });
+             this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
              return;
         }
 
         const [card] = player.hand.splice(cardIndex, 1);
         game.discardPile.push(card);
         this.log(game, `player "${player.name}" played ${card.name} (${card.cardClass})`);
-        this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} played ${card.cardClass}.` });
+        this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.cardClass}.` });
 
         this.updateGameNonce(game);
     }
@@ -841,29 +841,29 @@ export class GameManager {
         const game = this.games.get(gameCode);
         if (!game) {
             this.log(null, `playCombo failed: game ${gameCode} not found`);
-            this.emitToSocket(socket.id, 'gameMessage', { message: "Error: Game not found." });
+            this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Game not found." });
             return;
         }
 
         const player = game.players.find(p => p.socketId === socket.id);
         if (!player) {
             this.log(game, `playCombo failed: player not found for socket ${socket.id}`);
-            this.emitToSocket(socket.id, 'gameMessage', { message: "Error: Player not found." });
+            this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Player not found." });
             return;
         }
 
         const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
         if (!isMyTurn) {
              this.log(game, `player "${player.name}" tried to play a combo out of turn`);
-             this.emitToSocket(socket.id, 'gameMessage', { message: "It's not your turn!" });
-             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
+             this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
              return;
         }
 
         if (!cardIds || cardIds.length !== 2) {
              this.log(game, `player "${player.name}" tried to play invalid combo length: ${cardIds?.length}`);
-             this.emitToSocket(socket.id, 'gameMessage', { message: "Invalid combo selection." });
-             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand }); 
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo selection." });
+             this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); 
              return;
         }
 
@@ -880,8 +880,8 @@ export class GameManager {
             const idx = player.hand.findIndex(c => c.id === id);
             if (idx === -1) {
                 this.log(game, `player "${player.name}" tried to play combo with card they don't have (id: ${id})`);
-                this.emitToSocket(socket.id, 'gameMessage', { message: "You don't have those cards!" });
-                this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+                this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have those cards!" });
+                this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
                 return;
             }
             cardsToPlay.push(player.hand[idx]);
@@ -893,8 +893,8 @@ export class GameManager {
              // This implies duplicates in cardIds or same ID found twice?
              // Unique IDs should prevent this unless client sent same ID twice.
              this.log(game, `player "${player.name}" tried to play combo with same card twice`);
-             this.emitToSocket(socket.id, 'gameMessage', { message: "Invalid combo." });
-             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo." });
+             this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
              return;
         }
 
@@ -904,15 +904,15 @@ export class GameManager {
 
         if (c1.cardClass !== 'DEVELOPER' || c2.cardClass !== 'DEVELOPER') {
              this.log(game, `player "${player.name}" tried to play invalid combo types: ${c1.cardClass}, ${c2.cardClass}`);
-             this.emitToSocket(socket.id, 'gameMessage', { message: "Invalid combo. Must be DEVELOPER cards." });
-             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo. Must be DEVELOPER cards." });
+             this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
              return;
         }
 
         if (c1.name !== c2.name) {
              this.log(game, `player "${player.name}" tried to play mismatched developer combo: ${c1.name} vs ${c2.name}`);
-             this.emitToSocket(socket.id, 'gameMessage', { message: "Invalid combo. Cards must match." });
-             this.emitToSocket(socket.id, 'handUpdate', { hand: player.hand });
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo. Cards must match." });
+             this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
              return;
         }
 
@@ -926,7 +926,7 @@ export class GameManager {
         game.discardPile.push(...cardsToPlay);
 
         this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.cardClass})`);
-        this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} played a pair of ${c1.cardClass}.` });
+        this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.cardClass}.` });
 
         // TODO: Trigger special action (Steal a card) - Phase 4
 
@@ -956,7 +956,7 @@ export class GameManager {
             const oldSocketId = player.socketId;
             player.isDisconnected = true;
             player.socketId = ''; // Clear socketId so this socket can't be reused directly
-            this.emitToRoom(game.code, 'gameMessage', { message: `${player.name} has disconnected, maybe they will be right back?` });
+            this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${player.name} has disconnected, maybe they will be right back?` });
 
             // If current player disconnected, handle turn progression
             if (game.state === GameState.Started && game.turnOrder[game.currentTurnIndex] === player.id) {
@@ -999,7 +999,7 @@ export class GameManager {
                 const nextPlayerId = game.turnOrder[game.currentTurnIndex];
                 const nextPlayer = game.players.find(p => p.id === nextPlayerId);
                 if (nextPlayer) {
-                    this.emitToRoom(game.code, 'gameMessage', { 
+                    this.emitToRoom(game.code, SocketEvent.GameMessage, { 
                         message: `${player.name} has abandoned their turn, it's ${nextPlayer.name}'s turn.` 
                     });
                 }
@@ -1056,13 +1056,13 @@ export class GameManager {
             if (game.timer) {
                 clearTimeout(game.timer);
             }
-            this.emitToRoom(gameCode, 'gameEnded', result);
+            this.emitToRoom(gameCode, SocketEvent.GameEnded, result);
 
             // Directly emit to the winner's socket if result and winner are available
             if (result?.winner) {
                 const winnerPlayer = game.players.find(p => p.name === result.winner && !p.isDisconnected);
                 if (winnerPlayer && winnerPlayer.socketId) {
-                    this.emitToSocket(winnerPlayer.socketId, 'gameEnded', result);
+                    this.emitToSocket(winnerPlayer.socketId, SocketEvent.GameEnded, result);
                 }
             }
 

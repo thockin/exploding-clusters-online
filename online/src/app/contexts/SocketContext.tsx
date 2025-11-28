@@ -2,35 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Card } from '../game/deck';
-import { GameState } from '../../constants';
-
-export interface PlayerInfo {
-  id: string;
-  name: string;
-  cards: number; // number of cards in hand
-  isOut?: boolean;
-  isDisconnected?: boolean;
-}
-
-interface GameState {
-  gameCode: string;
-  players: PlayerInfo[];
-  spectators: { id: string; name: string }[]; // Assuming spectators might have names for future features
-  state: GameState;
-  gameOwnerId: string;
-  nonce: string;
-  devMode: boolean;
-  turnOrder: string[];
-  currentTurnIndex: number;
-  drawPileCount?: number;    // optional, devMode only
-  discardPile?: Card[];      // optional, devMode only
-  topDiscardCard?: Card;     // optional (may be no discarded cards)
-  removedPileCount?: number; // optional, devMode only
-  debugCardsCount?: number;  // optional, devMode only
-  safeCardsCount?: number;   // optional, devMode only
-  // Add other game state properties as they become relevant
-}
+import { Card, GameUpdatePayload, GameState, PlayerInfo, SocketEvent } from '../../api';
+export type { PlayerInfo };
 
 interface SocketContextType {
   socket: Socket | null;
@@ -41,7 +14,7 @@ interface SocketContextType {
   playerId: string | null;
   myHand: Card[]; // Using Card[]
   setMyHand: React.Dispatch<React.SetStateAction<Card[]>>;
-  gameState: GameState | null;
+  gameState: GameUpdatePayload | null;
   isLoading: boolean; // New: indicates if context is restoring session
   rejoinError: string | null;
   gameMessages: string[];
@@ -68,7 +41,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [gameCode, setGameCode] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
-  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [gameState, setGameState] = useState<GameUpdatePayload | null>(null);
   const [myHand, setMyHand] = useState<Card[]>([]);
   const [isLoading, setIsLoading] = useState(true); // Start loading
   const [rejoinError, setRejoinError] = useState<string | null>(null);
@@ -90,7 +63,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
             // Check if explicit spectator flag OR legacy "Spectator" name
             if (sIsSpectator || sName === 'Spectator') {
                 // Restore spectator session
-                socket.emit('watchGame', sCode, (response: { success: boolean; gameCode?: string; error?: string }) => {
+                socket.emit(SocketEvent.WatchGame, sCode, (response: { success: boolean; gameCode?: string; error?: string }) => {
                     if (response.success && response.gameCode) {
                         setGameCode(response.gameCode);
                         setPlayerName('Spectator');
@@ -103,7 +76,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                 });
             } else if (sName && sNonce) {
                 // Restore player session
-                socket.emit('joinGame', sCode, sName, sNonce, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }) => {
+                socket.emit(SocketEvent.JoinGame, sCode, sName, sNonce, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }) => {
                 if (response.success && response.gameCode) {
                     setGameCode(response.gameCode);
                     setPlayerName(sName);
@@ -160,7 +133,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   const createGame = useCallback(async (pName: string) => {
     return new Promise<{ success: boolean; gameCode?: string; playerId?: string; error?: string }>((resolve) => {
-      socket?.emit('createGame', pName, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string }) => {
+      socket?.emit(SocketEvent.CreateGame, pName, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string }) => {
         if (response.success && response.gameCode && response.playerId) {
           setGameCode(response.gameCode);
           setPlayerName(pName);
@@ -174,7 +147,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   const joinGame = useCallback(async (gCode: string, pName: string, clientNonce?: string) => {
     return new Promise<{ success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }>((resolve) => {
-      socket?.emit('joinGame', gCode, pName, clientNonce, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }) => {
+      socket?.emit(SocketEvent.JoinGame, gCode, pName, clientNonce, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }) => {
         if (response.success && response.gameCode && response.playerId) {
           setGameCode(response.gameCode);
           setPlayerName(pName);
@@ -188,7 +161,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   const watchGame = useCallback(async (gCode: string) => {
     return new Promise<{ success: boolean; gameCode?: string; error?: string }>((resolve) => {
-      socket?.emit('watchGame', gCode, (response: { success: boolean; gameCode?: string; error?: string }) => {
+      socket?.emit(SocketEvent.WatchGame, gCode, (response: { success: boolean; gameCode?: string; error?: string }) => {
         if (response.success && response.gameCode) {
           setGameCode(response.gameCode);
           setPlayerName('Spectator');
@@ -201,7 +174,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   const startGame = useCallback(async (gCode: string) => {
     return new Promise<{ success: boolean; error?: string }>((resolve) => {
-      socket?.emit('startGame', gCode, (response: { success: boolean; error?: string }) => {
+      socket?.emit(SocketEvent.StartGame, gCode, (response: { success: boolean; error?: string }) => {
         resolve(response);
       });
     });
@@ -240,25 +213,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setPlayerName(null);
     });
 
-    socketIo.on('gameUpdate', (data: {
-      gameCode: string;
-      nonce: string;
-      players: PlayerInfo[];
-      state: GameState;
-      gameOwnerId: string;
-      spectators: { id: string; name: string }[];
-      devMode: boolean;
-      turnOrder: string[];
-      currentTurnIndex: number;
-      drawPileCount?: number;    // optional
-      discardPile?: Card[];      // optional
-      topDiscardCard?: Card;     // optional
-      removedPileCount?: number; // optional
-      debugCardsCount?: number;  // optional
-      safeCardsCount?: number;   // optional
-    }) => {
+    socketIo.on(SocketEvent.GameUpdate, (data: GameUpdatePayload) => {
       setGameState(() => {
-        const newState: GameState = {
+        const newState: GameUpdatePayload = {
           gameCode: data.gameCode,
           players: data.players,
           spectators: data.spectators || [],
@@ -282,15 +239,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setGameCode(prev => prev || data.gameCode); 
     });
 
-    socketIo.on('gameMessage', (data: { message: string }) => {
+    socketIo.on(SocketEvent.GameMessage, (data: { message: string }) => {
       setGameMessages(prev => [...prev, data.message]);
     });
 
-    socketIo.on('handUpdate', (data: { hand: Card[] }) => {
+    socketIo.on(SocketEvent.HandUpdate, (data: { hand: Card[] }) => {
       setMyHand(data.hand);
     });
 
-    socketIo.on('playerJoined', (data: { playerId: string; playerName: string }) => {
+    socketIo.on(SocketEvent.PlayerJoined, (data: { playerId: string; playerName: string }) => {
       setGameState(prev => {
         if (!prev) return null;
         if (prev.players.some(p => p.id === data.playerId)) {
@@ -301,7 +258,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     });
 
-    socketIo.on('playerDisconnected', (data: { playerId: string }) => {
+    socketIo.on(SocketEvent.PlayerDisconnected, (data: { playerId: string }) => {
       setGameState(prev => {
         if (!prev) return null;
         const newPlayers = prev.players.map(p => 
@@ -311,14 +268,14 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     });
 
-    socketIo.on('gameStarted', () => {
+    socketIo.on(SocketEvent.GameStarted, () => {
       setGameState(prev => ({
-        ...(prev as GameState),
+        ...(prev as GameUpdatePayload),
         state: GameState.Started,
       }));
     });
 
-    socketIo.on('gameEnded', (data?: { winner: string; reason: string }) => {
+    socketIo.on(SocketEvent.GameEnded, (data?: { winner: string; reason: string }) => {
       console.log('Game ended.', data);
       if (data) {
           setGameEndData(data);
@@ -334,13 +291,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       socketIo.off('connect');
       socketIo.off('disconnect');
-      socketIo.off('gameUpdate');
-      socketIo.off('gameMessage');
-      socketIo.off('handUpdate');
-      socketIo.off('playerJoined');
-      socketIo.off('playerDisconnected');
-      socketIo.off('gameStarted');
-      socketIo.off('gameEnded');
+      socketIo.off(SocketEvent.GameUpdate);
+      socketIo.off(SocketEvent.GameMessage);
+      socketIo.off(SocketEvent.HandUpdate);
+      socketIo.off(SocketEvent.PlayerJoined);
+      socketIo.off(SocketEvent.PlayerDisconnected);
+      socketIo.off(SocketEvent.GameStarted);
+      socketIo.off(SocketEvent.GameEnded);
       socketIo.off('error');
       socketIo.disconnect();
     };
