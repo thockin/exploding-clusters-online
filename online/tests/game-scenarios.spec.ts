@@ -4,7 +4,7 @@ import { test, expect, Page } from '@playwright/test';
 async function createGame(page: Page, name: string) {
   await page.goto('/');
   await page.click('text=Create a new game');
-  await page.fill('input[placeholder="Enter your name"]', name);
+  await page.fill('input[placeholder*="Enter your name"]', name);
   await page.click('button:has-text("Create Game")');
   await expect(page.locator('h2')).toContainText('Lobby - Game Code:');
   const text = await page.locator('h2').textContent();
@@ -15,7 +15,7 @@ async function createGame(page: Page, name: string) {
 async function joinGame(page: Page, name: string, code: string) {
   await page.goto('/');
   await page.click('text=Join a game');
-  await page.fill('input[placeholder="Enter your name"]', name);
+  await page.fill('input[placeholder*="Enter your name"]', name);
   await page.fill('input[placeholder="Enter 5-letter game code"]', code);
   await page.click('button:has-text("Join Game")');
   await expect(page.locator('text=Lobby - Game Code')).toBeVisible();
@@ -94,7 +94,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const page6 = await p6.newPage();
     await page6.goto('/');
     await page6.click('text=Join a game');
-    await page6.fill('input[placeholder="Enter your name"]', 'Player 6');
+    await page6.fill('input[placeholder*="Enter your name"]', 'Player 6');
     await page6.fill('input[placeholder="Enter 5-letter game code"]', code);
     await page6.click('button:has-text("Join Game")');
 
@@ -112,7 +112,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Try to join with same name
     await page2.goto('/');
     await page2.click('text=Join a game');
-    await page2.fill('input[placeholder="Enter your name"]', 'Alice');
+    await page2.fill('input[placeholder*="Enter your name"]', 'Alice');
     await page2.fill('input[placeholder="Enter 5-letter game code"]', code);
     await page2.click('button:has-text("Join Game")');
 
@@ -123,7 +123,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const page = await browser.newPage();
     await page.goto('/');
     await page.click('text=Join a game');
-    await page.fill('input[placeholder="Enter your name"]', 'Bob');
+    await page.fill('input[placeholder*="Enter your name"]', 'Bob');
     await page.fill('input[placeholder="Enter 5-letter game code"]', 'YYYYY');
     await page.click('button:has-text("Join Game")');
     

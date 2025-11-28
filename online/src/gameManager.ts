@@ -482,6 +482,12 @@ export class GameManager {
       return callback({ success: false, error: `Game ${gameCode} does not exist` });
     }
 
+    // Prevent race condition: check and set state atomically
+    if (game.state !== GameState.Lobby) {
+      this.log(game, `attempted to start game that is not in lobby state (state=${game.state})`);
+      return callback({ success: false, error: 'Game has already been started or ended.' });
+    }
+
     const player = game.players.find(p => p.socketId === socket.id);
     if (!player || player.id !== game.gameOwnerId) {
       this.log(game, `non-game owner tried to start the game. player: ${player?.name || socket.id}`);
@@ -493,6 +499,7 @@ export class GameManager {
       return callback({ success: false, error: 'Cannot start game with less than 2 players.' });
     }
 
+    // Set state immediately to prevent concurrent startGame calls
     game.state = GameState.Started;
 
     // Initialize deck
@@ -707,8 +714,21 @@ export class GameManager {
     const game = this.games.get(gameCode);
     if (!game) return;
 
+    // Check if game has ended
+    if (game.state === GameState.Ended) {
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game has ended." });
+      return;
+    }
+
     const player = game.players.find(p => p.socketId === socket.id);
     if (!player) return;
+
+    // Prevent concurrent hand modifications (race condition protection)
+    if (player.isPlaying) {
+      this.log(game, `player "${player.name}" tried to draw a card while another operation is in progress`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current operation to complete." });
+      return;
+    }
 
     // Validation
     if (game.state !== GameState.Started) {
@@ -726,6 +746,10 @@ export class GameManager {
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "The deck is empty!" });
       return;
     }
+
+    // Set playing flag to prevent concurrent operations
+    // This flag will be cleared when the draw animation completes (after 3 seconds)
+    player.isPlaying = true;
 
     const card = game.drawPile.pop()!;
     this.log(game, `player "${player.name}" is drawing a card. Card is ${card.cardClass} (${card.name})`);
@@ -761,25 +785,66 @@ export class GameManager {
     game.timer = setTimeout(() => {
       game.timer = null;
 
-      // Add to hand
-      player.hand.push(card);
+      try {
+        // Race condition protection: Check if game still exists and player is still in game
+        const currentGame = this.games.get(gameCode);
+        if (!currentGame) {
+          this.log(null, `drawCard timer callback: game ${gameCode} no longer exists`);
+          return; // Game was ended/deleted, abort
+        }
 
-      // Handle Exploding/Upgrade logic later (Phase 3). 
-      // For Phase 2.4: "If it is a regular card... that card goes into their hand... and their turn is over."
-      // We treat ALL cards as regular for now.
+        // Check if player still exists and is still connected
+        const currentPlayer = currentGame.players.find(p => p.id === player.id);
+        if (!currentPlayer || currentPlayer.isDisconnected) {
+          this.log(currentGame, `drawCard timer callback: player "${player.name}" no longer in game or disconnected`);
+          // Card was already popped from deck, need to put it back or discard it
+          // Put it back at a random position to maintain game integrity
+          const insertIndex = Math.floor(this.prng.random() * (currentGame.drawPile.length + 1));
+          currentGame.drawPile.splice(insertIndex, 0, card);
+          return;
+        }
 
-      // Advance turn
-      game.currentTurnIndex = (game.currentTurnIndex + 1) % game.turnOrder.length;
-      const nextPlayerId = game.turnOrder[game.currentTurnIndex];
-      const nextPlayer = game.players.find(p => p.id === nextPlayerId);
+        // Verify it's still this player's turn (game state might have changed)
+        if (currentGame.state !== GameState.Started || 
+            currentGame.turnOrder[currentGame.currentTurnIndex] !== player.id) {
+          this.log(currentGame, `drawCard timer callback: turn changed, player "${player.name}" no longer has turn`);
+          // Put card back in deck
+          const insertIndex = Math.floor(this.prng.random() * (currentGame.drawPile.length + 1));
+          currentGame.drawPile.splice(insertIndex, 0, card);
+          return;
+        }
 
-      if (nextPlayer) {
-        this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} drew a card, it's ${nextPlayer.name}'s turn` });
+        // Add to hand
+        currentPlayer.hand.push(card);
+
+        // Handle Exploding/Upgrade logic later (Phase 3). 
+        // For Phase 2.4: "If it is a regular card... that card goes into their hand... and their turn is over."
+        // We treat ALL cards as regular for now.
+
+        // Advance turn
+        currentGame.currentTurnIndex = (currentGame.currentTurnIndex + 1) % currentGame.turnOrder.length;
+        const nextPlayerId = currentGame.turnOrder[currentGame.currentTurnIndex];
+        const nextPlayer = currentGame.players.find(p => p.id === nextPlayerId);
+
+        if (nextPlayer) {
+          this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew a card, it's ${nextPlayer.name}'s turn` });
+        }
+
+        this.log(currentGame, `draw animation finished. Turn advanced to ${currentGame.turnOrder[currentGame.currentTurnIndex]}`);
+        this.updateGameNonce(currentGame); // Sends updated state (hand, turn, etc)
+      } catch (error) {
+        this.log(null, `drawCard timer callback error: ${error}`);
+      } finally {
+        // Always clear the playing flag, even if an error occurred
+        // But only if player still exists
+        const currentGame = this.games.get(gameCode);
+        if (currentGame) {
+          const currentPlayer = currentGame.players.find(p => p.id === player.id);
+          if (currentPlayer) {
+            currentPlayer.isPlaying = false;
+          }
+        }
       }
-
-      this.log(game, `draw animation finished. Turn advanced to ${game.turnOrder[game.currentTurnIndex]}`);
-      this.updateGameNonce(game); // Sends updated state (hand, turn, etc)
-
     }, 3000);
   }
 
@@ -790,27 +855,60 @@ export class GameManager {
       return;
     }
 
+    // Check if game has ended
+    if (game.state === GameState.Ended) {
+      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: game.players.find(p => p.socketId === socket.id)?.hand || [] });
+      return;
+    }
+
     const player = game.players.find(p => p.socketId === socket.id);
     if (!player) {
       this.log(game, `Player ${socket.id} not found in game ${gameCode} for hand reorder.`);
       return;
     }
 
-    // Basic validation: ensure the newHand contains the same cards, just reordered.
-    // More robust validation might compare card IDs or content.
-    if (player.hand.length !== newHand.length ||
-            !player.hand.every(card => newHand.some(newCard => newCard.id === card.id))) {
-      this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}).`);
-      // Optionally, send an error back to the client or revert their UI.
+    // Prevent concurrent hand modifications (race condition protection)
+    // This prevents reordering while playing cards, drawing cards, or during other reorders
+    if (player.isPlaying) {
+      this.log(game, `player "${player.name}" tried to reorder hand while another operation is in progress`);
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert client hand
       return;
     }
 
-    player.hand = newHand;
-    if (this.verbose) {
-      this.log(game, `Player "${player.name}" (${player.socketId}) reordered their hand.`);
+    // Set playing flag to prevent concurrent operations
+    // Note: We reuse isPlaying for all hand-modifying operations (play, combo, reorder)
+    // This is safe because reordering is a quick operation
+    player.isPlaying = true;
+
+    try {
+      // Basic validation: ensure the newHand contains the same cards, just reordered.
+      // More robust validation might compare card IDs or content.
+      if (player.hand.length !== newHand.length ||
+              !player.hand.every(card => newHand.some(newCard => newCard.id === card.id))) {
+        this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}).`);
+        // Revert client hand
+        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+        return;
+      }
+
+      // Additional validation: ensure all card IDs are unique (prevent duplication attacks)
+      const cardIds = newHand.map(c => c.id);
+      const uniqueIds = new Set(cardIds);
+      if (cardIds.length !== uniqueIds.size) {
+        this.log(game, `player "${player.name}" tried to reorder hand with duplicate card IDs`);
+        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+        return;
+      }
+
+      player.hand = newHand;
+      if (this.verbose) {
+        this.log(game, `Player "${player.name}" (${player.socketId}) reordered their hand.`);
+      }
+      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Update only the reordering player
+    } finally {
+      // Always clear the playing flag, even if validation fails
+      player.isPlaying = false;
     }
-    this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Update only the reordering player
   }
 
   private playCard(socket: Socket, gameCode: string, cardId: string) {
@@ -818,6 +916,13 @@ export class GameManager {
     if (!game) {
       this.log(null, `playCard failed: game ${gameCode} not found`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Game not found." });
+      return;
+    }
+
+    // Check if game has ended
+    if (game.state === GameState.Ended) {
+      this.log(game, `playCard failed: game has ended`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game has ended." });
       return;
     }
 
@@ -878,6 +983,13 @@ export class GameManager {
     if (!game) {
       this.log(null, `playCombo failed: game ${gameCode} not found`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Game not found." });
+      return;
+    }
+
+    // Check if game has ended
+    if (game.state === GameState.Ended) {
+      this.log(game, `playCombo failed: game has ended`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game has ended." });
       return;
     }
 
@@ -1106,9 +1218,20 @@ export class GameManager {
   private endGame(gameCode: string, result?: { winner: string, reason: string }) {
     const game = this.games.get(gameCode);
     if (game) {
+      // Clear any pending timers first to prevent callbacks from executing
       if (game.timer) {
         clearTimeout(game.timer);
+        game.timer = null;
       }
+
+      // Clear isPlaying flags for all players to prevent operations from completing after game ends
+      for (const player of game.players) {
+        player.isPlaying = false;
+      }
+
+      // Set game state to Ended to prevent new operations
+      game.state = GameState.Ended;
+
       this.emitToGame(gameCode, SocketEvent.GameEnded, result);
 
       // Directly emit to the winner's socket if result and winner are available

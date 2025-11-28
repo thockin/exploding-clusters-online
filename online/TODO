@@ -1,5 +1,6 @@
 Look at logs
 visual on observer in DEVMODE - card counts overlap the cards
+npm i baseline-browser-mapping@latest -D error
 
 Later:
 * Hand animation is ugly
