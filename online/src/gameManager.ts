@@ -882,16 +882,28 @@ export class GameManager {
 
     try {
       // Basic validation: ensure the newHand contains the same cards, just reordered.
-      // More robust validation might compare card IDs or content.
-      if (player.hand.length !== newHand.length ||
-              !player.hand.every(card => newHand.some(newCard => newCard.id === card.id))) {
-        this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}).`);
-        // Revert client hand
+      // Check 1: Same length
+      if (player.hand.length !== newHand.length) {
+        this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}): length mismatch`);
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
         return;
       }
 
-      // Additional validation: ensure all card IDs are unique (prevent duplication attacks)
+      // Check 2: All cards from old hand exist in new hand (prevents card removal)
+      if (!player.hand.every(card => newHand.some(newCard => newCard.id === card.id))) {
+        this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}): missing cards`);
+        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+        return;
+      }
+
+      // Check 3: All cards in new hand exist in old hand (prevents card injection)
+      if (!newHand.every(newCard => player.hand.some(card => card.id === newCard.id))) {
+        this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}): extra cards`);
+        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+        return;
+      }
+
+      // Check 4: Ensure all card IDs are unique (prevent duplication attacks)
       const cardIds = newHand.map(c => c.id);
       const uniqueIds = new Set(cardIds);
       if (cardIds.length !== uniqueIds.size) {
