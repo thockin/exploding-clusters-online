@@ -103,6 +103,21 @@ describe('GameManager', () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let gameManager: GameManager;
   const mockServer = new MockServer();
+  const originalDevMode = process.env.DEVMODE;
+
+  beforeAll(() => {
+    // Set DEVMODE=1 for predictable test behavior (host always goes first)
+    process.env.DEVMODE = '1';
+  });
+
+  afterAll(() => {
+    // Restore original DEVMODE value
+    if (originalDevMode !== undefined) {
+      process.env.DEVMODE = originalDevMode;
+    } else {
+      delete process.env.DEVMODE;
+    }
+  });
 
   beforeEach(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
