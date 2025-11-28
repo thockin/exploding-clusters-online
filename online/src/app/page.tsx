@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { Button, Container, Row, Col, Card, Form, Alert, Modal } from 'react-bootstrap';
 import { useSocket } from './contexts/SocketContext';
 import { GameState } from '../api';
+import { validatePlayerName } from '../utils/nameValidation';
 
 type FileMode = 'initial' | 'create' | 'join' | 'watch';
 
@@ -15,6 +16,7 @@ export default function Home() {
   const [inputGameCode, setInputGameCode] = useState('');
   const [inputPlayerName, setInputPlayerName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [mode, setMode] = useState<FileMode>('initial');
 
   useEffect(() => {
@@ -40,6 +42,16 @@ export default function Home() {
       setError('Please enter your name to create a game.');
       return;
     }
+
+    // Client-side validation
+    const validation = validatePlayerName(inputPlayerName);
+    if (!validation.isValid) {
+      setNameError(validation.error || 'Invalid name');
+      setError(validation.error || 'Invalid name');
+      return;
+    }
+
+    setNameError(null);
     setError(null);
     const response = await createGame(inputPlayerName);
     if (response.success && response.gameCode) {
@@ -55,6 +67,16 @@ export default function Home() {
       setError('Please enter game code and your name to join.');
       return;
     }
+
+    // Client-side validation
+    const validation = validatePlayerName(inputPlayerName);
+    if (!validation.isValid) {
+      setNameError(validation.error || 'Invalid name');
+      setError(validation.error || 'Invalid name');
+      return;
+    }
+
+    setNameError(null);
     setError(null);
     const response = await joinGame(inputGameCode, inputPlayerName);
     if (response.success && response.gameCode) {
@@ -84,8 +106,24 @@ export default function Home() {
   const handleCloseModal = () => {
     setMode('initial');
     setError(null);
+    setNameError(null);
     setInputGameCode('');
     // Keep inputPlayerName if they entered it for convenience?
+  };
+
+  const handlePlayerNameChange = (value: string) => {
+    setInputPlayerName(value);
+    // Clear name error when user starts typing
+    if (nameError) {
+      setNameError(null);
+    }
+    // Real-time validation feedback (optional - can be removed if too aggressive)
+    if (value.trim().length > 0) {
+      const validation = validatePlayerName(value);
+      if (!validation.isValid) {
+        setNameError(validation.error || 'Invalid name');
+      }
+    }
   };
 
   return (
@@ -121,12 +159,18 @@ export default function Home() {
               <Form.Label>Your Name</Form.Label>
               <Form.Control
                 type="text"
-                placeholder="Enter your name"
+                placeholder="Enter your name (max 32 characters)"
                 value={inputPlayerName}
-                onChange={(e) => setInputPlayerName(e.target.value)}
+                onChange={(e) => handlePlayerNameChange(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreateGame()}
+                maxLength={32}
+                isInvalid={!!nameError}
                 autoFocus
               />
+              {nameError && <Form.Control.Feedback type="invalid">{nameError}</Form.Control.Feedback>}
+              <Form.Text className="text-muted">
+                {inputPlayerName.length}/32 characters
+              </Form.Text>
             </Form.Group>
           </Form>
           {error && <Alert variant="danger">{error}</Alert>}
@@ -160,11 +204,17 @@ export default function Home() {
               <Form.Label>Your Name</Form.Label>
               <Form.Control
                 type="text"
-                placeholder="Enter your name"
+                placeholder="Enter your name (max 32 characters)"
                 value={inputPlayerName}
-                onChange={(e) => setInputPlayerName(e.target.value)}
+                onChange={(e) => handlePlayerNameChange(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleJoinGame()}
+                maxLength={32}
+                isInvalid={!!nameError}
               />
+              {nameError && <Form.Control.Feedback type="invalid">{nameError}</Form.Control.Feedback>}
+              <Form.Text className="text-muted">
+                {inputPlayerName.length}/32 characters
+              </Form.Text>
             </Form.Group>
           </Form>
           {error && <Alert variant="danger">{error}</Alert>}

@@ -6,6 +6,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { fullDeck, shuffleDeck } from './app/game/deck';
 import { PseudoRandom } from './utils/PseudoRandom';
 import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent } from './api';
+import { validatePlayerName, sanitizePlayerName } from './utils/nameValidation';
 
 // Define interfaces for game and player states
 interface Player {
@@ -329,9 +330,17 @@ export class GameManager {
   }
 
   private createGame(socket: Socket, playerName: string, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string }) => void) {
+    // Validate and sanitize player name
+    const validation = validatePlayerName(playerName);
+    if (!validation.isValid) {
+      this.log(null, `createGame failed: invalid player name from ${socket.id}: ${validation.error}`);
+      return callback({ success: false, error: validation.error || 'Invalid player name' });
+    }
+
+    const sanitizedName = sanitizePlayerName(validation.sanitized || playerName);
     const gameCode = this.generateGameCode();
     const playerId = uuidv4();
-    const player: Player = { id: playerId, name: playerName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0, isPlaying: false };
+    const player: Player = { id: playerId, name: sanitizedName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0, isPlaying: false };
     const devMode = process.env.DEVMODE === '1';
 
     const newGame: Game = {
@@ -355,12 +364,20 @@ export class GameManager {
     this.playerToGameMap.set(socket.id, gameCode);
     socket.join(gameCode);
 
-    this.log(newGame, `game created by player "${playerName}" (${socket.id})`);
+    this.log(newGame, `game created by player "${sanitizedName}" (${socket.id})`);
     this.updateGameNonce(newGame);
     callback({ success: true, gameCode, playerId });
   }
 
   private joinGame(socket: Socket, gameCode: string, playerName: string, clientNonce: string | undefined, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string; }) => void) {
+    // Validate and sanitize player name
+    const validation = validatePlayerName(playerName);
+    if (!validation.isValid) {
+      this.log(null, `joinGame failed: invalid player name from ${socket.id}: ${validation.error}`);
+      return callback({ success: false, error: validation.error || 'Invalid player name' });
+    }
+
+    const sanitizedName = sanitizePlayerName(validation.sanitized || playerName);
     const game = this.games.get(gameCode);
 
     if (!game) {
@@ -369,12 +386,12 @@ export class GameManager {
     }
 
     if (game.devMode && clientNonce) {
-      this.log(game, `player "${playerName}" (${socket.id}) attempting to rejoin with nonce ${clientNonce}`);
+      this.log(game, `player "${sanitizedName}" (${socket.id}) attempting to rejoin with nonce ${clientNonce}`);
     }
     // Reconnection logic
     if (clientNonce && clientNonce === game.nonce) {
       // Find player by NAME since socket ID changes on reconnect
-      const existingPlayer = game.players.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+      const existingPlayer = game.players.find(p => p.name.toLowerCase() === sanitizedName.toLowerCase());
       if (existingPlayer) {
         existingPlayer.socketId = socket.id;
         existingPlayer.isDisconnected = false; // Player is reconnected
@@ -396,8 +413,8 @@ export class GameManager {
         // Reverting handleDisconnect isOut logic might be needed later. 
         // For now, just fixing the lookup.
 
-        this.log(game, `player "${playerName}" (${existingPlayer.socketId}) rejoined the game`);
-        this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${playerName} has rejoined the game, hoorah!` });
+        this.log(game, `player "${sanitizedName}" (${existingPlayer.socketId}) rejoined the game`);
+        this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${sanitizedName} has rejoined the game, hoorah!` });
         this.emitGameUpdate(game); // Rejoining player does not change nonce
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: existingPlayer.hand });
         return callback({ success: true, gameCode, nonce: game.nonce, playerId: existingPlayer.id });
@@ -420,19 +437,19 @@ export class GameManager {
     }
 
     // Check name against CONNECTED players
-    const existingPlayerWithSameName = connectedPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+    const existingPlayerWithSameName = connectedPlayers.find(p => p.name.toLowerCase() === sanitizedName.toLowerCase());
     if (existingPlayerWithSameName) {
-      this.log(game, `attempted to join with duplicate name: "${playerName}", exists as ${existingPlayerWithSameName.socketId}`);
+      this.log(game, `attempted to join with duplicate name: "${sanitizedName}", exists as ${existingPlayerWithSameName.socketId}`);
       return callback({ success: false, error: 'That name is already taken in this game. Please choose a different name.' });
     }
 
     const playerId = uuidv4(); // Generate a new ID for a new player
-    const player: Player = { id: playerId, name: playerName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0, isPlaying: false };
+    const player: Player = { id: playerId, name: sanitizedName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0, isPlaying: false };
     game.players.push(player);
     this.playerToGameMap.set(socket.id, gameCode);
     socket.join(gameCode);
 
-    this.log(game, `player "${playerName}" (${socket.id}) joined the game`);
+    this.log(game, `player "${sanitizedName}" (${socket.id}) joined the game`);
     this.updateGameNonce(game);
     // Notify all players in the game about the new player
     this.emitToGame(game.code, SocketEvent.PlayerJoined, { playerId: player.id, playerName: player.name });
