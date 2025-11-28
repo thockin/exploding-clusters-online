@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Container, Row, Col, ListGroup, Button, Modal } from 'react-bootstrap';
-import { useSocket, PlayerInfo } from '../contexts/SocketContext';
-import { Card, SocketEvent, CardClass } from '../../api';
+import { useSocket } from '../contexts/SocketContext';
+import { Card, Player, SocketEvent, CardClass } from '../../api';
 import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from '@hello-pangea/dnd';
 import Image from 'next/image';
 
@@ -632,7 +632,7 @@ export default function GameScreen() {
     return { width, height };
   };
 
-  const getPlayerClassName = (player: PlayerInfo) => {
+  const getPlayerClassName = (player: Player) => {
     let className = '';
     if (player.id === currentPlayerId) className += 'bg-success-subtle';
     if (player.isOut) className += ' text-decoration-line-through text-muted';

@@ -2,8 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Card, GameUpdatePayload, GameState, PlayerInfo, SocketEvent } from '../../api';
-export type { PlayerInfo };
+import { Card, GameUpdatePayload, GameState, SocketEvent } from '../../api';
 
 interface SocketContextType {
   socket: Socket | null;

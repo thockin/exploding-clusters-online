@@ -57,7 +57,7 @@ export enum SocketEvent {
   DrawCardAnimation = 'drawCardAnimation'
 }
 
-export interface PlayerInfo {
+export interface Player {
   id: string;
   name: string;
   cards: number; // number of cards in hand
@@ -65,7 +65,7 @@ export interface PlayerInfo {
   isDisconnected?: boolean;
 }
 
-export interface SpectatorInfo {
+export interface Spectator {
   id: string;
   name?: string; // Optional name if we add it later
 }
@@ -73,10 +73,10 @@ export interface SpectatorInfo {
 export interface GameUpdatePayload {
   gameCode: string;
   nonce: string;
-  players: PlayerInfo[];
+  players: Player[];
   state: GameState;
   gameOwnerId: string;
-  spectators: SpectatorInfo[]; 
+  spectators: Spectator[]; 
   devMode: boolean;
   turnOrder: string[];
   currentTurnIndex: number;
