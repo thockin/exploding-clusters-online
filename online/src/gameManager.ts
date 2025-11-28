@@ -44,6 +44,7 @@ export class GameManager {
   private verbose: boolean = process.env.VERBOSE === '1';
   private prng: PseudoRandom;
   private maxGames: number;
+  private maxSpectators: number;
 
   constructor(private io: Server) {
     const devMode = process.env.DEVMODE === '1';
@@ -61,6 +62,20 @@ export class GameManager {
       }
     } else {
       this.maxGames = 128;
+    }
+
+    // Parse MAX_SPECTATORS environment variable, default to 10
+    const maxSpectatorsEnv = process.env.MAX_SPECTATORS;
+    if (maxSpectatorsEnv) {
+      const parsed = parseInt(maxSpectatorsEnv, 10);
+      if (isNaN(parsed) || parsed < 1) {
+        console.warn(`Invalid MAX_SPECTATORS value "${maxSpectatorsEnv}", using default of 10`);
+        this.maxSpectators = 10;
+      } else {
+        this.maxSpectators = parsed;
+      }
+    } else {
+      this.maxSpectators = 10;
     }
 
     // Setup Socket.IO event listeners
@@ -520,6 +535,12 @@ export class GameManager {
     if (!game) {
       this.log(null, `attempted to watch non-existent game: ${gameCode}`);
       return callback({ success: false, error: `Game ${gameCode} does not exist` });
+    }
+
+    // Check if the game is full of spectators
+    if (game.spectators.length >= this.maxSpectators) {
+      this.log(game, `attempted to watch game ${gameCode} but spectator limit (${this.maxSpectators}) reached`);
+      return callback({ success: false, error: 'Sorry, this game has reached its spectator limit.' });
     }
 
     game.spectators.push({ id: uuidv4(), socketId: socket.id });
