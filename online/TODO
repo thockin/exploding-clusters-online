@@ -1,6 +1,7 @@
 Fix cursor-flagged isues
 Look at logs
 common types for repeated structs
+visual on observer in DEVMODE - card counts overlap the cards
 
 Later:
 * Hand animation is ugly
