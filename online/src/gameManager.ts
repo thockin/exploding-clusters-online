@@ -43,10 +43,25 @@ export class GameManager {
   private playerToGameMap: Map<string, string> = new Map(); // socketId -> gameCode
   private verbose: boolean = process.env.VERBOSE === '1';
   private prng: PseudoRandom;
+  private maxGames: number;
 
   constructor(private io: Server) {
     const devMode = process.env.DEVMODE === '1';
     this.prng = new PseudoRandom(devMode ? 0 : undefined);
+    
+    // Parse MAX_GAMES environment variable, default to 128
+    const maxGamesEnv = process.env.MAX_GAMES;
+    if (maxGamesEnv) {
+      const parsed = parseInt(maxGamesEnv, 10);
+      if (isNaN(parsed) || parsed < 1) {
+        console.warn(`Invalid MAX_GAMES value "${maxGamesEnv}", using default of 128`);
+        this.maxGames = 128;
+      } else {
+        this.maxGames = parsed;
+      }
+    } else {
+      this.maxGames = 128;
+    }
 
     // Setup Socket.IO event listeners
     this.io.on('connection', (socket: Socket) => {
@@ -367,6 +382,12 @@ export class GameManager {
   }
 
   private createGame(socket: Socket, playerName: string, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string }) => void) {
+    // Check if server has reached maximum game limit
+    if (this.games.size >= this.maxGames) {
+      this.log(null, `createGame failed: server at capacity (${this.games.size}/${this.maxGames} games)`);
+      return callback({ success: false, error: 'The server is full. Please try again later.' });
+    }
+
     // Validate and sanitize player name
     const validation = validatePlayerName(playerName);
     if (!validation.isValid) {
