@@ -380,19 +380,18 @@ export class GameManager {
       return; // Stop further updates
     }
 
+    // New nonce, notify all clients
     game.nonce = this.generateNonce();
-    // Notify all clients in the game about the nonce change
     this.emitGameUpdate(game);
+    if (game.devMode) {
+      this.log(game, `nonce updated to: ${game.nonce}`);
+    }
 
     // Send individual hand updates
     for (const player of game.players) {
       if (player.socketId) {
         this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
       }
-    }
-
-    if (game.devMode) {
-      this.log(game, `nonce updated to: ${game.nonce}`);
     }
   }
 
@@ -870,45 +869,68 @@ export class GameManager {
     // This flag will be cleared when the draw animation completes (after 3 seconds)
     player.isPlaying = true;
 
-    const card = game.drawPile.pop()!;
-    this.log(game, `player "${player.name}" is drawing a card. Card is ${card.cardClass} (${card.name})`);
+    let card: Card | undefined;
+    try {
+      card = game.drawPile.pop()!;
+      if (!card) {
+        // This shouldn't happen due to earlier check, but handle it defensively
+        this.log(game, `drawCard: draw pile was empty when trying to pop`);
+        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "The deck is empty!" });
+        return;
+      }
+      this.log(game, `player "${player.name}" is drawing a card. Card is ${card.cardClass} (${card.name})`);
 
-    // Start animation phase
-    // Current player sees the card
-    this.emitToSocket(socket.id, SocketEvent.DrawCardAnimation, { 
-      drawingPlayerId: player.id,
-      card: card, // They see the card
-      duration: 3000 
-    });
+      // Start animation phase
+      // Current player sees the card
+      this.emitToSocket(socket.id, SocketEvent.DrawCardAnimation, { 
+        drawingPlayerId: player.id,
+        card: card, // They see the card
+        duration: 3000 
+      });
 
-    // Others see "someone drew" (no card info)
-    for (const p of game.players) {
-      if (p.id !== player.id && p.socketId) {
-        this.emitToSocket(p.socketId, SocketEvent.DrawCardAnimation, {
+      // Others see "someone drew" (no card info)
+      for (const p of game.players) {
+        if (p.id !== player.id && p.socketId) {
+          this.emitToSocket(p.socketId, SocketEvent.DrawCardAnimation, {
+            drawingPlayerId: player.id,
+            duration: 3000
+          });
+        }
+      }
+      // Spectators
+      for (const s of game.spectators) {
+        this.emitToSocket(s.socketId, SocketEvent.DrawCardAnimation, {
           drawingPlayerId: player.id,
           duration: 3000
         });
       }
-    }
-    // Spectators
-    for (const s of game.spectators) {
-      this.emitToSocket(s.socketId, SocketEvent.DrawCardAnimation, {
-        drawingPlayerId: player.id,
-        duration: 3000
-      });
-    }
 
-    // Notify "X drew a card" is now inside setTimeout to include next player's turn.
+      // Notify "X drew a card" is now inside setTimeout to include next player's turn.
 
-    // Set timer to finalize
-    game.timer = setTimeout(() => {
+      // Set timer to finalize
+      game.timer = setTimeout(() => {
       game.timer = null;
 
       try {
+        // Ensure card was successfully popped
+        if (!card) {
+          this.log(null, `drawCard timer callback: card was undefined`);
+          // Clear isPlaying flag - try to find player in any existing game
+          const tempGame = this.games.get(gameCode);
+          if (tempGame) {
+            const tempPlayer = tempGame.players.find(p => p.id === player.id);
+            if (tempPlayer) {
+              tempPlayer.isPlaying = false;
+            }
+          }
+          return;
+        }
+
         // Race condition protection: Check if game still exists and player is still in game
         const currentGame = this.games.get(gameCode);
         if (!currentGame) {
           this.log(null, `drawCard timer callback: game ${gameCode} no longer exists`);
+          // Cannot clear isPlaying flag if game doesn't exist - this is handled in finally block
           return; // Game was ended/deleted, abort
         }
 
@@ -920,6 +942,10 @@ export class GameManager {
           // Put it back at a random position to maintain game integrity
           const insertIndex = Math.floor(this.prng.random() * (currentGame.drawPile.length + 1));
           currentGame.drawPile.splice(insertIndex, 0, card);
+          // Clear isPlaying flag before returning (player exists in game even if disconnected)
+          if (currentPlayer) {
+            currentPlayer.isPlaying = false;
+          }
           return;
         }
 
@@ -930,6 +956,8 @@ export class GameManager {
           // Put card back in deck
           const insertIndex = Math.floor(this.prng.random() * (currentGame.drawPile.length + 1));
           currentGame.drawPile.splice(insertIndex, 0, card);
+          // Clear isPlaying flag before returning
+          currentPlayer.isPlaying = false;
           return;
         }
 
@@ -965,6 +993,17 @@ export class GameManager {
         }
       }
     }, 3000);
+    } catch (error) {
+      // Handle any errors that occur before or during setTimeout setup
+      this.log(game, `drawCard error: ${error}`);
+      // Clear the playing flag immediately on error
+      player.isPlaying = false;
+      // Put card back in deck if it was popped
+      if (card) {
+        game.drawPile.push(card);
+      }
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "An error occurred while drawing a card." });
+    }
   }
 
   private reorderHand(socket: Socket, gameCode: string, newHand: Card[]) {
