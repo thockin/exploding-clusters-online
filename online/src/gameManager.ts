@@ -158,7 +158,7 @@ export class GameManager {
                     player.hand = []; // Clear hand
 
                     game.players.splice(playerIndex, 1); // Remove from array
-                    this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${player.name} has left the game, what a chicken!` });
+                    this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} has left the game, what a chicken!` });
 
                     // Handle owner migration if needed
                     if (game.state === GameState.Lobby && game.gameOwnerId === player.id) {
@@ -235,11 +235,11 @@ export class GameManager {
         return randomBytes(8).toString('hex');
     }
 
-    private emitToRoom(room: string, event: string, data?: unknown) {
+    private emitToGame(game: string, event: string, data?: unknown) {
         if (this.verbose) {
-            this.log(null, `sending event "${event}" to room ${room}: ${JSON.stringify(data as string)}`);
+            this.log(null, `game ${game}: sending event "${event}" to all players: ${JSON.stringify(data as string)}`);
         }
-        this.io.to(room).emit(event, data);
+        this.io.to(game).emit(event, data);
     }
 
     private emitToSocket(socketId: string, event: string, data?: unknown) {
@@ -285,7 +285,7 @@ export class GameManager {
     }
     private emitGameUpdate(game: Game) {
         const data = this.getGameUpdateData(game);
-        this.emitToRoom(game.code, SocketEvent.GameUpdate, data);
+        this.emitToGame(game.code, SocketEvent.GameUpdate, data);
     }
     private updateGameNonce(game: Game) {
         // Purge disconnected players whenever nonce changes
@@ -395,7 +395,7 @@ export class GameManager {
                 // For now, just fixing the lookup.
 
                 this.log(game, `player "${playerName}" (${existingPlayer.socketId}) rejoined the game`);
-                this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${playerName} has rejoined the game, hoorah!` });
+                this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${playerName} has rejoined the game, hoorah!` });
                 this.emitGameUpdate(game); // Rejoining player does not change nonce
                 this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: existingPlayer.hand });
                 return callback({ success: true, gameCode, nonce: game.nonce, playerId: existingPlayer.id });
@@ -433,7 +433,7 @@ export class GameManager {
         this.log(game, `player "${playerName}" (${socket.id}) joined the game`);
         this.updateGameNonce(game);
         // Notify all players in the game about the new player
-        this.emitToRoom(game.code, SocketEvent.PlayerJoined, { playerId: player.id, playerName: player.name });
+        this.emitToGame(game.code, SocketEvent.PlayerJoined, { playerId: player.id, playerName: player.name });
         callback({ success: true, gameCode, nonce: game.nonce, playerId: player.id });
     }
 
@@ -565,7 +565,7 @@ export class GameManager {
 
         this.log(game, `game started`);
         this.updateGameNonce(game);
-        this.emitToRoom(game.code, SocketEvent.GameStarted);
+        this.emitToGame(game.code, SocketEvent.GameStarted);
         callback({ success: true });
     }
 
@@ -755,7 +755,7 @@ export class GameManager {
             const nextPlayer = game.players.find(p => p.id === nextPlayerId);
 
             if (nextPlayer) {
-                this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${player.name} drew a card, it's ${nextPlayer.name}'s turn` });
+                this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} drew a card, it's ${nextPlayer.name}'s turn` });
             }
 
             this.log(game, `draw animation finished. Turn advanced to ${game.turnOrder[game.currentTurnIndex]}`);
@@ -832,7 +832,7 @@ export class GameManager {
         const [card] = player.hand.splice(cardIndex, 1);
         game.discardPile.push(card);
         this.log(game, `player "${player.name}" played ${card.name} (${card.cardClass})`);
-        this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.cardClass}.` });
+        this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.cardClass}.` });
 
         this.updateGameNonce(game);
     }
@@ -926,7 +926,7 @@ export class GameManager {
         game.discardPile.push(...cardsToPlay);
 
         this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.cardClass})`);
-        this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.cardClass}.` });
+        this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.cardClass}.` });
 
         // TODO: Trigger special action (Steal a card) - Phase 4
 
@@ -956,7 +956,7 @@ export class GameManager {
             const oldSocketId = player.socketId;
             player.isDisconnected = true;
             player.socketId = ''; // Clear socketId so this socket can't be reused directly
-            this.emitToRoom(game.code, SocketEvent.GameMessage, { message: `${player.name} has disconnected, maybe they will be right back?` });
+            this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} has disconnected, maybe they will be right back?` });
 
             // If current player disconnected, handle turn progression
             if (game.state === GameState.Started && game.turnOrder[game.currentTurnIndex] === player.id) {
@@ -999,7 +999,7 @@ export class GameManager {
                 const nextPlayerId = game.turnOrder[game.currentTurnIndex];
                 const nextPlayer = game.players.find(p => p.id === nextPlayerId);
                 if (nextPlayer) {
-                    this.emitToRoom(game.code, SocketEvent.GameMessage, { 
+                    this.emitToGame(game.code, SocketEvent.GameMessage, { 
                         message: `${player.name} has abandoned their turn, it's ${nextPlayer.name}'s turn.` 
                     });
                 }
@@ -1056,7 +1056,7 @@ export class GameManager {
             if (game.timer) {
                 clearTimeout(game.timer);
             }
-            this.emitToRoom(gameCode, SocketEvent.GameEnded, result);
+            this.emitToGame(gameCode, SocketEvent.GameEnded, result);
 
             // Directly emit to the winner's socket if result and winner are available
             if (result?.winner) {

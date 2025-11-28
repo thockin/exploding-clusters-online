@@ -24,7 +24,7 @@ class MockSocket {
     readonly id: string;
     callbacks: Record<string, (...args: unknown[]) => void> = {};
     emitted: Record<string, unknown[]> = {};
-    joinedRooms: string[] = [];
+    joinedGames: string[] = [];
 
     constructor(id: string) {
         this.id = id;
@@ -44,8 +44,8 @@ class MockSocket {
         this.emitted[event].push(data);
     }
 
-    join(room: string) {
-        this.joinedRooms.push(room);
+    join(game: string) {
+        this.joinedGames.push(game);
     }
 
     trigger(event: string, ...args: unknown[]) {
@@ -59,15 +59,15 @@ class MockSocket {
 class MockServer {
     sockets: {
         sockets: Map<string, MockSocket>;
-        in: (room: string) => { emit: (event: string, data?: unknown) => void; socketsLeave: (room: string) => void };
+        in: (game: string) => { emit: (event: string, data?: unknown) => void; socketsLeave: (game: string) => void };
     };
-    rooms: Record<string, { emitted: Record<string, unknown[]> }> = {};
+    games: Record<string, { emitted: Record<string, unknown[]> }> = {};
     connectionCallback: ((socket: MockSocket) => void) | null = null;
 
     constructor() {
         this.sockets = {
             sockets: new Map<string, MockSocket>(),
-            in: (room: string) => this.in(room)
+            in: (game: string) => this.in(game)
         };
     }
 
@@ -85,18 +85,18 @@ class MockServer {
         this.sockets.sockets.set(socket.id, socket);
     }
 
-    to(room: string) {
-        if (!this.rooms[room]) this.rooms[room] = { emitted: {} };
+    to(game: string) {
+        if (!this.games[game]) this.games[game] = { emitted: {} };
         return {
             emit: (event: string, data?: unknown) => {
-                if (!this.rooms[room].emitted[event]) this.rooms[room].emitted[event] = [];
-                this.rooms[room].emitted[event].push(data);
+                if (!this.games[game].emitted[event]) this.games[game].emitted[event] = [];
+                this.games[game].emitted[event].push(data);
             },
             socketsLeave: () => { }
         };
     }
 
-    in(room: string) { return this.to(room); }
+    in(game: string) { return this.to(game); }
 }
 
 describe('GameManager', () => {
@@ -134,7 +134,7 @@ describe('GameManager', () => {
             
             player2.trigger('joinGame', gameCode, 'Player2', undefined, (res2: GameResponse) => {
                 expect(res2.success).toBe(true);
-                expect(mockServer.rooms[gameCode].emitted['playerJoined']).toBeDefined();
+                expect(mockServer.games[gameCode].emitted['playerJoined']).toBeDefined();
                 done();
             });
         });
@@ -156,9 +156,9 @@ describe('GameManager', () => {
                     
                     p2.trigger('leaveGame', gameCode);
                     
-                    const roomEmits = mockServer.rooms[gameCode].emitted['gameEnded'];
-                    expect(roomEmits).toBeDefined();
-                    const lastEmit = roomEmits![roomEmits!.length - 1] as GameEndData;
+                    const gameEmits = mockServer.games[gameCode].emitted['gameEnded'];
+                    expect(gameEmits).toBeDefined();
+                    const lastEmit = gameEmits![gameEmits!.length - 1] as GameEndData;
                     expect(lastEmit).toBeDefined();
                     expect(lastEmit.reason).toBe('attrition');
                     expect(lastEmit.winner).toBe('Host');
@@ -181,8 +181,8 @@ describe('GameManager', () => {
             p2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
                 p2.trigger('leaveGame', gameCode);
                 
-                const roomEmits = mockServer.rooms[gameCode].emitted['gameEnded'];
-                expect(roomEmits).toBeUndefined();
+                const gameEmits = mockServer.games[gameCode].emitted['gameEnded'];
+                expect(gameEmits).toBeUndefined();
                 done();
             });
         });
