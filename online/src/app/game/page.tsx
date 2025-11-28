@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Container, Row, Col, ListGroup, Button, Modal } from 'react-bootstrap';
 import { useSocket, PlayerInfo } from '../contexts/SocketContext';
-import { Card as CardType, SocketEvent } from '../../api';
+import { Card, SocketEvent, CardClass } from '../../api';
 import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from '@hello-pangea/dnd';
 import Image from 'next/image';
 
@@ -22,9 +22,9 @@ export default function GameScreen() {
   const { socket, gameCode, gameState, playerName, playerId, myHand, setMyHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [selectedCards, setSelectedCards] = useState<CardType[]>([]); // For single or combo selection
-  const [overlayCard, setOverlayCard] = useState<CardType | null>(null);
-  const [explodingCard, setExplodingCard] = useState<CardType | null>(null);
+  const [selectedCards, setSelectedCards] = useState<Card[]>([]); // For single or combo selection
+  const [overlayCard, setOverlayCard] = useState<Card | null>(null);
+  const [explodingCard, setExplodingCard] = useState<Card | null>(null);
   const [windowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
   const [isClient] = useState(false);
   const tableAreaRef = useRef<HTMLDivElement>(null);
@@ -34,14 +34,14 @@ export default function GameScreen() {
   const [handAreaWidth, setHandAreaWidth] = useState(0);
   
   // DEVMODE states
-  const [deckOverlay, setDeckOverlay] = useState<CardType[] | null>(null);
-  const [removedOverlay, setRemovedOverlay] = useState<CardType[] | null>(null); // New: for removed pile overlay
+  const [deckOverlay, setDeckOverlay] = useState<Card[] | null>(null);
+  const [removedOverlay, setRemovedOverlay] = useState<Card[] | null>(null); // New: for removed pile overlay
   const [hostPromotionMessage, setHostPromotionMessage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
   const clickStartPosRef = useRef({ x: 0, y: 0 });
   const isShiftKeyPressed = useRef(false);
-  const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: CardType, playerId?: string } | null>(null);
+  const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: Card, playerId?: string } | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -90,9 +90,9 @@ export default function GameScreen() {
   useEffect(() => {
     if (!socket) return;
 
-    const onDeckData = ({ deck }: { deck: CardType[] }) => setDeckOverlay(deck);
-    const onRemovedData = ({ removedPile }: { removedPile: CardType[] }) => setRemovedOverlay(removedPile);
-    const onPlayerExploding = ({ card }: { card: CardType }) => setExplodingCard(card);
+    const onDeckData = ({ deck }: { deck: Card[] }) => setDeckOverlay(deck);
+    const onRemovedData = ({ removedPile }: { removedPile: Card[] }) => setRemovedOverlay(removedPile);
+    const onPlayerExploding = ({ card }: { card: Card }) => setExplodingCard(card);
 
     socket.on(SocketEvent.DeckData, onDeckData);
     socket.on(SocketEvent.RemovedData, onRemovedData);
@@ -188,7 +188,7 @@ export default function GameScreen() {
     router.push('/');
   }, [socket, gameCode, resetState, router]);
 
-  const handleCardClick = useCallback((card: CardType, event: React.MouseEvent) => {
+  const handleCardClick = useCallback((card: Card, event: React.MouseEvent) => {
     event.stopPropagation();
     
     if (isDraggingRef.current) {
@@ -209,7 +209,7 @@ export default function GameScreen() {
     // If shift key is pressed, attempt combo selection
     if (event.shiftKey) {
       // Only DEVELOPER cards can be part of a combo
-      if (card.cardClass !== 'DEVELOPER') {
+      if (card.cardClass !== CardClass.Developer) {
         return; // Do nothing if not a DEVELOPER card
       }
 
@@ -219,7 +219,7 @@ export default function GameScreen() {
       } else if (selectedCards.length === 1) {
         const existingCard = selectedCards[0];
         // Only allow combo with identical DEVELOPER cards and not the same card instance
-        if (existingCard.cardClass === 'DEVELOPER' && 
+        if (existingCard.cardClass === CardClass.Developer && 
             existingCard.name === card.name && 
             existingCard.id !== card.id) {
           setSelectedCards(prev => [...prev, card]); // Form a combo
@@ -240,7 +240,7 @@ export default function GameScreen() {
     }
   }, [selectedCards]);
 
-  const handleCardDoubleClick = useCallback((card: CardType) => {
+  const handleCardDoubleClick = useCallback((card: Card) => {
     setOverlayCard(card);
   }, []);
 
@@ -323,7 +323,7 @@ export default function GameScreen() {
   useEffect(() => {
       if (!socket) return;
       
-      const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: CardType, duration: number }) => {
+      const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: Card, duration: number }) => {
           console.debug(SocketEvent.DrawCardAnimation, data);
           setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId });
           
@@ -374,7 +374,7 @@ export default function GameScreen() {
         // Check if dragging a card that is part of the selection
         const isMultiMove = selectedCards.length > 1 && selectedCards.some(c => c.id === draggedCard.id);
 
-        let newHand: CardType[];
+        let newHand: Card[];
 
         if (isMultiMove) {
             // Get selected IDs for quick lookup
@@ -399,7 +399,7 @@ export default function GameScreen() {
             // Determine insertion reference
             // dndDestIndex points to an index in handWithoutAnchor
             // We need to find the first non-selected card at or after this position
-            let trueReferenceCard: CardType | null = null;
+            let trueReferenceCard: Card | null = null;
             
             // Start looking from the drop index
             // Handle append case
@@ -452,8 +452,8 @@ export default function GameScreen() {
       const sourceGlobalIndex = sourceRowIndex * cols + source.index;
       const draggedCard = myHand[sourceGlobalIndex];
 
-      let cardsToPlay: CardType[] = [];
-      let newSelectedCards: CardType[] = [];
+      let cardsToPlay: Card[] = [];
+      let newSelectedCards: Card[] = [];
 
       // Logic as per updated Design Doc
 
@@ -474,8 +474,8 @@ export default function GameScreen() {
           else {
               // Check Shift-Drag for Developer Combo
               if (isShiftKeyPressed.current && 
-                  selected.cardClass === 'DEVELOPER' && 
-                  draggedCard.cardClass === 'DEVELOPER' &&
+                  selected.cardClass === CardClass.Developer && 
+                  draggedCard.cardClass === CardClass.Developer &&
                   selected.name === draggedCard.name) {
                   
                   // "the second card is also selected and both cards are played"
@@ -511,7 +511,7 @@ export default function GameScreen() {
       // Now handle the actual play
       if (cardsToPlay.length > 0) {
           // Rejection Logic: Single DEVELOPER card
-          if (cardsToPlay.length === 1 && cardsToPlay[0].cardClass === 'DEVELOPER') {
+          if (cardsToPlay.length === 1 && cardsToPlay[0].cardClass === CardClass.Developer) {
               console.log('Cannot play a single DEVELOPER card');
               // "Return it to the player's hand".
               // Do NOT emit. Do NOT setMyHand. DnD will snap back.
@@ -549,7 +549,7 @@ export default function GameScreen() {
 
           // Optimistic update and clear selection for successful plays
           setSelectedCards([]);
-          setMyHand((prevHand: CardType[]) => prevHand.filter(c => !cardsToPlay.some(pc => pc.id === c.id)));
+          setMyHand((prevHand: Card[]) => prevHand.filter(c => !cardsToPlay.some(pc => pc.id === c.id)));
       }
       return; // Ensure we exit after handling the drop
     }
@@ -573,8 +573,8 @@ export default function GameScreen() {
               // "If there is a single DEVELOPER card selected and the player shift-clicks and drags another identical card..."
               if (selectedCards.length === 1) {
                   const selected = selectedCards[0];
-                  if (selected.cardClass === 'DEVELOPER' && 
-                      draggedCard.cardClass === 'DEVELOPER' && 
+                  if (selected.cardClass === CardClass.Developer && 
+                      draggedCard.cardClass === CardClass.Developer && 
                       selected.name === draggedCard.name &&
                       selected.id !== draggedCard.id) {
                       
@@ -703,7 +703,7 @@ export default function GameScreen() {
     const { maxWidth, cardWidth, cols } = calculateHandLayout(myHand.length, handAreaWidth);
 
     // Split hand into rows
-    const rows: CardType[][] = [];
+    const rows: Card[][] = [];
     if (cols > 0) {
         for (let i = 0; i < myHand.length; i += cols) {
             rows.push(myHand.slice(i, i + cols));

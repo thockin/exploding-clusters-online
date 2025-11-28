@@ -1,7 +1,21 @@
+export enum CardClass {
+  ExplodingCluster = 'EXPLODING_CLUSTER',
+  UpgradeCluster = 'UPGRADE_CLUSTER',
+  Attack = 'ATTACK',
+  Debug = 'DEBUG',
+  Favor = 'FAVOR',
+  Nak = 'NAK',
+  SeeTheFuture = 'SEE_THE_FUTURE',
+  Shuffle = 'SHUFFLE',
+  ShuffleNow = 'SHUFFLE_NOW',
+  Skip = 'SKIP',
+  Developer = 'DEVELOPER'
+}
+
 export interface Card {
   id: string;
   name: string;
-  cardClass: string;
+  cardClass: CardClass;
   imageUrl: string;
   now?: boolean;
   combo?: boolean;
