@@ -482,15 +482,22 @@ export class GameManager {
       return callback({ success: false, error: `Game ${gameCode} does not exist` });
     }
 
+    // Reject if caller is a spectator (not a player)
+    const isSpectator = game.spectators.some(s => s.socketId === socket.id);
+    const player = game.players.find(p => p.socketId === socket.id);
+    if (isSpectator || !player) {
+      this.log(game, `Spectator or non-player ${socket.id} attempted to start game ${gameCode}`);
+      return callback({ success: false, error: 'Only players can start the game.' });
+    }
+
     // Prevent race condition: check and set state atomically
     if (game.state !== GameState.Lobby) {
       this.log(game, `attempted to start game that is not in lobby state (state=${game.state})`);
       return callback({ success: false, error: 'Game has already been started or ended.' });
     }
 
-    const player = game.players.find(p => p.socketId === socket.id);
-    if (!player || player.id !== game.gameOwnerId) {
-      this.log(game, `non-game owner tried to start the game. player: ${player?.name || socket.id}`);
+    if (player.id !== game.gameOwnerId) {
+      this.log(game, `non-game owner tried to start the game. player: ${player.name}`);
       return callback({ success: false, error: 'Only the game owner can start the game.' });
     }
 
@@ -659,8 +666,13 @@ export class GameManager {
     const game = this.games.get(gameCode);
     if (!game) return;
 
+    // Reject if caller is a spectator (not a player)
+    const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
-    if (!player) return;
+    if (isSpectator || !player) {
+      this.log(game, `Spectator or non-player ${socket.id} attempted to use DEVMODE giveDebugCard in game ${gameCode}`);
+      return; // Silently ignore spectator actions
+    }
 
     const debugCardIndex = game.drawPile.findIndex(c => c.cardClass === CardClass.Debug);
     if (debugCardIndex > -1) {
@@ -679,8 +691,13 @@ export class GameManager {
     const game = this.games.get(gameCode);
     if (!game) return;
 
+    // Reject if caller is a spectator (not a player)
+    const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
-    if (!player) return;
+    if (isSpectator || !player) {
+      this.log(game, `Spectator or non-player ${socket.id} attempted to use DEVMODE giveSafeCard in game ${gameCode}`);
+      return; // Silently ignore spectator actions
+    }
 
     const cardIndex = game.drawPile.findIndex(c => c.cardClass !== CardClass.ExplodingCluster && c.cardClass !== CardClass.UpgradeCluster);
     if (cardIndex > -1) {
@@ -698,6 +715,15 @@ export class GameManager {
     const game = this.games.get(gameCode);
     if (!game) return;
 
+    // Reject if caller is a spectator (not a player)
+    // Note: Spectators might be allowed to see deck in future, but for now restrict to players
+    const isSpectator = game.spectators.some(s => s.socketId === socket.id);
+    const player = game.players.find(p => p.socketId === socket.id);
+    if (isSpectator || !player) {
+      this.log(game, `Spectator or non-player ${socket.id} attempted to use DEVMODE showDeck in game ${gameCode}`);
+      return; // Silently ignore spectator actions
+    }
+
     // Send the full deck to the requester, reversed so top is first
     this.emitToSocket(socket.id, SocketEvent.DeckData, { deck: [...game.drawPile].reverse() });
   }
@@ -705,6 +731,15 @@ export class GameManager {
   private showRemovedPile(socket: Socket, gameCode: string) {
     const game = this.games.get(gameCode);
     if (!game) return;
+
+    // Reject if caller is a spectator (not a player)
+    // Note: Spectators might be allowed to see removed pile in future, but for now restrict to players
+    const isSpectator = game.spectators.some(s => s.socketId === socket.id);
+    const player = game.players.find(p => p.socketId === socket.id);
+    if (isSpectator || !player) {
+      this.log(game, `Spectator or non-player ${socket.id} attempted to use DEVMODE showRemovedPile in game ${gameCode}`);
+      return; // Silently ignore spectator actions
+    }
 
     // Send the removed pile to the requester
     this.emitToSocket(socket.id, SocketEvent.RemovedData, { removedPile: game.removedPile });
@@ -720,8 +755,13 @@ export class GameManager {
       return;
     }
 
+    // Reject if caller is a spectator (not a player)
+    const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
-    if (!player) return;
+    if (isSpectator || !player) {
+      this.log(game, `Spectator or non-player ${socket.id} attempted to draw card in game ${gameCode}`);
+      return; // Silently ignore spectator actions
+    }
 
     // Prevent concurrent hand modifications (race condition protection)
     if (player.isPlaying) {
@@ -861,10 +901,12 @@ export class GameManager {
       return;
     }
 
+    // Reject if caller is a spectator (not a player)
+    const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
-    if (!player) {
-      this.log(game, `Player ${socket.id} not found in game ${gameCode} for hand reorder.`);
-      return;
+    if (isSpectator || !player) {
+      this.log(game, `Spectator or non-player ${socket.id} attempted to reorder hand in game ${gameCode}`);
+      return; // Silently ignore spectator actions
     }
 
     // Prevent concurrent hand modifications (race condition protection)
@@ -938,11 +980,12 @@ export class GameManager {
       return;
     }
 
+    // Reject if caller is a spectator (not a player)
+    const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
-    if (!player) {
-      this.log(game, `playCard failed: player not found for socket ${socket.id}`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Player not found." });
-      return;
+    if (isSpectator || !player) {
+      this.log(game, `Spectator or non-player ${socket.id} attempted to play card in game ${gameCode}`);
+      return; // Silently ignore spectator actions
     }
 
     // Prevent concurrent card plays from the same player (race condition protection)
@@ -1005,11 +1048,12 @@ export class GameManager {
       return;
     }
 
+    // Reject if caller is a spectator (not a player)
+    const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
-    if (!player) {
-      this.log(game, `playCombo failed: player not found for socket ${socket.id}`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Player not found." });
-      return;
+    if (isSpectator || !player) {
+      this.log(game, `Spectator or non-player ${socket.id} attempted to play combo in game ${gameCode}`);
+      return; // Silently ignore spectator actions
     }
 
     // Prevent concurrent card plays from the same player (race condition protection)
