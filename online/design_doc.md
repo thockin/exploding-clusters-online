@@ -1592,14 +1592,61 @@ CLUSTER or UPGRADE CLUSTER logic yet).
 
 #### Phase 3: Turns
 
-Implement the turn logic, including the action/reaction/rereaction logic.
+##### Phase 3.1: Actions and reactions
 
-Implement the operations stack.
+###### Phase 3.1.1: Operations
+
+Implement the operations stack, but do not implement any card actions yet.  It
+is a stack of functions which take current game as input and modify it.
+
+Whenever a card is played, push a do-nothing operation onto the stack.
+
+When the turn ends, before it becomes the next player's turn, pop each
+operation from the stack and execute it
+
+###### Phase 3.1.2: Turn logic, simple
+
+Implement a simplified form of the action/reaction logic and timer.  When a
+player plays a card, start the reaction timer, during which time they may not
+play again or draw a card, but OTHER players may play "now" cards.  When the
+timer expires, the current player may play again or draw to end their turn.
+
+When the timer expires, pop and execute all operations from the stack.
+
+Do not implement any card actions yet.
+
+###### Phase 3.1.3: Turn logic, full
+
+Implement the action/reaction/rereaction logic and timer fully, as specced
+above.  This includes the loop between reaction and rereaction periods.
+
+When the timer expires, pop and execute all operations from the stack.
+
+Do not implement any card actions yet.
+
+##### Phase 3.2: Playable and unplayable cards
 
 Implement playable and unplayable cards and their rendering.
 
-Implement drawing EXPLODING CLUSTER and UPGRADE CLUSTER cards, and re-inserting
-them into the deck.
+##### Phase 3.3: Drawing EXPLODING CLUSTER
+
+Implement drawing an EXPLODING CLUSTER card, including that the user must play
+a DEBUG card or be out.
+
+Implemement re-inserting the EXPLODING CLUSTER card into the deck.
+
+##### Phase 3.4: Drawing UPGRADE CLUSTER face-down
+
+Implement drawing an UPGRADE CLUSTER card face down, and re-inserting it into
+the deck.
+
+##### Phase 3.5: Drawing UPGRADE CLUSTER face-up
+
+Implement drawing an UPGRADE CLUSTER card face up, causing a player to be out.
+
+Implement face-up vs. face-down for cards in the deck.
+
+Pass the top-of-deck image to clients to render.
 
 #### Phase 4: Cards
 

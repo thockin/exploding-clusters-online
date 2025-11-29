@@ -120,6 +120,8 @@ describe('GameManager', () => {
   });
 
   beforeEach(() => {
+    mockServer.games = {};
+    mockServer.sockets.sockets.clear();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     gameManager = new GameManager(mockServer as any);
   });

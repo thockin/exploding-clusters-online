@@ -8,6 +8,9 @@ import { PseudoRandom } from './utils/PseudoRandom';
 import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent } from './api';
 import { validatePlayerName, sanitizePlayerName, normalizeNameForComparison, escapeHtml } from './utils/nameValidation';
 
+// Define Operation type for the operations stack
+type Operation = (game: Game) => void;
+
 // Define interfaces for game and player states
 interface Player {
   id: string;
@@ -30,7 +33,7 @@ interface Game {
   drawPile: Card[]; 
   discardPile: Card[]; 
   removedPile: Card[]; // New: cards removed from the game
-  pendingOperations: any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  pendingOperations: Operation[];
   gameOwnerId: string;
   nonce: string; // For reconnection logic
   timer: NodeJS.Timeout | null;
@@ -970,6 +973,18 @@ export class GameManager {
         // Add to hand
         currentPlayer.hand.push(card);
 
+        // Phase 3.1.1: Execute pending operations
+        while (currentGame.pendingOperations.length > 0) {
+          const op = currentGame.pendingOperations.pop();
+          if (op) {
+             try {
+               op(currentGame);
+             } catch (e) {
+               this.log(currentGame, `Error executing pending operation: ${e}`);
+             }
+          }
+        }
+
         // Handle Exploding/Upgrade logic later (Phase 3). 
         // For Phase 2.4: "If it is a regular card... that card goes into their hand... and their turn is over."
         // We treat ALL cards as regular for now.
@@ -1147,6 +1162,15 @@ export class GameManager {
 
       const [card] = player.hand.splice(cardIndex, 1);
       game.discardPile.push(card);
+
+      // Phase 3.1.1: Push a do-nothing operation
+      game.pendingOperations.push((_g: Game) => { 
+        // Do nothing for now
+        if (this.verbose) {
+           this.log(_g, `Executing do-nothing operation for card ${card.cardClass}`);
+        }
+      });
+
       this.log(game, `player "${player.name}" played ${card.name} (${card.cardClass})`);
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.cardClass}.` });
 
@@ -1265,6 +1289,14 @@ export class GameManager {
 
       // Add to discard pile
       game.discardPile.push(...cardsToPlay);
+
+      // Phase 3.1.1: Push a do-nothing operation
+      game.pendingOperations.push((_g: Game) => { 
+        // Do nothing for now
+        if (this.verbose) {
+           this.log(_g, `Executing do-nothing operation for combo`);
+        }
+      });
 
       this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.cardClass})`);
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.cardClass}.` });
