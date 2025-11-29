@@ -42,6 +42,7 @@ export enum SocketEvent {
   StartGame = 'startGame',
   GiveDebugCard = 'giveDebugCard',
   GiveSafeCard = 'giveSafeCard',
+  PutCardBack = 'putCardBack',
   ShowDeck = 'showDeck',
   ShowRemovedPile = 'showRemovedPile',
   ReorderHand = 'reorderHand',

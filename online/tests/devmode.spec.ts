@@ -1277,4 +1277,33 @@ await expect(card2.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 
     // Wait for timer to expire (2 seconds in DEVMODE)
     await expect(page1.getByText('Waiting for other players to react')).not.toBeVisible({ timeout: 10000 });
   });
+
+  test('Put Card Back', async ({ browser }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const code = await createGame(page, 'P1');
+    
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    
+    await page.click('text=Start Game');
+    await page.waitForURL(/game/);
+    
+    const handSection = page.locator('h5:has-text("Your Hand")').locator('xpath=..');
+    await expect(handSection.locator('img')).toHaveCount(8);
+
+    // Get initial deck count
+    const deckCountText = await page.locator('.game-pile div.text-white').textContent();
+    const initialDeckCount = parseInt(deckCountText?.replace(/\D/g, '') || '0', 10);
+
+    // Put a card back
+    await page.click('button:has-text("Put a card back")');
+    
+    // Verify hand count decreased
+    await expect(handSection.locator('img')).toHaveCount(7);
+
+    // Verify deck count increased
+    await expect(page.locator('.game-pile div.text-white')).toHaveText(`(${initialDeckCount + 1} cards)`);
+  });
 });

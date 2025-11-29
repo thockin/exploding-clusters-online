@@ -130,6 +130,11 @@ export class GameManager {
         this.giveSafeCard(socket, gameCode);
       });
 
+      socket.on(SocketEvent.PutCardBack, (gameCode: string) => {
+        if (!devMode) return;
+        this.putCardBack(socket, gameCode);
+      });
+
       socket.on(SocketEvent.ShowDeck, (gameCode: string) => {
         if (!devMode) return;
         this.showDeck(socket, gameCode);
@@ -853,6 +858,28 @@ export class GameManager {
     } else {
       this.log(game, `DEVMODE: no safe cards left in deck for player "${player.name}" (${player.socketId})`);
       this.emitGameUpdate(game);
+    }
+  }
+
+  private putCardBack(socket: Socket, gameCode: string) {
+    const game = this.games.get(gameCode);
+    if (!game) return;
+
+    // Reject if caller is a spectator (not a player)
+    const isSpectator = game.spectators.some(s => s.socketId === socket.id);
+    const player = game.players.find(p => p.socketId === socket.id);
+    if (isSpectator || !player) {
+      this.log(game, `Spectator or non-player ${socket.id} attempted to use DEVMODE putCardBack in game ${gameCode}`);
+      return; // Silently ignore spectator actions
+    }
+
+    if (player.hand.length > 0) {
+      const card = player.hand.shift(); // Remove first card
+      if (card) {
+        game.drawPile.push(card); // Put back on top (end of array)
+        this.log(game, `DEVMODE: player "${player.name}" put back card "${card.name}" (${card.cardClass})`);
+        this.updateGameNonce(game);
+      }
     }
   }
 

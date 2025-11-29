@@ -1,5 +1,5 @@
 DEVMODE timer is 2s
- - add a "Put a card back" button and use it in tests instead of playing
+ - use "Put a card back" button in tests instead of playing
  - revert to 8
 Comment test cases
 Const for "Give me a ..." button in tests
