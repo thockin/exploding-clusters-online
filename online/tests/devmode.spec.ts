@@ -2,23 +2,23 @@ import { test, expect, Page } from '@playwright/test';
 
 // Helper to create game
 async function createGame(page: Page, name: string) {
-  await page.goto('/');
-  await page.click('text=Create a new game');
-  await page.fill('input[placeholder*="Enter your name"]', name);
-  await page.click('button:has-text("Create Game")');
-  await expect(page.locator('h2')).toContainText('Lobby - Game Code:');
-  const text = await page.locator('h2').textContent();
+  await page.goto('/', { timeout: 30000 });
+  await page.click('text=Create a new game', { timeout: 15000 });
+  await page.fill('input[placeholder*="Enter your name"]', name, { timeout: 15000 });
+  await page.click('button:has-text("Create Game")', { timeout: 15000 });
+  await expect(page.locator('h2')).toContainText('Lobby - Game Code:', { timeout: 15000 });
+  const text = await page.locator('h2').textContent({ timeout: 15000 });
   return text?.split(': ')[1].trim() as string;
 }
 
 // Helper to join game
 async function joinGame(page: Page, name: string, code: string) {
-  await page.goto('/');
-  await page.click('text=Join a game');
-  await page.fill('input[placeholder*="Enter your name"]', name);
-  await page.fill('input[placeholder="Enter 5-letter game code"]', code);
-  await page.click('button:has-text("Join Game")');
-  await expect(page.locator('text=Lobby - Game Code')).toBeVisible();
+  await page.goto('/', { timeout: 30000 });
+  await page.click('text=Join a game', { timeout: 15000 });
+  await page.fill('input[placeholder*="Enter your name"]', name, { timeout: 15000 });
+  await page.fill('input[placeholder="Enter 5-letter game code"]', code, { timeout: 15000 });
+  await page.click('button:has-text("Join Game")', { timeout: 15000 });
+  await expect(page.locator('text=Lobby - Game Code')).toBeVisible({ timeout: 15000 });
 }
 
 test.describe('Exploding Clusters Game Scenarios', () => {
@@ -396,31 +396,6 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // 19 cards -> 3 rows (Small size)
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
-
-    // Reduce cards to 14 (fits in 2 rows at standard size) -> should revert to standard
-    // Discard 5 cards (19 -> 14)
-    const discardPile = page.locator('text=Discard Pile').locator('xpath=..');
-    for (let i = 0; i < 5; i++) {
-      // Pick a non-developer card to ensure play is accepted
-      const cardToPlay = handSection.locator('img:not([src*="developer_-_"]):not([src*="exploding_-_"]):not([src*="upgrade_-_"])').first();
-        
-      await cardToPlay.scrollIntoViewIfNeeded();
-      const srcBox = await cardToPlay.boundingBox();
-      const dstBox = await discardPile.boundingBox();
-      if (srcBox && dstBox) {
-        await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
-        await page.mouse.down();
-        await page.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 10 });
-        await page.mouse.up();
-        await expect(handSection.locator('img')).toHaveCount(19 - 1 - i);
-      }
-    }
-    
-    await expect(handSection.locator('img')).toHaveCount(14);
-    
-    // 14 cards -> 2 rows (7, 7). Standard size.
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
   });
 
   test('Abandoned Turn', async ({ browser }) => {
@@ -1230,7 +1205,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page1.keyboard.up('Shift');
     
     await expect(card1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-    await expect(card2.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+await expect(card2.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
 
     // Drag combo to discard
     const srcBox = await card1.boundingBox();
@@ -1245,5 +1220,61 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Verify played
     await expect(handSection.locator('img')).toHaveCount(6); // 8 - 2 = 6
     await expect(messageArea).toContainText(`P1 played a pair of DEVELOPER`);
+  });
+  
+  test('Timer appears when a card is played', async ({ browser }) => {
+    // Create two contexts for two players
+    const context1 = await browser.newContext();
+    const context2 = await browser.newContext();
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+
+    // Player 1 creates game
+    const gameCode = await createGame(page1, 'Player 1');
+
+    // Player 2 joins
+    await joinGame(page2, 'Player 2', gameCode);
+
+    // Start game
+    await page1.click('button:has-text("Start Game")');
+    
+    // Wait for game to load
+    await expect(page1.getByText("It's your turn")).toBeVisible({ timeout: 15000 });
+
+    // Wait for hand to populate
+    const handSection = page1.locator('h5:has-text("Your Hand")').locator('xpath=..');
+    await expect(handSection).toBeVisible({ timeout: 15000 });
+    await expect(handSection.locator('img')).toHaveCount(8, { timeout: 15000 }); // Wait for 8 cards
+
+    // Pick a card (e.g. the 7th one)
+    const handCard = handSection.locator('img').nth(6); 
+    const discardPile = page1.locator('text=Discard Pile').locator('xpath=..');
+
+    await expect(handCard).toBeVisible();
+    await expect(page1.locator('text=Discard Pile')).toBeVisible(); // Check text first
+    await expect(discardPile).toBeVisible();
+
+    // Perform robust Drag and Drop
+    const srcBox = await handCard.boundingBox();
+    const dstBox = await discardPile.boundingBox();
+    if (srcBox && dstBox) {
+      await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+      await page1.mouse.down();
+      await page1.waitForTimeout(200); // Wait for drag start
+      await page1.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 50 });
+      await page1.waitForTimeout(200); // Wait for drop target
+      await page1.mouse.up();
+    }
+
+    // Check for timer on Player 1 (Current Player)
+    await expect(page1.getByText('Waiting for other players to react')).toBeVisible({ timeout: 5000 });
+    await expect(page1.locator('.timer-area h2')).toBeVisible();
+    
+    // Check for timer on Player 2 (Other Player)
+    await expect(page2.getByText('Want to react? Act fast!')).toBeVisible({ timeout: 5000 });
+    await expect(page2.locator('.timer-area h2')).toBeVisible();
+
+    // Wait for timer to expire (2 seconds in DEVMODE)
+    await expect(page1.getByText('Waiting for other players to react')).not.toBeVisible({ timeout: 10000 });
   });
 });

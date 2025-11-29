@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Container, Row, Col, ListGroup, Button, Modal } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
-import { Card, Player, SocketEvent, CardClass } from '../../api';
+import { Card, Player, SocketEvent, CardClass, TurnPhase } from '../../api';
 import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from '@hello-pangea/dnd';
 import Image from 'next/image';
 
@@ -26,12 +26,14 @@ export default function GameScreen() {
   const [overlayCard, setOverlayCard] = useState<Card | null>(null);
   const [explodingCard, setExplodingCard] = useState<Card | null>(null);
   const [windowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
-  const [isClient] = useState(false);
+  const [isClient, setIsClient] = useState(false); // Initialize as false
   const tableAreaRef = useRef<HTMLDivElement>(null);
   const messageAreaRef = useRef<HTMLDivElement>(null);
   const handAreaRef = useRef<HTMLDivElement>(null);
   const [tableAreaSize, setTableAreaSize] = useState({ width: 0, height: 0 });
   const [handAreaWidth, setHandAreaWidth] = useState(0);
+  const [countdown, setCountdown] = useState(0);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // DEVMODE states
   const [deckOverlay, setDeckOverlay] = useState<Card[] | null>(null);
@@ -42,6 +44,11 @@ export default function GameScreen() {
   const clickStartPosRef = useRef({ x: 0, y: 0 });
   const isShiftKeyPressed = useRef(false);
   const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: Card, playerId?: string } | null>(null);
+
+  // Ensure isClient is true after first render
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -93,15 +100,43 @@ export default function GameScreen() {
     const onDeckData = ({ deck }: { deck: Card[] }) => setDeckOverlay(deck);
     const onRemovedData = ({ removedPile }: { removedPile: Card[] }) => setRemovedOverlay(removedPile);
     const onPlayerExploding = ({ card }: { card: Card }) => setExplodingCard(card);
+    const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
+      if (phase === TurnPhase.Reaction || phase === TurnPhase.Rereaction) {
+        setCountdown(duration);
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+        }
+        countdownIntervalRef.current = setInterval(() => {
+          setCountdown(prev => {
+            if (prev <= 1) {
+              clearInterval(countdownIntervalRef.current!);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else if (phase === TurnPhase.Action) {
+        setCountdown(0);
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+      }
+    };
 
     socket.on(SocketEvent.DeckData, onDeckData);
     socket.on(SocketEvent.RemovedData, onRemovedData);
     socket.on(SocketEvent.PlayerExploding, onPlayerExploding);
+    socket.on(SocketEvent.TimerUpdate, onTimerUpdate);
 
     return () => {
       socket.off(SocketEvent.DeckData, onDeckData);
       socket.off(SocketEvent.RemovedData, onRemovedData);
       socket.off(SocketEvent.PlayerExploding, onPlayerExploding);
+      socket.off(SocketEvent.TimerUpdate, onTimerUpdate);
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
     };
   }, [socket]);
 
@@ -933,6 +968,19 @@ export default function GameScreen() {
                 <Button variant="info" size="sm" onClick={handleShowRemovedPile}>Show removed cards</Button>
               </div>
             )}
+            {/* Timer Area */}
+            <div className="timer-area mt-3 text-center">
+              {(gameState.turnPhase === TurnPhase.Reaction || gameState.turnPhase === TurnPhase.Rereaction) && countdown > 0 && (
+                <>
+                  {me?.id === currentPlayerId ? (
+                    <h4 className="text-success">Waiting for other players to react</h4>
+                  ) : (
+                    <h4 className="text-warning">Want to react? Act fast!</h4>
+                  )}
+                  <h2 className="display-3">{countdown}</h2>
+                </>
+              )}
+            </div>
           </Col>
           <Col md={9} className="d-flex flex-column position-relative" style={{ backgroundColor: '#228B22', borderRadius: '10px', padding: `${FIXED_TABLE_PADDING}px`, overflow: 'hidden', minHeight: 0 }} ref={tableAreaRef}>
             <div 

@@ -214,25 +214,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     socketIo.on(SocketEvent.GameUpdate, (data: GameUpdatePayload) => {
       setGameState(() => {
-        const newState: GameUpdatePayload = {
-          gameCode: data.gameCode,
-          players: data.players,
-          spectators: data.spectators || [],
-          state: data.state,
-          gameOwnerId: data.gameOwnerId,
-          nonce: data.nonce,
-          devMode: data.devMode,
-          turnOrder: data.turnOrder || [],
-          currentTurnIndex: data.currentTurnIndex || 0,
-          // Handle optional fields
-          drawPileCount: data.drawPileCount,
-          discardPileCount: data.discardPileCount,
-          topDiscardCard: data.topDiscardCard,
-          removedPileCount: data.removedPileCount,
-          debugCardsCount: data.debugCardsCount,
-          safeCardsCount: data.safeCardsCount
-        };
-        return newState;
+        // We can just use data directly as it matches the interface
+        return data;
       });
       // Also sync the separate gameCode state if it's not set (e.g. refresh or late join)
       setGameCode(prev => prev || data.gameCode); 

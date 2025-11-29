@@ -1,5 +1,13 @@
-Look at logs
-visual on observer in DEVMODE - card counts overlap the cards
+DEVMODE timer is 2s
+ - add a "Put a card back" button and use it in tests instead of playing
+ - revert to 8
+Comment test cases
+Const for "Give me a ..." button in tests
+Merge timer test with play card / play combo tests
+Think about nonce in reaction loop
+Log popped cards (change ops from func to {Card, func})
+Clean up server and client logs
+DEVMODE - card counts overlap the cards
 
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
 

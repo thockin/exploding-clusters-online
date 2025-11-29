@@ -5,7 +5,7 @@ import { randomBytes } from 'crypto';
 import { IncomingMessage, ServerResponse } from 'http';
 import { fullDeck, shuffleDeck } from './app/game/deck';
 import { PseudoRandom } from './utils/PseudoRandom';
-import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent } from './api';
+import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent, TurnPhase } from './api';
 import { validatePlayerName, sanitizePlayerName, normalizeNameForComparison, escapeHtml } from './utils/nameValidation';
 
 // Define Operation type for the operations stack
@@ -30,6 +30,8 @@ interface Game {
   state: GameState;
   turnOrder: string[]; // Array of player IDs
   currentTurnIndex: number;
+  turnPhase: TurnPhase;
+  timerDuration?: number; // active timer duration
   drawPile: Card[]; 
   discardPile: Card[]; 
   removedPile: Card[]; // New: cards removed from the game
@@ -336,6 +338,8 @@ export class GameManager {
       devMode: game.devMode,
       turnOrder: game.turnOrder,
       currentTurnIndex: game.currentTurnIndex,
+      turnPhase: game.turnPhase,
+      timerDuration: game.timerDuration,
       topDiscardCard: topDiscardCard, // Always send top card for rendering
     };
 
@@ -398,6 +402,59 @@ export class GameManager {
     }
   }
 
+  private startReactionTimer(game: Game) {
+    // Clear existing timer if any
+    if (game.timer) {
+      clearTimeout(game.timer);
+    }
+
+    const DURATION = game.devMode ? 2 : 8; // 8 seconds normally, 2s in devMode for testing
+    game.timerDuration = DURATION;
+
+    // Transition Phase
+    if (game.turnPhase === TurnPhase.Action) {
+      game.turnPhase = TurnPhase.Reaction;
+    } else if (game.turnPhase === TurnPhase.Reaction || game.turnPhase === TurnPhase.Rereaction) {
+      game.turnPhase = TurnPhase.Rereaction;
+    }
+
+    this.emitToGame(game.code, SocketEvent.TimerUpdate, { duration: DURATION, phase: game.turnPhase });
+    if (this.verbose) {
+      this.log(game, `Starting reaction timer (${DURATION}s) in phase ${game.turnPhase}`);
+    }
+
+    game.timer = setTimeout(() => {
+      this.resolveStack(game);
+    }, DURATION * 1000);
+  }
+
+  private resolveStack(game: Game) {
+    if (this.verbose) {
+      this.log(game, `Timer expired. Resolving stack of ${game.pendingOperations.length} operations.`);
+    }
+    
+    // Clear timer reference
+    game.timer = null;
+    game.timerDuration = 0;
+
+    // Pop and execute all operations
+    while (game.pendingOperations.length > 0) {
+      const op = game.pendingOperations.pop();
+      if (op) {
+        try {
+          op(game);
+        } catch (e) {
+          this.log(game, `Error executing pending operation: ${e}`);
+        }
+      }
+    }
+
+    // Reset Phase to Action
+    game.turnPhase = TurnPhase.Action;
+    this.emitToGame(game.code, SocketEvent.TimerUpdate, { duration: 0, phase: game.turnPhase });
+    this.updateGameNonce(game); // Notify state change
+  }
+
   private createGame(socket: Socket, playerName: string, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string }) => void) {
     // Check if server has reached maximum game limit
     if (this.games.size >= this.maxGames) {
@@ -425,6 +482,7 @@ export class GameManager {
       state: GameState.Lobby,
       turnOrder: [],
       currentTurnIndex: -1,
+      turnPhase: TurnPhase.Action, // Default phase
       drawPile: [],
       discardPile: [],
       removedPile: [], // Initialize new removed pile
@@ -868,6 +926,11 @@ export class GameManager {
       return;
     }
 
+    if (game.turnPhase !== TurnPhase.Action) {
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You cannot draw right now (wait for reactions)." });
+      return;
+    }
+
     if (game.drawPile.length === 0) {
       this.log(game, `draw pile empty, cannot draw`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "The deck is empty!" });
@@ -973,18 +1036,8 @@ export class GameManager {
         // Add to hand
         currentPlayer.hand.push(card);
 
-        // Phase 3.1.1: Execute pending operations
-        while (currentGame.pendingOperations.length > 0) {
-          const op = currentGame.pendingOperations.pop();
-          if (op) {
-             try {
-               op(currentGame);
-             } catch (e) {
-               this.log(currentGame, `Error executing pending operation: ${e}`);
-             }
-          }
-        }
-
+        // Phase 3.1.2: Timer resolution handles ops. Action phase implies empty stack.
+        
         // Handle Exploding/Upgrade logic later (Phase 3). 
         // For Phase 2.4: "If it is a regular card... that card goes into their hand... and their turn is over."
         // We treat ALL cards as regular for now.
@@ -1138,11 +1191,33 @@ export class GameManager {
     // Basic validation: check if it's player's turn (ignoring "now" cards for basic implementation)
     const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
 
-    // TODO: Allow "now" cards (NAK, SHUFFLE_NOW) to be played out of turn
+    // 3.1.2: Check if card is a "now" card (playable out of turn during Reaction/Rereaction/Action)
+    // Note: We need to look up the card properties *before* we validate the turn.
+    const cardInHand = player.hand.find(c => c.id === cardId);
+    if (!cardInHand) {
+        this.log(game, `player "${player.name}" tried to play card they don't have (id: ${cardId})`);
+        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card!" });
+        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); 
+        return;
+    }
 
-    if (!isMyTurn) {
-      this.log(game, `player "${player.name}" tried to play a card out of turn`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
+    const isNowCard = !!cardInHand.now;
+    // Rule: "Now" cards playable by ANYONE during Action/Reaction/Rereaction
+    // Rule: Regular cards playable ONLY by current player during Action
+
+    let allowed = false;
+    if (isMyTurn && game.turnPhase === TurnPhase.Action) {
+      allowed = true;
+    } else if (isNowCard) {
+      // Allowed in Action, Reaction, Rereaction
+      if (game.turnPhase === TurnPhase.Action || game.turnPhase === TurnPhase.Reaction || game.turnPhase === TurnPhase.Rereaction) {
+        allowed = true;
+      }
+    }
+
+    if (!allowed) {
+      this.log(game, `player "${player.name}" tried to play a card (${cardInHand.cardClass}) out of turn or phase (phase=${game.turnPhase}, isMyTurn=${isMyTurn}, isNow=${isNowCard})`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You can't play that card right now!" });
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
       return;
     }
@@ -1153,10 +1228,7 @@ export class GameManager {
     try {
       const cardIndex = player.hand.findIndex(c => c.id === cardId);
       if (cardIndex === -1) {
-        // Card already played or doesn't exist - could be a race condition
-        this.log(game, `player "${player.name}" tried to play card they don't have (id: ${cardId})`);
-        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card!" });
-        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
+        // Should catch above, but strictly safe
         return;
       }
 
@@ -1173,6 +1245,22 @@ export class GameManager {
 
       this.log(game, `player "${player.name}" played ${card.name} (${card.cardClass})`);
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.cardClass}.` });
+
+      // Phase 3.1.2: Trigger Timer if NOT Debug card
+      if (card.cardClass !== CardClass.Debug) {
+        this.startReactionTimer(game);
+      } else {
+        // Debug executes immediately? Or just no timer?
+        // Doc: "DEBUG cards cannot be NAKed... no reaction allowed."
+        // We probably shouldn't even push it to the stack if it executes immediately, 
+        // BUT Phase 4 is "card actions". For now, we just don't start the timer.
+        // We should explicitly resolve immediately if it's a debug card to keep flow moving?
+        // Or wait for next action? 
+        // Logic says "If the player plays a card... except for a DEBUG card, a timer is set".
+        // It implies DEBUG resolves immediately.
+        // Let's call resolveStack immediately for DEBUG.
+        this.resolveStack(game);
+      }
 
       this.updateGameNonce(game);
     } finally {
@@ -1218,6 +1306,13 @@ export class GameManager {
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
       return;
+    }
+
+    if (game.turnPhase !== TurnPhase.Action) {
+       this.log(game, `player "${player.name}" tried to play a combo in wrong phase: ${game.turnPhase}`);
+       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You can only play combos in your Action phase." });
+       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+       return;
     }
 
     if (!cardIds || cardIds.length !== 2) {
@@ -1301,7 +1396,8 @@ export class GameManager {
       this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.cardClass})`);
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.cardClass}.` });
 
-      // TODO: Trigger special action (Steal a card) - Phase 4
+      // Phase 3.1.2: Start Timer
+      this.startReactionTimer(game);
 
       this.updateGameNonce(game);
     } finally {

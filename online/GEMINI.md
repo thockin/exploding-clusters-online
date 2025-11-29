@@ -31,5 +31,15 @@ Tests are very important and should always be added for new functionality.
 Prefer unit tests over browser tests where possible, as they are faster and
 more reliable.  Write code so that it is easily unit testable.
 
-When running browser tests, use `npx playwright test --workers 4` to manage the
-impact on the machine.
+Browser tests are broken into multiple configurations. To run all browser
+tests, run `make test`.  To run a single test, run `npx playwright test -c
+{config} {file:line}.  For example:
+```
+    npx playwright test \
+        -c playwright.devmode.config.ts \
+        tests/devmode.spec.ts:1225 \
+        --workers 4
+```
+
+When running browser tests directly (`npx playwright test`), always add
+`--workers 4` to manage the impact on the machine.

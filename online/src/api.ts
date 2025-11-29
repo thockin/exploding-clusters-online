@@ -27,6 +27,13 @@ export enum GameState {
   Ended = 'ENDED',
 }
 
+export enum TurnPhase {
+  Action = 'ACTION',
+  Reaction = 'REACTION',
+  Rereaction = 'REREACTION',
+  Exploding = 'EXPLODING' // For Phase 3.3
+}
+
 export enum SocketEvent {
   // client -> server
   CreateGame = 'createGame',
@@ -54,7 +61,8 @@ export enum SocketEvent {
   DeckData = 'deckData',
   RemovedData = 'removedData',
   PlayerExploding = 'playerExploding',
-  DrawCardAnimation = 'drawCardAnimation'
+  DrawCardAnimation = 'drawCardAnimation',
+  TimerUpdate = 'timerUpdate'
 }
 
 export interface Player {
@@ -80,6 +88,8 @@ export interface GameUpdatePayload {
   devMode: boolean;
   turnOrder: string[];
   currentTurnIndex: number;
+  turnPhase: TurnPhase;
+  timerDuration?: number; // Seconds remaining (or total duration for animation)
   topDiscardCard?: Card;     // optional (may be no discarded cards)
   drawPileCount?: number;    // optional, devMode only
   discardPileCount?: number; // optional, devMode only
