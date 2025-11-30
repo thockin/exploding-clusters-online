@@ -830,7 +830,7 @@ export class GameManager {
     if (cardIndex > -1) {
       const [card] = game.drawPile.splice(cardIndex, 1);
       player.hand.push(card);
-      this.log(game, `DEVMODE: gave a safe card "${card.name}" to player "${player.name}" (${player.socketId})`);
+      this.log(game, `DEVMODE: gave a "${card.class}" card to player "${player.name}" (${player.socketId})`);
       this.updateGameNonce(game);
     } else {
       this.log(game, `DEVMODE: no safe cards left in deck for player "${player.name}" (${player.socketId})`);
@@ -1052,7 +1052,7 @@ export class GameManager {
         const nextPlayer = currentGame.players.find(p => p.id === nextPlayerId);
 
         if (nextPlayer) {
-          this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew a card, it's ${nextPlayer.name}'s turn` });
+          this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew a card, it's ${nextPlayer.name}'s turn.` });
         }
 
         this.log(currentGame, `draw animation finished. Turn advanced to ${currentGame.turnOrder[currentGame.currentTurnIndex]}`);
@@ -1247,7 +1247,7 @@ export class GameManager {
         }
       });
 
-      this.log(game, `player "${player.name}" played ${card.name} (${card.class})`);
+      this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.class}.` });
 
       // Phase 3.1.2: Trigger Timer if NOT Debug card
@@ -1397,7 +1397,7 @@ export class GameManager {
         }
       });
 
-      this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.class})`);
+      this.log(game, `player "${player.name}" played 2x combo "${c1.class}: ${c1.name}"`);
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.class}.` });
 
       // Phase 3.1.2: Start Timer

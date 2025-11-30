@@ -1,6 +1,8 @@
-Clean up server and client logs
+Clean up server logs
+Clean up client logs
 Think about nonce in reaction loop
 Log popped cards (change ops from func to {Card, func})
+"Leave Game" is off-screen
 
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
 
