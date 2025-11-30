@@ -38,4 +38,5 @@ export const Locators = {
   TURN_MY_TURN: 'strong:has-text("It\'s your turn")',
   LOBBY_PLAYER_LIST: '[data-testid="lobby-player-list"]',
   PLAYER_LIST: '[data-testid="player-list"]',
+  TIMER_AREA: '.timer-area h2',
 };

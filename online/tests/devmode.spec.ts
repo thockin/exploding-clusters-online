@@ -734,8 +734,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const messageArea = page1.getByTestId('game-log');
 
     // Locate two different cards (NAK and SHUFFLE)
-    const nakCard = handSection.locator('img[src*="nak_-_"]').first();
-    const shuffleCard = handSection.locator('img[src*="shuffle_-_"]').first();
+    const nakCard = handSection.locator('img[alt^="NAK:"]').first();
+    const shuffleCard = handSection.locator('img[alt^="SHUFFLE:"]').first();
 
     await expect(nakCard).toBeVisible();
     await expect(shuffleCard).toBeVisible();
@@ -816,8 +816,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     expect(p2HandCount).toBe(8);
 
     // Verify each player has at least 1 DEBUG card
-    const p1DebugCount = await page1.locator(Headers.YOUR_HAND).locator('xpath=..').locator('img[src*="debug_-_"]').count();
-    const p2DebugCount = await page2.locator(Headers.YOUR_HAND).locator('xpath=..').locator('img[src*="debug_-_"]').count();
+    const p1DebugCount = await page1.locator(Headers.YOUR_HAND).locator('xpath=..').locator('img[alt^="DEBUG:"]').count();
+    const p2DebugCount = await page2.locator(Headers.YOUR_HAND).locator('xpath=..').locator('img[alt^="DEBUG:"]').count();
 
     expect(p1DebugCount).toBeGreaterThanOrEqual(1);
     expect(p2DebugCount).toBeGreaterThanOrEqual(1);
@@ -840,8 +840,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
     await expect(handSection.locator('img')).toHaveCount(8);
 
-    // Find two identical DEVELOPER cards in hand
-    const devCards = handSection.locator('img[src*="developer_-_"]');
+const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     const count = await devCards.count();
     expect(count).toBeGreaterThanOrEqual(3);
 
@@ -922,7 +921,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(handSection.locator('img')).toHaveCount(8); // Wait for hand to populate
 
     // Find pair of DEVELOPER cards
-    const devCards = handSection.locator('img[src*="developer_-_"]');
+    const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     const count = await devCards.count();
     expect(count).toBeGreaterThanOrEqual(3);
 
@@ -1048,6 +1047,59 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p2TurnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)', { timeout: 5000 });
   });
 
+  test('Play Single Card', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page1.waitForLoadState('networkidle');
+
+    const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
+    const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
+
+    await expect(handSection.locator('img')).toHaveCount(8);
+
+    // Find a NAK card to play, as Player 1 always starts with one.
+    const card = handSection.locator('img[alt^="NAK:"]').first();
+    await expect(card).toBeVisible();
+
+    // Select Card
+    await card.click();
+    await expect(card.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+
+    // Drag Card to Discard Pile
+    const srcBox = await card.boundingBox();
+    const dstBox = await discardPile.boundingBox();
+    if (!srcBox || !dstBox) throw new Error('Missing bounding box');
+
+    await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+    await page1.mouse.down();
+    await page1.waitForTimeout(500);
+    await page1.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 60 });
+    await page1.waitForTimeout(500);
+    await page1.mouse.up();
+
+    // Check for timer on Player 1 (Current Player)
+    await expect(page1.getByText('Waiting for other players to react')).toBeVisible({ timeout: 5000 });
+    await expect(page1.locator(Locators.TIMER_AREA)).toBeVisible();
+
+    // Check for timer on Player 2 (Other Player)
+    await expect(page2.getByText('Want to react? Act fast!')).toBeVisible({ timeout: 5000 });
+    await expect(page2.locator(Locators.TIMER_AREA)).toBeVisible();
+
+    // Wait for timer to expire (2 seconds in DEVMODE)
+    await expect(page1.getByText('Waiting for other players to react')).not.toBeVisible({ timeout: 10000 });
+
+    // Verify card count decreased
+    await expect(handSection.locator('img')).toHaveCount(7);
+    // Verify discard pile has image
+    await expect(discardPile.locator('img')).toBeVisible();
+  });
+
   test('Play Combo', async ({ browser }) => {
     const viewport = { width: 1200, height: 800 };
     const ctx1 = await browser.newContext({ viewport });
@@ -1067,7 +1119,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(handSection.locator('img')).toHaveCount(8);
 
     // Find pair of DEVELOPER cards
-    const devCards = handSection.locator('img[src*="developer_-_"]');
+    const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     const count = await devCards.count();
 
     let firstPairIndex = -1;
@@ -1109,11 +1161,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Check for timer on Player 1 (Current Player)
     await expect(page1.getByText('Waiting for other players to react')).toBeVisible({ timeout: 5000 });
-    await expect(page1.locator('.timer-area h2')).toBeVisible();
+    await expect(page1.locator(Locators.TIMER_AREA)).toBeVisible();
 
     // Check for timer on Player 2 (Other Player)
     await expect(page2.getByText('Want to react? Act fast!')).toBeVisible({ timeout: 5000 });
-    await expect(page2.locator('.timer-area h2')).toBeVisible();
+    await expect(page2.locator(Locators.TIMER_AREA)).toBeVisible();
 
     // Wait for timer to expire (2 seconds in DEVMODE)
     await expect(page1.getByText('Waiting for other players to react')).not.toBeVisible({ timeout: 10000 });

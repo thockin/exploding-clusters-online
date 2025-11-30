@@ -727,7 +727,7 @@ export default function GameScreen() {
             {gameState && gameState.topDiscardCard && (
               <Image
                 src={gameState.topDiscardCard.imageUrl}
-                alt={gameState.topDiscardCard.name}
+                alt={`${gameState.topDiscardCard.cardClass}: ${gameState.topDiscardCard.name}`}
                 fill
                 sizes="(max-width: 768px) 100px, 150px"
                 style={{ objectFit: 'contain', borderRadius: '10px' }}
@@ -837,7 +837,7 @@ export default function GameScreen() {
                                 >
                                   <Image 
                                     src={sc.imageUrl} 
-                                    alt={sc.name} 
+                                    alt={`${sc.cardClass}: ${sc.name}`}
                                     width={cardWidth} 
                                     height={cardWidth * 1.4}
                                     draggable={false}
@@ -848,7 +848,7 @@ export default function GameScreen() {
                           )}
                           <Image 
                             src={card.imageUrl} 
-                            alt={card.name} 
+                            alt={`${card.cardClass}: ${card.name}`}
                             width={cardWidth} 
                             height={cardWidth * 1.4}
                             draggable={false}
@@ -895,7 +895,9 @@ export default function GameScreen() {
               }
             }}
           >
-            <Image src={activeOverlayCard.imageUrl} alt={activeOverlayCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
+            <Image src={activeOverlayCard.imageUrl}
+              alt={`${activeOverlayCard.cardClass}: ${activeOverlayCard.name}`}
+              width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
         )}
         
@@ -914,7 +916,9 @@ export default function GameScreen() {
             <div className="d-flex flex-wrap justify-content-center">
               {deckOverlay.map((card, index) => (
                 <div key={index} className="m-1">
-                  <Image src={card.imageUrl} alt={card.name} width={100} height={140} />
+                  <Image src={card.imageUrl}
+                    alt={`${card.cardClass}: ${card.name}`}
+                    width={100} height={140} />
                   <div style={{color: 'white', textAlign: 'center'}}>{index}</div>
                 </div>
               ))}
@@ -937,7 +941,9 @@ export default function GameScreen() {
             <div className="d-flex flex-wrap justify-content-center">
               {removedOverlay.map((card, index) => (
                 <div key={index} className="m-1">
-                  <Image src={card.imageUrl} alt={card.name} width={100} height={140} />
+                  <Image src={card.imageUrl}
+                    alt={`${card.cardClass}: ${card.name}`}
+                    width={100} height={140} />
                   <div style={{color: 'white', textAlign: 'center'}}>{index}</div>
                 </div>
               ))}
@@ -1006,7 +1012,7 @@ export default function GameScreen() {
                   }}
                   onClick={handleDrawClick}
                 >
-                  <Image src="/art/back.png" alt="Draw Pile" width={getCardSize().width} height={getCardSize().height} />
+                  <Image src="/art/back.png" alt="Draw Pile: Face-down card" width={getCardSize().width} height={getCardSize().height} />
                   {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
                     
                   {(drawingAnimation?.active && !drawingAnimation.card) && (
@@ -1020,7 +1026,7 @@ export default function GameScreen() {
                       <div className="hand-card" style={{ animation: 'toggleHandReverse 2s step-start forwards' }}>
                         <Image 
                           src={'/art/back.png'} 
-                          alt={'Card'} 
+                          alt={'Face-down card'} 
                           width={getCardSize().width} 
                           height={getCardSize().height} 
                           style={{position: 'absolute', left: `${(100 - getCardSize().width) / 2}px`}} /* Centered within hand div */
