@@ -33,10 +33,12 @@ export const Locators = {
   DRAW_PILE_TEXT: 'text=Draw Pile',
   REMOVED_PILE_TEXT: 'text=Removed Pile',
   GAME_PILE: '.game-pile',
+  DRAW_PILE_COUNT: '.draw-pile-count',
+  DISCARD_PILE_COUNT: '.discard-pile-count',
   HAND_ANIMATION_CARD: '.hand-animation .hand-card img',
   MODAL_SHOW: '.modal.show',
   TURN_MY_TURN: 'strong:has-text("It\'s your turn")',
   LOBBY_PLAYER_LIST: '[data-testid="lobby-player-list"]',
   PLAYER_LIST: '[data-testid="player-list"]',
-  TIMER_AREA: '.timer-area h2',
+  TIMER_AREA: '.timer-area',
 };

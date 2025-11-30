@@ -998,11 +998,11 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await expect(animatedHandCard).toBeVisible();
     await expect(animatedHandCard).toHaveAttribute('src', /back\.png/);
 
-    // Check if we can see message log
-    // await expect(otherPlayerPage.getByTestId('game-log')).toContainText(`P1 drew a card, it\'s P2\'s turn`);
-
     // Wait for animation to finish (3s)
     await page1.waitForTimeout(3500);
+
+    // Verify log message on P2 (other player) indicating turn advancement
+    await expect(page2.getByTestId('game-log')).toContainText(`P1 drew a card, it\'s P2\'s turn`);
 
     // Verify overlay gone
     await expect(currentDrawingOverlay).not.toBeVisible();
@@ -1197,7 +1197,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await expect(handSection.locator('img')).toHaveCount(8);
 
     // Get initial deck count from UI text (e.g. "(30 cards)")
-    const deckCountText = await page.locator(Locators.GAME_PILE + ' div.text-white').textContent();
+    const deckCountText = await page.locator(Locators.DRAW_PILE_COUNT).textContent();
     const initialDeckCount = parseInt(deckCountText?.replace(/\D/g, '') || '0', 10);
 
     // Click "Put a card back" button
@@ -1207,6 +1207,6 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await expect(handSection.locator('img')).toHaveCount(7);
 
     // Verify deck count increased by 1
-    await expect(page.locator(Locators.GAME_PILE + ' div.text-white')).toHaveText(`(${initialDeckCount + 1} cards)`);
+    await expect(page.locator(Locators.DRAW_PILE_COUNT)).toHaveText(`(${initialDeckCount + 1} cards)`);
   });
 });

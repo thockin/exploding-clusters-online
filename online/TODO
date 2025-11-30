@@ -1,7 +1,6 @@
+Clean up server and client logs
 Think about nonce in reaction loop
 Log popped cards (change ops from func to {Card, func})
-Clean up server and client logs
-DEVMODE - card counts overlap the cards
 
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
 

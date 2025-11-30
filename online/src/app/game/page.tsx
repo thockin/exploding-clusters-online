@@ -124,6 +124,7 @@ export default function GameScreen() {
       }
     };
 
+    console.debug('Registering Socket event listeners.');
     socket.on(SocketEvent.DeckData, onDeckData);
     socket.on(SocketEvent.RemovedData, onRemovedData);
     socket.on(SocketEvent.PlayerExploding, onPlayerExploding);
@@ -1013,8 +1014,7 @@ export default function GameScreen() {
                   onClick={handleDrawClick}
                 >
                   <Image src="/art/back.png" alt="Draw Pile: Face-down card" width={getCardSize().width} height={getCardSize().height} />
-                  {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
-                    
+
                   {(drawingAnimation?.active && !drawingAnimation.card) && (
                     <div className="hand-animation">
                       <div className="hand-open" style={{ animation: 'toggleHand 2s step-end forwards' }}>
@@ -1035,14 +1035,15 @@ export default function GameScreen() {
                     </div>
                   )}
                 </div>
+                {gameState.devMode && <div className="text-white mt-1 draw-pile-count">({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
               </div>
 
               {/* Discard Pile */}
               <div className="d-flex flex-column align-items-center">
                 <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
                   {renderDiscardPile()}
-                  {gameState.devMode && <div className="text-white position-absolute bottom-0 start-50 translate-middle-x mb-1">({gameState.discardPileCount !== undefined ? gameState.discardPileCount : '??'} cards)</div>}
                 </div>
+                {gameState.devMode && <div className="text-white mt-1 discard-pile-count">({gameState.discardPileCount !== undefined ? gameState.discardPileCount : '??'} cards)</div>}
               </div>
             </div>
           </Col>
