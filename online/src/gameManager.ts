@@ -7,6 +7,7 @@ import { fullDeck, shuffleDeck } from './app/game/deck';
 import { PseudoRandom } from './utils/PseudoRandom';
 import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent, TurnPhase } from './api';
 import { validatePlayerName, sanitizePlayerName, normalizeNameForComparison, escapeHtml } from './utils/nameValidation';
+import { config } from './config';
 
 // Define Operation type for the operations stack
 type Operation = (game: Game) => void;
@@ -46,57 +47,19 @@ interface Game {
 export class GameManager {
   private games: Map<string, Game> = new Map();
   private playerToGameMap: Map<string, string> = new Map(); // socketId -> gameCode
-  private verbose: boolean = process.env.VERBOSE === '1';
+  private verbose: boolean = config.verbose;
   private prng: PseudoRandom;
   private maxGames: number;
   private maxSpectators: number;
   private reactionTimerDuration: number;
 
   constructor(private io: Server) {
-    const devMode = process.env.DEVMODE === '1';
+    const devMode = config.devMode;
     this.prng = new PseudoRandom(devMode ? 0 : undefined);
     
-    // Parse MAX_GAMES environment variable, default to 128
-    const maxGamesEnv = process.env.MAX_GAMES;
-    if (maxGamesEnv) {
-      const parsed = parseInt(maxGamesEnv, 10);
-      if (isNaN(parsed) || parsed < 1) {
-        console.warn(`Invalid MAX_GAMES value "${maxGamesEnv}", using default of 128`);
-        this.maxGames = 128;
-      } else {
-        this.maxGames = parsed;
-      }
-    } else {
-      this.maxGames = 128;
-    }
-
-    // Parse MAX_SPECTATORS environment variable, default to 10
-    const maxSpectatorsEnv = process.env.MAX_SPECTATORS;
-    if (maxSpectatorsEnv) {
-      const parsed = parseInt(maxSpectatorsEnv, 10);
-      if (isNaN(parsed) || parsed < 1) {
-        console.warn(`Invalid MAX_SPECTATORS value "${maxSpectatorsEnv}", using default of 10`);
-        this.maxSpectators = 10;
-      } else {
-        this.maxSpectators = parsed;
-      }
-    } else {
-      this.maxSpectators = 10;
-    }
-
-    // Parse REACTION_TIMER environment variable, default to 8
-    const reactionTimerEnv = process.env.REACTION_TIMER;
-    if (reactionTimerEnv) {
-      const parsed = parseInt(reactionTimerEnv, 10);
-      if (isNaN(parsed) || parsed < 1) {
-        console.warn(`Invalid REACTION_TIMER value "${reactionTimerEnv}", using default of 8`);
-        this.reactionTimerDuration = 8;
-      } else {
-        this.reactionTimerDuration = parsed;
-      }
-    } else {
-      this.reactionTimerDuration = 8;
-    }
+    this.maxGames = config.maxGames;
+    this.maxSpectators = config.maxSpectators;
+    this.reactionTimerDuration = config.reactionTimer;
 
     // Setup Socket.IO event listeners
     this.io.on('connection', (socket: Socket) => {
@@ -308,7 +271,7 @@ export class GameManager {
 
   private generateGameCode(): string {
     // In DEVMODE, the first game code is always XXXXX
-    if (process.env.DEVMODE === '1' && !this.firstGameCreated) {
+    if (config.devMode && !this.firstGameCreated) {
       this.firstGameCreated = true;
       return 'XXXXX';
     }
@@ -492,7 +455,7 @@ export class GameManager {
     const gameCode = this.generateGameCode();
     const playerId = uuidv4();
     const player: Player = { id: playerId, name: sanitizedName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0, isPlaying: false };
-    const devMode = process.env.DEVMODE === '1';
+    const devMode = config.devMode;
 
     const newGame: Game = {
       code: gameCode,

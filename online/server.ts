@@ -3,10 +3,16 @@ import { parse } from 'url';
 import next from 'next';
 import { Server } from 'socket.io';
 import { GameManager } from './src/gameManager';
+import { config, printHelp } from './src/config';
 
-const dev = process.env.NODE_ENV !== 'production';
+if (process.argv.includes('--help')) {
+  printHelp();
+  process.exit(0);
+}
+
+const dev = config.isDev;
 const hostname = 'localhost';
-const port = parseInt(process.env.PORT || '3000', 10);
+const port = config.port;
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();

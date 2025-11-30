@@ -1,4 +1,3 @@
-add a HELP=1
 Think about nonce in reaction loop
 Log popped cards (change ops from func to {Card, func})
 Clean up server and client logs
