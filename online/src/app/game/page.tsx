@@ -244,7 +244,7 @@ export default function GameScreen() {
     // If shift key is pressed, attempt combo selection
     if (event.shiftKey) {
       // Only DEVELOPER cards can be part of a combo
-      if (card.cardClass !== CardClass.Developer) {
+      if (card.class !== CardClass.Developer) {
         return; // Do nothing if not a DEVELOPER card
       }
 
@@ -254,7 +254,7 @@ export default function GameScreen() {
       } else if (selectedCards.length === 1) {
         const existingCard = selectedCards[0];
         // Only allow combo with identical DEVELOPER cards and not the same card instance
-        if (existingCard.cardClass === CardClass.Developer && 
+        if (existingCard.class === CardClass.Developer && 
             existingCard.name === card.name && 
             existingCard.id !== card.id) {
           setSelectedCards(prev => [...prev, card]); // Form a combo
@@ -515,8 +515,8 @@ export default function GameScreen() {
         else {
           // Check Shift-Drag for Developer Combo
           if (isShiftKeyPressed.current && 
-                  selected.cardClass === CardClass.Developer && 
-                  draggedCard.cardClass === CardClass.Developer &&
+                  selected.class === CardClass.Developer && 
+                  draggedCard.class === CardClass.Developer &&
                   selected.name === draggedCard.name) {
                   
             // "the second card is also selected and both cards are played"
@@ -552,7 +552,7 @@ export default function GameScreen() {
       // Now handle the actual play
       if (cardsToPlay.length > 0) {
         // Rejection Logic: Single DEVELOPER card
-        if (cardsToPlay.length === 1 && cardsToPlay[0].cardClass === CardClass.Developer) {
+        if (cardsToPlay.length === 1 && cardsToPlay[0].class === CardClass.Developer) {
           console.log('Cannot play a single DEVELOPER card');
           // "Return it to the player's hand".
           // Do NOT emit. Do NOT setMyHand. DnD will snap back.
@@ -614,8 +614,8 @@ export default function GameScreen() {
         // "If there is a single DEVELOPER card selected and the player shift-clicks and drags another identical card..."
         if (selectedCards.length === 1) {
           const selected = selectedCards[0];
-          if (selected.cardClass === CardClass.Developer && 
-                      draggedCard.cardClass === CardClass.Developer && 
+          if (selected.class === CardClass.Developer && 
+                      draggedCard.class === CardClass.Developer && 
                       selected.name === draggedCard.name &&
                       selected.id !== draggedCard.id) {
                       
@@ -727,7 +727,7 @@ export default function GameScreen() {
             {gameState && gameState.topDiscardCard && (
               <Image
                 src={gameState.topDiscardCard.imageUrl}
-                alt={`${gameState.topDiscardCard.cardClass}: ${gameState.topDiscardCard.name}`}
+                alt={`${gameState.topDiscardCard.class}: ${gameState.topDiscardCard.name}`}
                 fill
                 sizes="(max-width: 768px) 100px, 150px"
                 style={{ objectFit: 'contain', borderRadius: '10px' }}
@@ -837,7 +837,7 @@ export default function GameScreen() {
                                 >
                                   <Image 
                                     src={sc.imageUrl} 
-                                    alt={`${sc.cardClass}: ${sc.name}`}
+                                    alt={`${sc.class}: ${sc.name}`}
                                     width={cardWidth} 
                                     height={cardWidth * 1.4}
                                     draggable={false}
@@ -848,7 +848,7 @@ export default function GameScreen() {
                           )}
                           <Image 
                             src={card.imageUrl} 
-                            alt={`${card.cardClass}: ${card.name}`}
+                            alt={`${card.class}: ${card.name}`}
                             width={cardWidth} 
                             height={cardWidth * 1.4}
                             draggable={false}
@@ -896,7 +896,7 @@ export default function GameScreen() {
             }}
           >
             <Image src={activeOverlayCard.imageUrl}
-              alt={`${activeOverlayCard.cardClass}: ${activeOverlayCard.name}`}
+              alt={`${activeOverlayCard.class}: ${activeOverlayCard.name}`}
               width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
         )}
@@ -917,7 +917,7 @@ export default function GameScreen() {
               {deckOverlay.map((card, index) => (
                 <div key={index} className="m-1">
                   <Image src={card.imageUrl}
-                    alt={`${card.cardClass}: ${card.name}`}
+                    alt={`${card.class}: ${card.name}`}
                     width={100} height={140} />
                   <div style={{color: 'white', textAlign: 'center'}}>{index}</div>
                 </div>
@@ -942,7 +942,7 @@ export default function GameScreen() {
               {removedOverlay.map((card, index) => (
                 <div key={index} className="m-1">
                   <Image src={card.imageUrl}
-                    alt={`${card.cardClass}: ${card.name}`}
+                    alt={`${card.class}: ${card.name}`}
                     width={100} height={140} />
                   <div style={{color: 'white', textAlign: 'center'}}>{index}</div>
                 </div>

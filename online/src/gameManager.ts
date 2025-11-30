@@ -349,8 +349,8 @@ export class GameManager {
     };
 
     if (game.devMode) {
-      const debugCount = game.drawPile.filter(c => c.cardClass === CardClass.Debug).length;
-      const safeCardsCount = game.drawPile.filter(c => c.cardClass !== CardClass.ExplodingCluster && c.cardClass !== CardClass.UpgradeCluster).length;
+      const debugCount = game.drawPile.filter(c => c.class === CardClass.Debug).length;
+      const safeCardsCount = game.drawPile.filter(c => c.class !== CardClass.ExplodingCluster && c.class !== CardClass.UpgradeCluster).length;
 
       return {
         ...baseData,
@@ -661,12 +661,12 @@ export class GameManager {
 
     // Initialize deck
     let deck = [...fullDeck];
-    const explodingClusters = deck.filter(c => c.cardClass === CardClass.ExplodingCluster);
-    const upgradeClusters = deck.filter(c => c.cardClass === CardClass.UpgradeCluster);
+    const explodingClusters = deck.filter(c => c.class === CardClass.ExplodingCluster);
+    const upgradeClusters = deck.filter(c => c.class === CardClass.UpgradeCluster);
     // "The full deck is comprised of... 6 DEBUG cards".
-    const debugCards = deck.filter(c => c.cardClass === CardClass.Debug);
+    const debugCards = deck.filter(c => c.class === CardClass.Debug);
     // Remove them all first
-    deck = deck.filter(c => c.cardClass !== CardClass.Debug && c.cardClass !== CardClass.ExplodingCluster && c.cardClass !== CardClass.UpgradeCluster);
+    deck = deck.filter(c => c.class !== CardClass.Debug && c.class !== CardClass.ExplodingCluster && c.class !== CardClass.UpgradeCluster);
 
     // Give 1 DEBUG card to each player
     for (const p of game.players) {
@@ -728,7 +728,7 @@ export class GameManager {
 
     // DEVMODE: Move Exploding Cluster to top
     if (game.devMode) {
-      const explodingIndex = game.drawPile.findIndex(c => c.cardClass === CardClass.ExplodingCluster);
+      const explodingIndex = game.drawPile.findIndex(c => c.class === CardClass.ExplodingCluster);
       if (explodingIndex > -1) {
         const [explodingCard] = game.drawPile.splice(explodingIndex, 1);
         game.drawPile.push(explodingCard); // Push to end (which is the top for pop())
@@ -773,19 +773,19 @@ export class GameManager {
     // Actually: P1 has 2x A, 1x B. P2 has 1x A, 1x C.
 
     // Just pick first developer card found as Type A
-    const devCardA = deck.find(c => c.cardClass === CardClass.Developer);
+    const devCardA = deck.find(c => c.class === CardClass.Developer);
     if (!devCardA) return; // Should not happen
     const nameA = devCardA.name;
 
     // Pick Type B (different from A)
-    const devCardB = deck.find(c => c.cardClass === CardClass.Developer && c.name !== nameA);
+    const devCardB = deck.find(c => c.class === CardClass.Developer && c.name !== nameA);
     if (!devCardB) return;
     const nameB = devCardB.name;
 
     // Pick Type C (different from A and B, or just different from A? "one not [identical to P1's pair]")
     // P2 needs 2 DEVELOPER cards: one identical to P1's pair (A), one not.
     // "one not" could be B or C. Let's pick C to be safe/diverse.
-    const devCardC = deck.find(c => c.cardClass === CardClass.Developer && c.name !== nameA && c.name !== nameB);
+    const devCardC = deck.find(c => c.class === CardClass.Developer && c.name !== nameA && c.name !== nameB);
     if (!devCardC) return; // Should not happen
     // If we are unlucky and only A and B are left (unlikely with 28 cards), we can use B.
     const nameC = devCardC ? devCardC.name : nameB; 
@@ -794,21 +794,21 @@ export class GameManager {
     const p2 = game.players.length > 1 ? game.players[1] : null;
 
     // P1 Hand
-    p1.hand.push(...findAndRemove(c => c.cardClass === CardClass.Developer && c.name === nameA, 2));
-    p1.hand.push(...findAndRemove(c => c.cardClass === CardClass.Developer && c.name === nameB, 1));
-    p1.hand.push(...findAndRemove(c => c.cardClass === CardClass.Nak, 2));
-    p1.hand.push(...findAndRemove(c => c.cardClass === CardClass.Shuffle, 1));
-    p1.hand.push(...findAndRemove(c => c.cardClass === CardClass.Favor, 1));
+    p1.hand.push(...findAndRemove(c => c.class === CardClass.Developer && c.name === nameA, 2));
+    p1.hand.push(...findAndRemove(c => c.class === CardClass.Developer && c.name === nameB, 1));
+    p1.hand.push(...findAndRemove(c => c.class === CardClass.Nak, 2));
+    p1.hand.push(...findAndRemove(c => c.class === CardClass.Shuffle, 1));
+    p1.hand.push(...findAndRemove(c => c.class === CardClass.Favor, 1));
 
     if (p2) {
       // P2 Hand (1 NAK, 1 SKIP, 1 SHUFFLE_NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER) = 7 cards
-      p2.hand.push(...findAndRemove(c => c.cardClass === CardClass.Nak, 1));
-      p2.hand.push(...findAndRemove(c => c.cardClass === CardClass.Skip, 1));
-      p2.hand.push(...findAndRemove(c => c.cardClass === CardClass.ShuffleNow, 1));
-      p2.hand.push(...findAndRemove(c => c.cardClass === CardClass.Attack, 1));
-      p2.hand.push(...findAndRemove(c => c.cardClass === CardClass.SeeTheFuture, 1));
-      p2.hand.push(...findAndRemove(c => c.cardClass === CardClass.Developer && c.name === nameB, 1)); // Matches P1's solo DEVELOPER
-      p2.hand.push(...findAndRemove(c => c.cardClass === CardClass.Developer && c.name === nameC, 1)); // Different DEVELOPER
+      p2.hand.push(...findAndRemove(c => c.class === CardClass.Nak, 1));
+      p2.hand.push(...findAndRemove(c => c.class === CardClass.Skip, 1));
+      p2.hand.push(...findAndRemove(c => c.class === CardClass.ShuffleNow, 1));
+      p2.hand.push(...findAndRemove(c => c.class === CardClass.Attack, 1));
+      p2.hand.push(...findAndRemove(c => c.class === CardClass.SeeTheFuture, 1));
+      p2.hand.push(...findAndRemove(c => c.class === CardClass.Developer && c.name === nameB, 1)); // Matches P1's solo DEVELOPER
+      p2.hand.push(...findAndRemove(c => c.class === CardClass.Developer && c.name === nameC, 1)); // Different DEVELOPER
     }
   }
 
@@ -824,7 +824,7 @@ export class GameManager {
       return; // Silently ignore spectator actions
     }
 
-    const debugCardIndex = game.drawPile.findIndex(c => c.cardClass === CardClass.Debug);
+    const debugCardIndex = game.drawPile.findIndex(c => c.class === CardClass.Debug);
     if (debugCardIndex > -1) {
       const [debugCard] = game.drawPile.splice(debugCardIndex, 1);
       player.hand.push(debugCard);
@@ -849,7 +849,7 @@ export class GameManager {
       return; // Silently ignore spectator actions
     }
 
-    const cardIndex = game.drawPile.findIndex(c => c.cardClass !== CardClass.ExplodingCluster && c.cardClass !== CardClass.UpgradeCluster);
+    const cardIndex = game.drawPile.findIndex(c => c.class !== CardClass.ExplodingCluster && c.class !== CardClass.UpgradeCluster);
     if (cardIndex > -1) {
       const [card] = game.drawPile.splice(cardIndex, 1);
       player.hand.push(card);
@@ -877,7 +877,7 @@ export class GameManager {
       const card = player.hand.shift(); // Remove first card
       if (card) {
         game.drawPile.push(card); // Put back on top (end of array)
-        this.log(game, `DEVMODE: player "${player.name}" put back card "${card.name}" (${card.cardClass})`);
+        this.log(game, `DEVMODE: player "${player.name}" put back card "${card.name}" (${card.class})`);
         this.updateGameNonce(game);
       }
     }
@@ -977,7 +977,7 @@ export class GameManager {
         this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "The deck is empty!" });
         return;
       }
-      this.log(game, `player "${player.name}" is drawing a card. Card is ${card.cardClass} (${card.name})`);
+      this.log(game, `player "${player.name}" is drawing a card. Card is ${card.class} (${card.name})`);
 
       // Start animation phase
       // Current player sees the card
@@ -1243,7 +1243,7 @@ export class GameManager {
     }
 
     if (!allowed) {
-      this.log(game, `player "${player.name}" tried to play a card (${cardInHand.cardClass}) out of turn or phase (phase=${game.turnPhase}, isMyTurn=${isMyTurn}, isNow=${isNowCard})`);
+      this.log(game, `player "${player.name}" tried to play a card (${cardInHand.class}) out of turn or phase (phase=${game.turnPhase}, isMyTurn=${isMyTurn}, isNow=${isNowCard})`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You can't play that card right now!" });
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
       return;
@@ -1266,15 +1266,15 @@ export class GameManager {
       game.pendingOperations.push((_g: Game) => { 
         // Do nothing for now
         if (this.verbose) {
-           this.log(_g, `Executing do-nothing operation for card ${card.cardClass}`);
+           this.log(_g, `Executing do-nothing operation for card ${card.class}`);
         }
       });
 
-      this.log(game, `player "${player.name}" played ${card.name} (${card.cardClass})`);
-      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.cardClass}.` });
+      this.log(game, `player "${player.name}" played ${card.name} (${card.class})`);
+      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.class}.` });
 
       // Phase 3.1.2: Trigger Timer if NOT Debug card
-      if (card.cardClass !== CardClass.Debug) {
+      if (card.class !== CardClass.Debug) {
         this.startReactionTimer(game);
       } else {
         // Debug executes immediately? Or just no timer?
@@ -1389,8 +1389,8 @@ export class GameManager {
       const c1 = cardsToPlay[0];
       const c2 = cardsToPlay[1];
 
-      if (c1.cardClass !== CardClass.Developer || c2.cardClass !== CardClass.Developer) {
-        this.log(game, `player "${player.name}" tried to play invalid combo types: ${c1.cardClass}, ${c2.cardClass}`);
+      if (c1.class !== CardClass.Developer || c2.class !== CardClass.Developer) {
+        this.log(game, `player "${player.name}" tried to play invalid combo types: ${c1.class}, ${c2.class}`);
         this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo. Must be DEVELOPER cards." });
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
         return;
@@ -1420,8 +1420,8 @@ export class GameManager {
         }
       });
 
-      this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.cardClass})`);
-      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.cardClass}.` });
+      this.log(game, `player "${player.name}" played combo: 2x ${c1.name} (${c1.class})`);
+      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.class}.` });
 
       // Phase 3.1.2: Start Timer
       this.startReactionTimer(game);
@@ -1472,13 +1472,13 @@ export class GameManager {
 
         // Check for pending Exploding/Upgrade Cluster cards in hand (just drawn)
         // "If the player has just drawn an EXPLODING CLUSTER card, it is re-inserted at a random position..."
-        const specialCards = player.hand.filter(c => c.cardClass === CardClass.ExplodingCluster || c.cardClass === CardClass.UpgradeCluster);
-        const remainingHand = player.hand.filter(c => c.cardClass !== CardClass.ExplodingCluster && c.cardClass !== CardClass.UpgradeCluster);
+        const specialCards = player.hand.filter(c => c.class === CardClass.ExplodingCluster || c.class === CardClass.UpgradeCluster);
+        const remainingHand = player.hand.filter(c => c.class !== CardClass.ExplodingCluster && c.class !== CardClass.UpgradeCluster);
 
         specialCards.forEach(card => {
           const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
           game.drawPile.splice(insertIndex, 0, card);
-          this.log(game, `re-inserted ${card.name} (${card.cardClass}) at index ${insertIndex} due to disconnect`);
+          this.log(game, `re-inserted ${card.name} (${card.class}) at index ${insertIndex} due to disconnect`);
         });
 
         // Move remaining hand to removedPile
@@ -1647,18 +1647,18 @@ export class GameManager {
       game.players.forEach(p => {
         const isTurn = game.turnOrder[game.currentTurnIndex] === p.id;
         const escapedName = escapeHtml(p.name);
-        html += `<li>${escapedName} ${isTurn ? '<strong>(TURN)</strong>' : ''} - Hand: ${p.hand.map(c => c.cardClass).join(', ')}</li>`;
+        html += `<li>${escapedName} ${isTurn ? '<strong>(TURN)</strong>' : ''} - Hand: ${p.hand.map(c => c.class).join(', ')}</li>`;
       });
       html += '</ul>';
 
       html += `<h3>Draw Pile (${game.drawPile.length})</h3>`;
-      html += `<textarea rows="10" cols="80" readonly>${game.drawPile.map(c => c.cardClass).join('\n')}</textarea>`;
+      html += `<textarea rows="10" cols="80" readonly>${game.drawPile.map(c => c.class).join('\n')}</textarea>`;
 
       html += `<h3>Discard Pile (${game.discardPile.length})</h3>`;
-      html += `<textarea rows="10" cols="80" readonly>${game.discardPile.map(c => c.cardClass).join('\n')}</textarea>`;
+      html += `<textarea rows="10" cols="80" readonly>${game.discardPile.map(c => c.class).join('\n')}</textarea>`;
 
       html += `<h3>Removed Pile (${game.removedPile.length})</h3>`;
-      html += `<textarea rows="10" cols="80" readonly>${game.removedPile.map(c => c.cardClass).join('\n')}</textarea>`;
+      html += `<textarea rows="10" cols="80" readonly>${game.removedPile.map(c => c.class).join('\n')}</textarea>`;
 
       html += '</body></html>';
       res.end(html);

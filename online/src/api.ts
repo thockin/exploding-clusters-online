@@ -15,7 +15,7 @@ export enum CardClass {
 export interface Card {
   id: string;
   name: string;
-  cardClass: CardClass;
+  class: CardClass;
   imageUrl: string;
   now?: boolean;
   combo?: boolean;

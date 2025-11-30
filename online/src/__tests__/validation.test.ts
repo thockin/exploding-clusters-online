@@ -596,8 +596,8 @@ describe('GameManager Validation', () => {
       host.trigger('reorderHand', { 
         gameCode, 
         newHand: [
-          { id: 'card-1', name: 'Card1', cardClass: CardClass.Attack, imageUrl: '' },
-          { id: 'card-2', name: 'Card2', cardClass: CardClass.Attack, imageUrl: '' }
+          { id: 'card-1', name: 'Card1', class: CardClass.Attack, imageUrl: '' },
+          { id: 'card-2', name: 'Card2', class: CardClass.Attack, imageUrl: '' }
         ] 
       });
       
@@ -627,8 +627,8 @@ describe('GameManager Validation', () => {
       host.trigger('reorderHand', { 
         gameCode, 
         newHand: [
-          { id: 'card-1', name: 'Card1', cardClass: CardClass.Attack, imageUrl: '' },
-          { id: 'card-1', name: 'Card1', cardClass: CardClass.Attack, imageUrl: '' }
+          { id: 'card-1', name: 'Card1', class: CardClass.Attack, imageUrl: '' },
+          { id: 'card-1', name: 'Card1', class: CardClass.Attack, imageUrl: '' }
         ] 
       });
       
