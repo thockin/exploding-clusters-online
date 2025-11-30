@@ -228,7 +228,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // P2 Navigates away (Disconnects)
     await page2.goto('about:blank');
 
-    // New Player 'NewPlayer' joins -> Updates Nonce (in production)
+    // New Player 'NewPlayer' joins -> Updates nonce
     const ctx3 = await browser.newContext();
     const page3 = await ctx3.newPage();
     await joinGame(page3, 'NewPlayer', code);
@@ -276,23 +276,15 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Check who is the new host and verify UI updates (Start Game button, Modal)
     const p2Host = await page2.locator(Locators.LOBBY_PLAYER_LIST + ':has-text("Player 2 (Host)")').isVisible();
-    const p3Host = await page2.locator(Locators.LOBBY_PLAYER_LIST + ':has-text("Player 3 (Host)")').isVisible();
 
-    expect(p2Host || p3Host).toBeTruthy();
+    expect(p2Host).toBeTruthy();
 
-    if (p2Host) {
-      // If P2 is host: P2 sees Start Game button
-      await expect(page2.locator(Buttons.START_GAME)).toBeVisible();
-      // P3 does not see Start Game button
-      await expect(page3.locator(Buttons.START_GAME)).not.toBeVisible();
-      // P2 sees promotion modal
-      await expect(page2.locator('.modal-title:has-text("You are now the game owner")')).toBeVisible();
-    } else {
-      // If P3 is host: P3 sees Start Game button
-      await expect(page3.locator(Buttons.START_GAME)).toBeVisible();
-      await expect(page2.locator(Buttons.START_GAME)).not.toBeVisible();
-      await expect(page3.locator('.modal-title:has-text("You are now the game owner")')).toBeVisible();
-    }
+    // P2 sees Start Game button
+    await expect(page2.locator(Buttons.START_GAME)).toBeVisible();
+    // P3 does not see Start Game button
+    await expect(page3.locator(Buttons.START_GAME)).not.toBeVisible();
+    // P2 sees promotion modal
+    await expect(page2.locator('.modal-title:has-text("You are now the game owner")')).toBeVisible();
 
     // P1 Reconnects
     await page1.goBack();
@@ -413,6 +405,29 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify layout: 3 rows (Small size)
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
+
+    // Go backwards: Remove cards to reduce rows.
+    for (let i = 0; i < 4; i++) {
+      await page.click(Buttons.DEV_PUT_CARD_BACK);
+    }
+    await expect(handSection.locator('img')).toHaveCount(15);
+
+    // Verify layout: Should be 2 rows (small size)
+    await expect(rows).toHaveCount(2);
+    // Verify card size shrunk to 80px
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
+
+    for (let i = 0; i < 5; i++) {
+      await page.click(Buttons.DEV_PUT_CARD_BACK);
+    }
+    await expect(handSection.locator('img')).toHaveCount(10);
+
+    // Verify layout: 2 rows (5, 5)
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('img')).toHaveCount(5);
+    await expect(rows.nth(1).locator('img')).toHaveCount(5);
+    // Verify standard card size (100px)
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
   });
 
   test('Abandoned Turn', async ({ browser }) => {
@@ -434,69 +449,32 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.waitForURL(/game/);
 
     // Verify P1 starts (In DEVMODE)
-    if (process.env.DEVMODE === '1') {
-      await expect(page1.locator('.list-group-item:has-text("P1")')).toHaveClass(/bg-success-subtle/);
-    }
-
-    // Determine current player
-    const isP1Turn = await page1.locator('.list-group-item:has-text("P1")').getAttribute('class').then(c => c?.includes('bg-success-subtle'));
-    const isP2Turn = await page1.locator('.list-group-item:has-text("P2")').getAttribute('class').then(c => c?.includes('bg-success-subtle'));
-
-    let currentPage: Page;
-    let currentName: string;
-    let nextPlayerName: string;
-
-    if (isP1Turn) { 
-      currentPage = page1; 
-      currentName = 'P1'; 
-      nextPlayerName = 'P2';
-    } else if (isP2Turn) { 
-      currentPage = page2; 
-      currentName = 'P2'; 
-      nextPlayerName = 'P3';
-    } else { 
-      currentPage = page3; 
-      currentName = 'P3'; 
-      nextPlayerName = 'P1';
-    }
+    await expect(page1.locator('.list-group-item:has-text("P1")')).toHaveClass(/bg-success-subtle/);
 
     // Current player disconnects
-    await currentPage.goto('about:blank');
-
-    // Verify turn advances on another player's screen (e.g. P1 or P2)
-    const observerPage = (currentPage === page1) ? page2 : page1;
+    await page1.goto('about:blank');
 
     // Verify disconnected player disappears from list
-    await expect(observerPage.locator(`.list-group-item:has-text("${currentName}")`)).not.toBeVisible();
+    await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
 
     // Verify "abandoned turn" message
-    await expect(observerPage.locator(`text=${currentName} has abandoned their turn`)).toBeVisible();
+    await expect(page2.locator(`text=P1 has abandoned their turn`)).toBeVisible();
 
     // Verify turn passes to next player (Green background check)
-    if (process.env.DEVMODE === '1') {
-      await expect(observerPage.locator(`.list-group-item:has-text("${nextPlayerName}")`)).toHaveClass(/bg-success-subtle/);
-
-      if (nextPlayerName === 'P2' && observerPage === page2) {
-        const turnArea = observerPage.locator(Locators.TURN_MY_TURN).locator('xpath=..');
-        await expect(turnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)');
-      }
-    } else {
-      // General check for non-devmode
-      const remainingPlayers = ['P1', 'P2', 'P3'].filter(n => n !== currentName);
-      const nextPlayerTurnSelector = remainingPlayers.map(n => `.list-group-item:has-text("${n}").bg-success-subtle`).join(',');
-      await expect(observerPage.locator(nextPlayerTurnSelector)).toBeVisible();
-    }
+    await expect(page2.locator(`.list-group-item:has-text("P2")`)).toHaveClass(/bg-success-subtle/);
+    const turnArea = page2.locator(Locators.TURN_MY_TURN).locator('xpath=..');
+    await expect(turnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)');
 
     // Reconnect attempt by disconnected player
-    await currentPage.goBack();
-    await currentPage.waitForLoadState('networkidle');
+    await page1.goBack();
+    await page1.waitForLoadState('networkidle');
 
     // Verify Rejoin Fails (Error Modal)
-    await expect(currentPage.locator(Locators.MODAL_SHOW)).toBeVisible();
-    await expect(currentPage.locator(Locators.MODAL_SHOW)).toContainText('Sorry');
+    await expect(page1.locator(Locators.MODAL_SHOW)).toBeVisible();
+    await expect(page1.locator(Locators.MODAL_SHOW)).toContainText('Sorry');
 
     // Verify player does NOT reappear in list
-    await expect(observerPage.locator(`.list-group-item:has-text("${currentName}")`)).not.toBeVisible();
+    await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
   });
 
   test('Attrition Win', async ({ browser }) => {
@@ -645,11 +623,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.waitForLoadState('networkidle');
 
     // Use a player who is NOT current turn to perform reorder
-    const p1Turn = await page1.locator('text=It\'s your turn').isVisible();
-    const targetPage = p1Turn ? page2 : page1;
-
-    await targetPage.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 });
-    const handSection = targetPage.locator(Headers.YOUR_HAND).locator('xpath=..');
+    await page2.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 });
+    const handSection = page2.locator(Headers.YOUR_HAND).locator('xpath=..');
     await expect(handSection).toBeVisible({ timeout: 15000 });
     await expect(handSection.locator('img')).toHaveCount(8, { timeout: 10000 });
 
@@ -677,12 +652,12 @@ test.describe('UI Tests with DEVMODE=1', () => {
     if (!srcBox || !dstBox || !card1Box) throw new Error('Missing bounding box');
 
     // Perform Drag
-    await targetPage.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
-    await targetPage.mouse.down();
-    await targetPage.mouse.move(card1Box.x + card1Box.width / 2, card1Box.y + card1Box.height / 2, { steps: 20 });
-    await targetPage.mouse.up();
+    await page2.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+    await page2.mouse.down();
+    await page2.mouse.move(card1Box.x + card1Box.width / 2, card1Box.y + card1Box.height / 2, { steps: 20 });
+    await page2.mouse.up();
 
-    await targetPage.waitForTimeout(1000);
+    await page2.waitForTimeout(1000);
 
     // Verify Reorder: Card 0 should now be at Index 1
     const newRow1Idx1 = await row1Cards.nth(1).locator('img').getAttribute('alt');
@@ -694,11 +669,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const currentCard0Box = await currentCard0Div.boundingBox();
     const currentCard1Box = await currentCard1Div.boundingBox();
 
-    await targetPage.mouse.move(currentCard0Box!.x + currentCard0Box!.width / 2, currentCard0Box!.y + currentCard0Box!.height / 2);
-    await targetPage.mouse.down();
-    await targetPage.mouse.move(currentCard1Box!.x + currentCard1Box!.width / 2, currentCard1Box!.y + currentCard1Box!.height / 2, { steps: 20 });
-    await targetPage.mouse.up();
-    await targetPage.waitForTimeout(1000);
+    await page2.mouse.move(currentCard0Box!.x + currentCard0Box!.width / 2, currentCard0Box!.y + currentCard0Box!.height / 2);
+    await page2.mouse.down();
+    await page2.mouse.move(currentCard1Box!.x + currentCard1Box!.width / 2, currentCard1Box!.y + currentCard1Box!.height / 2, { steps: 20 });
+    await page2.mouse.up();
+    await page2.waitForTimeout(1000);
   });
 
   test('Play Single Non-DEVELOPER Card', async ({ browser }) => {
@@ -1132,58 +1107,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.waitForTimeout(500); // Longer wait over drop target
     await page1.mouse.up();
 
-    // Verify 2 cards removed
-    await expect(handSection.locator('img')).toHaveCount(6); // 8 - 2 = 6
-    // Verify log message
-    await expect(messageArea).toContainText(`P1 played a pair of DEVELOPER`);
-  });
-
-  test('Timer appears when a card is played', async ({ browser }) => {
-    // Create two contexts for two players
-    const context1 = await browser.newContext();
-    const context2 = await browser.newContext();
-    const page1 = await context1.newPage();
-    const page2 = await context2.newPage();
-
-    // Player 1 creates game
-    // Reusing createGame helper logic manually to inject specific waits/locators if needed, but createGame is robust.
-    // Using helper
-    const gameCode = await createGame(page1, 'Player 1');
-
-    // Player 2 joins
-    await joinGame(page2, 'Player 2', gameCode);
-
-    // Start game
-    await page1.click(Buttons.START_GAME);
-
-    // Wait for game to load
-    await expect(page1.getByText("It's your turn")).toBeVisible({ timeout: 15000 });
-
-    // Wait for hand to populate
-    const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
-    await expect(handSection).toBeVisible({ timeout: 15000 });
-    await expect(handSection.locator('img')).toHaveCount(8, { timeout: 15000 }); // Wait for 8 cards
-
-    // Pick a card (e.g. the 7th one)
-    const handCard = handSection.locator('img').nth(6); 
-    const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-
-    await expect(handCard).toBeVisible();
-    await expect(page1.locator(Locators.DISCARD_PILE_TEXT)).toBeVisible(); // Check text first
-    await expect(discardPile).toBeVisible();
-
-    // Perform robust Drag and Drop
-    const srcBox = await handCard.boundingBox();
-    const dstBox = await discardPile.boundingBox();
-    if (srcBox && dstBox) {
-      await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
-      await page1.mouse.down();
-      await page1.waitForTimeout(200); // Wait for drag start
-      await page1.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 50 });
-      await page1.waitForTimeout(200); // Wait for drop target
-      await page1.mouse.up();
-    }
-
     // Check for timer on Player 1 (Current Player)
     await expect(page1.getByText('Waiting for other players to react')).toBeVisible({ timeout: 5000 });
     await expect(page1.locator('.timer-area h2')).toBeVisible();
@@ -1194,6 +1117,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Wait for timer to expire (2 seconds in DEVMODE)
     await expect(page1.getByText('Waiting for other players to react')).not.toBeVisible({ timeout: 10000 });
+
+    // Verify 2 cards removed
+    await expect(handSection.locator('img')).toHaveCount(6); // 8 - 2 = 6
+    // Verify log message
+    await expect(messageArea).toContainText(`P1 played a pair of DEVELOPER`);
   });
 
   test('Put Card Back', async ({ browser }) => {

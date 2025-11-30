@@ -1,7 +1,7 @@
+Test for PlayCard
 DEVMODE timer is 2s
- - use "Put a card back" button in tests instead of playing
+ - add an endReactionTimer URL and use it in tests
  - revert to 8
-Merge timer test with play card / play combo tests
 Think about nonce in reaction loop
 Log popped cards (change ops from func to {Card, func})
 Clean up server and client logs
