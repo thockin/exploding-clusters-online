@@ -90,7 +90,7 @@ export interface GameUpdatePayload {
   turnOrder: string[];
   currentTurnIndex: number;
   turnPhase: TurnPhase;
-  timerDuration?: number; // Seconds remaining (or total duration for animation)
+  timerDuration?: number;    // Seconds remaining (or total duration for animation)
   topDiscardCard?: Card;     // optional (may be no discarded cards)
   drawPileCount?: number;    // optional, devMode only
   discardPileCount?: number; // optional, devMode only

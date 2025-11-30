@@ -50,6 +50,7 @@ export class GameManager {
   private prng: PseudoRandom;
   private maxGames: number;
   private maxSpectators: number;
+  private reactionTimerDuration: number;
 
   constructor(private io: Server) {
     const devMode = process.env.DEVMODE === '1';
@@ -81,6 +82,20 @@ export class GameManager {
       }
     } else {
       this.maxSpectators = 10;
+    }
+
+    // Parse REACTION_TIMER environment variable, default to 8
+    const reactionTimerEnv = process.env.REACTION_TIMER;
+    if (reactionTimerEnv) {
+      const parsed = parseInt(reactionTimerEnv, 10);
+      if (isNaN(parsed) || parsed < 1) {
+        console.warn(`Invalid REACTION_TIMER value "${reactionTimerEnv}", using default of 8`);
+        this.reactionTimerDuration = 8;
+      } else {
+        this.reactionTimerDuration = parsed;
+      }
+    } else {
+      this.reactionTimerDuration = 8;
     }
 
     // Setup Socket.IO event listeners
@@ -413,8 +428,7 @@ export class GameManager {
       clearTimeout(game.timer);
     }
 
-    const DURATION = game.devMode ? 2 : 8; // 8 seconds normally, 2s in devMode for testing
-    game.timerDuration = DURATION;
+    game.timerDuration = this.reactionTimerDuration;
 
     // Transition Phase
     if (game.turnPhase === TurnPhase.Action) {
@@ -423,14 +437,14 @@ export class GameManager {
       game.turnPhase = TurnPhase.Rereaction;
     }
 
-    this.emitToGame(game.code, SocketEvent.TimerUpdate, { duration: DURATION, phase: game.turnPhase });
+    this.emitToGame(game.code, SocketEvent.TimerUpdate, { duration: this.reactionTimerDuration, phase: game.turnPhase });
     if (this.verbose) {
-      this.log(game, `Starting reaction timer (${DURATION}s) in phase ${game.turnPhase}`);
+      this.log(game, `Starting reaction timer (${this.reactionTimerDuration}s) in phase ${game.turnPhase}`);
     }
 
     game.timer = setTimeout(() => {
       this.resolveStack(game);
-    }, DURATION * 1000);
+    }, this.reactionTimerDuration * 1000);
   }
 
   private resolveStack(game: Game) {
