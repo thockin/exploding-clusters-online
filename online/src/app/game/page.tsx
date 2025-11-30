@@ -948,7 +948,7 @@ export default function GameScreen() {
         <Row className="flex-grow-1">
           <Col md={3}>
             <h5>Players</h5>
-            <ListGroup>
+            <ListGroup data-testid="player-list">
               {playersToDisplay.map((player) => (
                 <ListGroup.Item key={player.id} className={getPlayerClassName(player)}>
                   <div>

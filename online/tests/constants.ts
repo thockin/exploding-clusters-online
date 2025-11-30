@@ -25,7 +25,6 @@ export const Inputs = {
 export const Headers = {
   LOBBY_GAME_CODE: 'h2:has-text("Lobby - Game Code:")',
   YOUR_HAND: 'h5:has-text("Your Hand")',
-  PLAYERS: 'h5:has-text("Players")',
 };
 
 export const Locators = {
@@ -37,4 +36,6 @@ export const Locators = {
   HAND_ANIMATION_CARD: '.hand-animation .hand-card img',
   MODAL_SHOW: '.modal.show',
   TURN_MY_TURN: 'strong:has-text("It\'s your turn")',
+  LOBBY_PLAYER_LIST: '[data-testid="lobby-player-list"]',
+  PLAYER_LIST: '[data-testid="player-list"]',
 };

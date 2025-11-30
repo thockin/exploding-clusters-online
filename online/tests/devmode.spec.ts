@@ -32,7 +32,22 @@ async function joinGame(page: Page, name: string, code: string) {
   await expect(page.locator(Locators.LOBBY_TEXT)).toBeVisible({ timeout: 15000 });
 }
 
-test.describe('Exploding Clusters Game Scenarios', () => {
+// Helper to watch game
+// - Navigates to home page
+// - Clicks "Watch a game"
+// - Enters game code
+// - Clicks "Watch Game"
+// - Verifies lobby is shown
+async function watchGame(page: Page, code: string) {
+  await page.goto('/', { timeout: 30000 });
+  await page.click(Buttons.WATCH_GAME, { timeout: 15000 });
+  await page.fill(Inputs.GAME_CODE, code, { timeout: 15000 });
+  await page.click(Buttons.WATCH_GAME_CONFIRM, { timeout: 15000 });
+  await expect(page).toHaveURL(/observer/, { timeout: 15000 });
+  await expect(page.locator(Locators.LOBBY_TEXT)).toBeVisible({ timeout: 15000 });
+}
+
+test.describe('UI Tests with DEVMODE=1', () => {
 
   test('Happy Path: 2 Players + Observer', async ({ browser }) => {
     const p1 = await browser.newContext();
@@ -49,33 +64,26 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await joinGame(page2, 'Player Two', code);
 
     // Observer Watches Game
-    // - Navigate to home page
-    await pageObs.goto('/');
-    // - Click "Watch a game"
-    await pageObs.click(Buttons.WATCH_GAME);
-    // - Enter game code
-    await pageObs.fill(Inputs.GAME_CODE, code);
-    // - Click "Watch Game"
-    await pageObs.click(Buttons.WATCH_GAME_CONFIRM);
+    await watchGame(pageObs, code);
 
-    // Wait for navigation to observer page
-    await expect(pageObs).toHaveURL(/observer/, { timeout: 10000 });
-
-    // Wait for lobby to load on observer screen
-    await expect(
-      pageObs.locator(Headers.LOBBY_GAME_CODE)
-    ).toBeVisible({ timeout: 15000 });
-
-    // Verify the player list has 2 players on observer screen
-    await expect(pageObs.locator('.list-group-item')).toHaveCount(2, { timeout: 10000 });
+    // Verify the player list has 2 players on all screens
+    await expect(page1.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2, { timeout: 10000 });
+    await expect(page2.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2, { timeout: 10000 });
+    await expect(pageObs.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2, { timeout: 10000 });
 
     // Verify Lobby Sync on P1: Check that Player Two is listed
     await expect(page1.locator('text=Player Two')).toBeVisible();
     // Verify Lobby Sync on P1: Check spectator count
     await expect(page1.locator('text=Watching: 1 person')).toBeVisible();
 
-    // Verify Lobby Sync on Observer: Check that Host is listed
+    // Verify Lobby Sync on P2: Check that Player One is listed
+    await expect(page1.locator('text=Player One')).toBeVisible();
+    // Verify Lobby Sync on P2: Check spectator count
+    await expect(page1.locator('text=Watching: 1 person')).toBeVisible();
+
+    // Verify Lobby Sync on Observer: Check players
     await expect(pageObs.locator('text=Player One (Host)')).toBeVisible();
+    await expect(pageObs.locator('text=Player Two')).toBeVisible();
 
     // Start Game (P1 clicks start)
     await page1.click(Buttons.START_GAME);
@@ -260,15 +268,15 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page1.goto('about:blank');
 
     // Verify Owner is gone from P2's list
-    await expect(page2.locator('.list-group-item:has-text("Owner")')).not.toBeVisible();
+    await expect(page2.locator(Locators.LOBBY_PLAYER_LIST + ':has-text("Owner")')).not.toBeVisible();
 
     // Verify a new owner is assigned (Player 2 or Player 3)
     // Wait for the host indicator to update on P2's screen
-    await expect(page2.locator('.list-group-item:has-text("(Host)")')).toBeVisible();
+    await expect(page2.locator(Locators.LOBBY_PLAYER_LIST + ':has-text("(Host)")')).toBeVisible();
 
     // Check who is the new host and verify UI updates (Start Game button, Modal)
-    const p2Host = await page2.locator('.list-group-item:has-text("Player 2 (Host)")').isVisible();
-    const p3Host = await page2.locator('.list-group-item:has-text("Player 3 (Host)")').isVisible();
+    const p2Host = await page2.locator(Locators.LOBBY_PLAYER_LIST + ':has-text("Player 2 (Host)")').isVisible();
+    const p3Host = await page2.locator(Locators.LOBBY_PLAYER_LIST + ':has-text("Player 3 (Host)")').isVisible();
 
     expect(p2Host || p3Host).toBeTruthy();
 
@@ -294,10 +302,10 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(page1.locator(Headers.LOBBY_GAME_CODE)).toBeVisible();
 
     // Verify P1 is present in P2's list again
-    await expect(page2.locator('.list-group-item:has-text("Owner")')).toBeVisible();
+    await expect(page2.locator(Locators.LOBBY_PLAYER_LIST + ':has-text("Owner")')).toBeVisible();
 
     // Verify P1 is NO LONGER the host
-    await expect(page1.locator('.list-group-item:has-text("Owner (Host)")')).not.toBeVisible();
+    await expect(page1.locator(Locators.LOBBY_PLAYER_LIST + ':has-text("Owner (Host)")')).not.toBeVisible();
     // And P1 should NOT see the Start Game button
     await expect(page1.locator(Buttons.START_GAME)).not.toBeVisible();
   });
@@ -529,7 +537,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // Wait for hand to be visible and have cards
     // Locate the hand container directly by its droppableId, which is applied via provided.droppableProps
-    await page1.waitForSelector(Headers.PLAYERS, { timeout: 15000 }); // Wait for player list to be visible
+    await page1.waitForSelector(Locators.PLAYER_LIST, { timeout: 15000 }); // Wait for player list to be visible
     await page1.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 }); // Wait for the "Your Hand" heading
     await page1.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 }); // Wait for the "Your Hand" heading
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..'); // Select the parent Row

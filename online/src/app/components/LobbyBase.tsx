@@ -85,7 +85,7 @@ function LobbyContent() {
               <Row>
                 <Col md="12">
                   <h5>Joined Users:</h5>
-                  <ListGroup className="mb-3 text-start">
+                  <ListGroup data-testid="lobby-player-list" className="mb-3 text-start">
                     {playersInLobby.length === 0 && <ListGroup.Item>No players yet.</ListGroup.Item>}
                     {playersInLobby.map((player) => (
                       <ListGroup.Item key={player.id} className={player.isDisconnected ? 'text-muted opacity-50' : ''}>
