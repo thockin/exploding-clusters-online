@@ -33,7 +33,7 @@ async function joinGame(page: Page, name: string, code: string) {
 }
 
 test.describe('Exploding Clusters Game Scenarios', () => {
-  
+
   test('Happy Path: 2 Players + Observer', async ({ browser }) => {
     const p1 = await browser.newContext();
     const p2 = await browser.newContext();
@@ -60,12 +60,12 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // Wait for navigation to observer page
     await expect(pageObs).toHaveURL(/observer/, { timeout: 10000 });
-    
+
     // Wait for lobby to load on observer screen
     await expect(
       pageObs.locator(Headers.LOBBY_GAME_CODE)
     ).toBeVisible({ timeout: 15000 });
-    
+
     // Verify the player list has 2 players on observer screen
     await expect(pageObs.locator('.list-group-item')).toHaveCount(2, { timeout: 10000 });
 
@@ -147,7 +147,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page.fill(Inputs.NAME, 'Bob');
     await page.fill(Inputs.GAME_CODE, 'YYYYY');
     await page.click(Buttons.JOIN_GAME_CONFIRM);
-    
+
     // Verify Error Modal appears with "does not exist" message
     await expect(page.locator(Locators.MODAL_SHOW + ' .alert-danger')).toContainText('does not exist');
   });
@@ -174,7 +174,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Player 'Leaver' joins
     await joinGame(page2, 'Leaver', code);
     await expect(page2.locator(Locators.LOBBY_TEXT)).toBeVisible();
-    
+
     // Ensure session storage is populated on P2
     await page2.waitForFunction(() => {
       const s = sessionStorage.getItem('exploding_session');
@@ -192,12 +192,12 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // P2 Reconnects (Go back)
     await page2.goBack();
     await page2.waitForLoadState('networkidle'); // Wait for page to fully load
-    
+
     // Verify P2 successfully rejoins lobby
     await expect(page2.locator(Headers.LOBBY_GAME_CODE)).toBeVisible({ timeout: 30000 });
     // Verify URL is correct
     await expect(page2).toHaveURL(/lobby/, { timeout: 5000 }); 
-    
+
     // Host sees 'Leaver' again in the list
     await expect(page1.locator('text=Leaver')).toBeVisible({ timeout: 10000 });
   });
@@ -213,10 +213,10 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Player 'Leaver' joins
     await joinGame(page2, 'Leaver', code);
     await expect(page2.locator(Locators.LOBBY_TEXT)).toBeVisible();
-    
+
     // Ensure P2 session storage is ready
     await page2.waitForFunction(() => !!sessionStorage.getItem('exploding_session'));
-    
+
     // P2 Navigates away (Disconnects)
     await page2.goto('about:blank');
 
@@ -229,7 +229,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // P2 tries to reconnect
     await page2.goBack();
     await page2.waitForLoadState('networkidle'); // Wait for page to fully load
-    
+
     // Verify Reconnection Fails: Error Modal should appear due to nonce mismatch
     await expect(page2.locator(Locators.MODAL_SHOW + ' .modal-title')).toBeVisible({ timeout: 10000 });
     await expect(page2.locator(Locators.MODAL_SHOW + ' .modal-title')).toContainText('Sorry!', { timeout: 5000 });
@@ -265,13 +265,13 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Verify a new owner is assigned (Player 2 or Player 3)
     // Wait for the host indicator to update on P2's screen
     await expect(page2.locator('.list-group-item:has-text("(Host)")')).toBeVisible();
-    
+
     // Check who is the new host and verify UI updates (Start Game button, Modal)
     const p2Host = await page2.locator('.list-group-item:has-text("Player 2 (Host)")').isVisible();
     const p3Host = await page2.locator('.list-group-item:has-text("Player 3 (Host)")').isVisible();
-    
+
     expect(p2Host || p3Host).toBeTruthy();
-    
+
     if (p2Host) {
       // If P2 is host: P2 sees Start Game button
       await expect(page2.locator(Buttons.START_GAME)).toBeVisible();
@@ -289,13 +289,13 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // P1 Reconnects
     await page1.goBack();
     await page1.waitForLoadState('networkidle');
-    
+
     // Verify P1 successfully rejoins
     await expect(page1.locator(Headers.LOBBY_GAME_CODE)).toBeVisible();
-    
+
     // Verify P1 is present in P2's list again
     await expect(page2.locator('.list-group-item:has-text("Owner")')).toBeVisible();
-    
+
     // Verify P1 is NO LONGER the host
     await expect(page1.locator('.list-group-item:has-text("Owner (Host)")')).not.toBeVisible();
     // And P1 should NOT see the Start Game button
@@ -343,28 +343,28 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Set viewport to constrain hand width to approx 7 cards to force wrapping
     const context = await browser.newContext({ viewport: { width: 850, height: 800 } });
     const page = await context.newPage();
-    
+
     // Create game P1
     const code = await createGame(page, 'P1');
     const ctx2 = await browser.newContext();
     const page2 = await ctx2.newPage();
     // Join P2
     await joinGame(page2, 'P2', code);
-    
+
     // Start Game
     await page.click(Buttons.START_GAME);
     await page.waitForURL(/game/);
-    
+
     // Wait for hand to render and verify initial count (8)
     const handSection = page.locator(Headers.YOUR_HAND).locator('xpath=..');
     await expect(handSection.locator('img')).toHaveCount(8);
-    
+
     // Check rows: 8 cards should wrap to 2 rows of 4
     const rows = handSection.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0).locator('img')).toHaveCount(4);
     await expect(rows.nth(1).locator('img')).toHaveCount(4);
-    
+
     // Draw 9th card (using DEVMODE button)
     await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     await expect(handSection.locator('img')).toHaveCount(9);
@@ -372,7 +372,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0).locator('img')).toHaveCount(5);
     await expect(rows.nth(1).locator('img')).toHaveCount(4);
-    
+
     // Draw 10th card
     await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     await expect(handSection.locator('img')).toHaveCount(10);
@@ -401,7 +401,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
       await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     }
     await expect(handSection.locator('img')).toHaveCount(19);
-    
+
     // Verify layout: 3 rows (Small size)
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
@@ -460,14 +460,14 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // Verify disconnected player disappears from list
     await expect(observerPage.locator(`.list-group-item:has-text("${currentName}")`)).not.toBeVisible();
-    
+
     // Verify "abandoned turn" message
     await expect(observerPage.locator(`text=${currentName} has abandoned their turn`)).toBeVisible();
 
     // Verify turn passes to next player (Green background check)
     if (process.env.DEVMODE === '1') {
       await expect(observerPage.locator(`.list-group-item:has-text("${nextPlayerName}")`)).toHaveClass(/bg-success-subtle/);
-         
+
       if (nextPlayerName === 'P2' && observerPage === page2) {
         const turnArea = observerPage.locator(Locators.TURN_MY_TURN).locator('xpath=..');
         await expect(turnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)');
@@ -478,15 +478,15 @@ test.describe('Exploding Clusters Game Scenarios', () => {
       const nextPlayerTurnSelector = remainingPlayers.map(n => `.list-group-item:has-text("${n}").bg-success-subtle`).join(',');
       await expect(observerPage.locator(nextPlayerTurnSelector)).toBeVisible();
     }
-    
+
     // Reconnect attempt by disconnected player
     await currentPage.goBack();
     await currentPage.waitForLoadState('networkidle');
-    
+
     // Verify Rejoin Fails (Error Modal)
     await expect(currentPage.locator(Locators.MODAL_SHOW)).toBeVisible();
     await expect(currentPage.locator(Locators.MODAL_SHOW)).toContainText('Sorry');
-    
+
     // Verify player does NOT reappear in list
     await expect(observerPage.locator(`.list-group-item:has-text("${currentName}")`)).not.toBeVisible();
   });
@@ -581,7 +581,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // Click "Show the deck" button
     await page1.click(Buttons.DEV_SHOW_DECK);
-    
+
     // Verify overlay appears
     const overlay = page1.locator(Locators.DRAW_PILE_TEXT);
     await expect(overlay).toBeVisible();
@@ -602,7 +602,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // Click "Show removed cards" button
     await page1.click(Buttons.DEV_SHOW_REMOVED); 
-    
+
     // Verify overlay appears
     const overlay = page1.locator(Locators.REMOVED_PILE_TEXT);
     await expect(overlay).toBeVisible();
@@ -618,7 +618,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const context = await browser.newContext({ viewport });
     const page1 = await context.newPage();
     const code = await createGame(page1, 'P1');
-    
+
     const ctx2 = await browser.newContext({ viewport });
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
@@ -632,14 +632,14 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page1.waitForURL(/game/); 
     await page2.waitForURL(/game/);
     await page3.waitForURL(/game/);
-    
+
     await page1.waitForLoadState('networkidle');
     await page2.waitForLoadState('networkidle');
 
     // Use a player who is NOT current turn to perform reorder
     const p1Turn = await page1.locator('text=It\'s your turn').isVisible();
     const targetPage = p1Turn ? page2 : page1;
-    
+
     await targetPage.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 });
     const handSection = targetPage.locator(Headers.YOUR_HAND).locator('xpath=..');
     await expect(handSection).toBeVisible({ timeout: 15000 });
@@ -658,14 +658,14 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Drag from Row 1 Index 0 to Row 2 Index 0
     const card0 = row1Cards.nth(0).locator('img');
     const card0Id = await card0.getAttribute('alt');
-    
+
     const card0Div = row1Cards.nth(0);
     const card1Div = row1Cards.nth(1);
 
     const srcBox = await card0Div.boundingBox();
     const card1Box = await card1Div.boundingBox();
     const dstBox = await row2Cards.nth(0).boundingBox();
-    
+
     if (!srcBox || !dstBox || !card1Box) throw new Error('Missing bounding box');
 
     // Perform Drag
@@ -673,19 +673,19 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await targetPage.mouse.down();
     await targetPage.mouse.move(card1Box.x + card1Box.width / 2, card1Box.y + card1Box.height / 2, { steps: 20 });
     await targetPage.mouse.up();
-    
+
     await targetPage.waitForTimeout(1000);
-    
+
     // Verify Reorder: Card 0 should now be at Index 1
     const newRow1Idx1 = await row1Cards.nth(1).locator('img').getAttribute('alt');
     expect(newRow1Idx1).toBe(card0Id);
-    
+
     // Reset Hand (Drag back)
     const currentCard0Div = row1Cards.nth(1); // 0 is here
     const currentCard1Div = row1Cards.nth(0); // 1 is here
     const currentCard0Box = await currentCard0Div.boundingBox();
     const currentCard1Box = await currentCard1Div.boundingBox();
-    
+
     await targetPage.mouse.move(currentCard0Box!.x + currentCard0Box!.width / 2, currentCard0Box!.y + currentCard0Box!.height / 2);
     await targetPage.mouse.down();
     await targetPage.mouse.move(currentCard1Box!.x + currentCard1Box!.width / 2, currentCard1Box!.y + currentCard1Box!.height / 2, { steps: 20 });
@@ -714,7 +714,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Find a non-DEVELOPER card to play
     const cardToPlayLocator = handSection.locator('img:not([src*="developer_-_"]):not([src*="exploding_-_"]):not([src*="upgrade_-_"]):not([src*="debug_-_"])').first();
     await expect(cardToPlayLocator).toBeVisible();
-    
+
     const srcBox = await cardToPlayLocator.boundingBox();
     const dstBox = await discardPile.boundingBox();
 
@@ -799,7 +799,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page1.waitForLoadState('networkidle');
 
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
-    
+
     // Select a card
     const card = handSection.locator('img').first();
     await expect(card).toBeVisible();
@@ -821,7 +821,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    
+
     await page1.waitForSelector(Headers.YOUR_HAND, { timeout: 10000 });
     await page2.waitForSelector(Headers.YOUR_HAND, { timeout: 10000 });
 
@@ -845,11 +845,11 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const ctx1 = await browser.newContext({ viewport });
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
-    
+
     const ctx2 = await browser.newContext({ viewport });
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
-    
+
     await page1.click(Buttons.START_GAME);
     await page1.waitForURL(/game/);
     await page1.waitForLoadState('networkidle');
@@ -883,16 +883,16 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     expect(firstPairIndex).not.toBe(-1);
     const card1 = devCards.nth(firstPairIndex);
     const card2 = devCards.nth(secondPairIndex);
-    
+
     // Select first card
     await card1.click();
     await expect(card1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-    
+
     // Shift-click second card to multi-select
     await page1.keyboard.down('Shift');
     await card2.click();
     await page1.keyboard.up('Shift');
-    
+
     // Verify both are selected
     await expect(card1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
     await expect(card2.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
@@ -901,7 +901,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const lastCard = handSection.locator('img').last();
     const srcBox = await card1.boundingBox();
     const dstBox = await lastCard.boundingBox(); 
-    
+
     if (!srcBox || !dstBox) throw new Error('Missing bounding box');
 
     await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
@@ -910,16 +910,16 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page1.mouse.move(dstBox.x + dstBox.width, dstBox.y + dstBox.height / 2, { steps: 60 }); 
     await page1.waitForTimeout(500);
     await page1.mouse.up();
-    
+
     await page1.waitForTimeout(500);
-    
+
     // Verify the identical cards are now at the end of the hand
     const newLast = handSection.locator('img').last();
     const newSecondLast = handSection.locator('img').nth(-2);
-    
+
     expect(await newLast.getAttribute('src')).toBe(pairSrc);
     expect(await newSecondLast.getAttribute('src')).toBe(pairSrc);
-    
+
     // Verify selection persists
     await expect(newLast.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
     await expect(newSecondLast.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
@@ -934,10 +934,10 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await joinGame(page2, 'P2', code);
     await page.click(Buttons.START_GAME);
     await page.waitForURL(/game/);
-    
+
     const handSection = page.locator(Headers.YOUR_HAND).locator('xpath=..');
     await expect(handSection.locator('img')).toHaveCount(8); // Wait for hand to populate
-    
+
     // Find pair of DEVELOPER cards
     const devCards = handSection.locator('img[src*="developer_-_"]');
     const count = await devCards.count();
@@ -998,7 +998,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // Ensure it's P1's turn
     await expect(page1.locator(Locators.TURN_MY_TURN)).toBeVisible({ timeout: 10000 });
-    
+
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
     const initialHandCount = await handSection.locator('img').count();
     expect(initialHandCount).toBe(8); 
@@ -1006,7 +1006,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Click Draw Pile
     const drawPile = page1.locator(Locators.GAME_PILE).first();
     await drawPile.click();
-    
+
     // Verify Draw Animation Overlay on P1
     const currentDrawingOverlay = page1.locator('div[style*="z-index: 1000"] img');
     await expect(currentDrawingOverlay).toBeVisible();
@@ -1018,7 +1018,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // Check if we can see message log
     // await expect(otherPlayerPage.getByTestId('game-log')).toContainText(`P1 drew a card, it\'s P2\'s turn`);
-    
+
     // Wait for animation to finish (3s)
     await page1.waitForTimeout(3500);
 
@@ -1028,7 +1028,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Verify hand count +1
     const newHandCount = await handSection.locator('img').count();
     expect(newHandCount).toBe(initialHandCount + 1);
-    
+
     // Verify turn passed to P2
     const p2TurnArea = page2.locator(Locators.TURN_MY_TURN).locator('xpath=..');
     await expect(p2TurnArea).toBeVisible();
@@ -1055,11 +1055,11 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Verify overlay appears
     const overlay = page1.locator('div[style*="z-index: 1000"] img');
     await expect(overlay).toBeVisible();
-    
+
     // Click to dismiss (should disappear immediately)
     await overlay.click();
     await expect(overlay).not.toBeVisible();
-    
+
     // Verify turn eventually passes to P2 (after server timeout)
     const p2TurnArea = page2.locator(Locators.TURN_MY_TURN).locator('xpath=..');
     await expect(p2TurnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)', { timeout: 5000 });
@@ -1086,7 +1086,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Find pair of DEVELOPER cards
     const devCards = handSection.locator('img[src*="developer_-_"]');
     const count = await devCards.count();
-    
+
     let firstPairIndex = -1;
     let secondPairIndex = -1;
 
@@ -1111,7 +1111,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     await page1.keyboard.down('Shift');
     await card2.click();
     await page1.keyboard.up('Shift');
-    
+
     // Drag Pair to Discard Pile
     const srcBox = await card1.boundingBox();
     const dstBox = await discardPile.boundingBox();
@@ -1129,7 +1129,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Verify log message
     await expect(messageArea).toContainText(`P1 played a pair of DEVELOPER`);
   });
-  
+
   test('Timer appears when a card is played', async ({ browser }) => {
     // Create two contexts for two players
     const context1 = await browser.newContext();
@@ -1147,7 +1147,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // Start game
     await page1.click(Buttons.START_GAME);
-    
+
     // Wait for game to load
     await expect(page1.getByText("It's your turn")).toBeVisible({ timeout: 15000 });
 
@@ -1179,7 +1179,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     // Check for timer on Player 1 (Current Player)
     await expect(page1.getByText('Waiting for other players to react')).toBeVisible({ timeout: 5000 });
     await expect(page1.locator('.timer-area h2')).toBeVisible();
-    
+
     // Check for timer on Player 2 (Other Player)
     await expect(page2.getByText('Want to react? Act fast!')).toBeVisible({ timeout: 5000 });
     await expect(page2.locator('.timer-area h2')).toBeVisible();
@@ -1194,16 +1194,16 @@ test.describe('Exploding Clusters Game Scenarios', () => {
     const page = await context.newPage();
     // P1 Creates Game
     const code = await createGame(page, 'P1');
-    
+
     // P2 Joins
     const ctx2 = await browser.newContext();
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
-    
+
     // Start Game
     await page.click(Buttons.START_GAME);
     await page.waitForURL(/game/);
-    
+
     // Verify initial hand count (8)
     const handSection = page.locator(Headers.YOUR_HAND).locator('xpath=..');
     await expect(handSection.locator('img')).toHaveCount(8);
@@ -1214,7 +1214,7 @@ test.describe('Exploding Clusters Game Scenarios', () => {
 
     // Click "Put a card back" button
     await page.click(Buttons.DEV_PUT_CARD_BACK);
-    
+
     // Verify hand count decreased to 7
     await expect(handSection.locator('img')).toHaveCount(7);
 
