@@ -1034,16 +1034,16 @@ export default function GameScreen() {
                       </div>
                     </div>
                   )}
+                  {gameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x draw-pile-count" style={{ top: '100%' }}>({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
                 </div>
-                {gameState.devMode && <div className="text-white mt-1 draw-pile-count">({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
               </div>
 
               {/* Discard Pile */}
               <div className="d-flex flex-column align-items-center">
                 <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
                   {renderDiscardPile()}
+                  {gameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x discard-pile-count" style={{ top: '100%' }}>({gameState.discardPileCount !== undefined ? gameState.discardPileCount : '??'} cards)</div>}
                 </div>
-                {gameState.devMode && <div className="text-white mt-1 discard-pile-count">({gameState.discardPileCount !== undefined ? gameState.discardPileCount : '??'} cards)</div>}
               </div>
             </div>
           </Col>

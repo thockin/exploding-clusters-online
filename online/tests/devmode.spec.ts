@@ -1209,4 +1209,68 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Verify deck count increased by 1
     await expect(page.locator(Locators.DRAW_PILE_COUNT)).toHaveText(`(${initialDeckCount + 1} cards)`);
   });
+
+  test('Layout Stability', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    const code = await createGame(page, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    await page.click(Buttons.START_GAME);
+    await page.waitForURL(/game/);
+    
+    // Wait for initial layout
+    await page.waitForSelector(Locators.DRAW_PILE_COUNT);
+
+    // Locators for areas
+    // The green table area (Col md=9)
+    const tableArea = page.locator('div[style*="background-color: rgb(34, 139, 34)"]'); 
+    // The fixed height message container parent of game-log
+    const messageArea = page.getByTestId('game-log').locator('xpath=..'); 
+    // The hand container (bg-light, fixed height)
+    const handArea = page.locator(Headers.YOUR_HAND).locator('xpath=..'); 
+
+    await expect(tableArea).toBeVisible();
+    await expect(messageArea).toBeVisible();
+    await expect(handArea).toBeVisible();
+    
+    // Get initial bounding boxes
+    const initialTableBox = await tableArea.boundingBox();
+    const initialMessageBox = await messageArea.boundingBox();
+    const initialHandBox = await handArea.boundingBox();
+
+    if (!initialTableBox || !initialMessageBox || !initialHandBox) {
+        throw new Error("Could not get initial bounding boxes");
+    }
+
+    // Add 20 cards to force scrolling and potential layout shift
+    for (let i = 0; i < 20; i++) {
+      await page.click(Buttons.DEV_GIVE_SAFE_CARD);
+    }
+    
+    // Wait a bit for any layout settling
+    await page.waitForTimeout(500);
+
+    // Get new bounding boxes
+    const finalTableBox = await tableArea.boundingBox();
+    const finalMessageBox = await messageArea.boundingBox();
+    const finalHandBox = await handArea.boundingBox();
+
+    if (!finalTableBox || !finalMessageBox || !finalHandBox) {
+        throw new Error("Could not get final bounding boxes");
+    }
+
+    // Assert dimensions haven't changed
+    expect(finalTableBox.height).toBeCloseTo(initialTableBox.height, 1);
+    expect(finalTableBox.width).toBeCloseTo(initialTableBox.width, 1);
+    
+    expect(finalMessageBox.height).toBeCloseTo(initialMessageBox.height, 1);
+    expect(finalMessageBox.y).toBeCloseTo(initialMessageBox.y, 1);
+    
+    // Hand container HEIGHT should not change (it is 35vh fixed)
+    expect(finalHandBox.height).toBeCloseTo(initialHandBox.height, 1);
+    expect(finalHandBox.y).toBeCloseTo(initialHandBox.y, 1);
+  });
 });

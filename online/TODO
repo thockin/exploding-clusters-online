@@ -1,8 +1,6 @@
-Clean up server logs
-Clean up client logs
-Think about nonce in reaction loop
+Message log persists across games
+Combo play: Unable to find drag handle with id "DEVELOPER-intern-2" as no handle with a matching id was found
 Log popped cards (change ops from func to {Card, func})
-"Leave Game" is off-screen
 
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
 
