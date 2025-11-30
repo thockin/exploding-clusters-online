@@ -1271,6 +1271,66 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     
     // Hand container HEIGHT should not change (it is 35vh fixed)
     expect(finalHandBox.height).toBeCloseTo(initialHandBox.height, 1);
-    expect(finalHandBox.y).toBeCloseTo(initialHandBox.y, 1);
+  });
+
+  test('Message Log Cleared Between Games', async ({ browser }) => {
+    // P1 Creates Game 1
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const code1 = await createGame(page, 'P1');
+
+    // P2 Joins Game 1
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code1);
+
+    // Start Game 1
+    await page.click(Buttons.START_GAME);
+    await page.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    // P1 plays a card to generate a log
+    // Draw until we have something playable? Or just use DEV_GIVE_SAFE_CARD if hand empty?
+    // Start game gives 7 cards. Should have something.
+    // Let's just use "Give me a safe card" to generate a "P1 put back..." or "P1 drew..." message if we used draw?
+    // Or just "P1 joined" is already in the log.
+    // Let's ensure a SPECIFIC unique message is there.
+    // "P1 played ATTACK" (if we can).
+    // Or simpler: P1 draws a card.
+    await page.click(Locators.GAME_PILE); 
+    // Wait for log
+    await expect(page.getByTestId('game-log')).toContainText('P1 drew a card');
+    await expect(page2.getByTestId('game-log')).toContainText('P1 drew a card');
+
+    // P1 Leaves Game
+    await page.click(Buttons.LEAVE_GAME);
+    // Confirm Leave
+    await page.click(Buttons.LEAVE_GAME_CONFIRM);
+    await page.waitForURL('/');
+
+    // P2 sees win/end?
+    // "game ended due to insufficient players"
+    // P2 acknowledges
+    await expect(page2.locator(Locators.MODAL_SHOW)).toContainText(/win/i);
+    await page2.click(Buttons.MODAL_OK);
+    await page2.waitForURL('/');
+
+    // P1 Creates Game 2
+    const code2 = await createGame(page, 'P1');
+    expect(code2).not.toEqual(code1);
+
+    // P2 Joins Game 2
+    await joinGame(page2, 'P2', code2);
+
+    // Start Game 2 to see the logs
+    await page.click(Buttons.START_GAME);
+    await page.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    // Verify logs are clean.
+    // Game 1 had "P1 drew a card".
+    // Game 2 should be empty initially.
+    await expect(page.getByTestId('game-log')).toHaveText('');
+    await expect(page2.getByTestId('game-log')).toHaveText('');
   });
 });

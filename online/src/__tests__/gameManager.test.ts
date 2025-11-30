@@ -48,6 +48,10 @@ class MockSocket {
     this.joinedGames.push(game);
   }
 
+  leave(game: string) {
+    // no-op for mock
+  }
+
   trigger(event: string, ...args: unknown[]) {
     if (this.callbacks[event]) {
       this.callbacks[event](...args);

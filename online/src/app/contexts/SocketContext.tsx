@@ -188,6 +188,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     setIsLoading(false);
     setRejoinError(null);
     setGameEndData(null);
+    setGameMessages([]); // Clear messages on reset
     sessionStorage.removeItem('exploding_session');
     // Optionally disconnect socket to ensure server cleans up connection-based state
     // socket?.disconnect();

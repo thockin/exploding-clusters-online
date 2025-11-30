@@ -177,6 +177,7 @@ export class GameManager {
         }
 
         this.log(game, `player ${socket.id} voluntarily left the game`);
+        socket.leave(gameCode);
 
         let playerRemoved = false;
         // Remove player completely

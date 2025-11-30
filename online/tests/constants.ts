@@ -7,7 +7,9 @@ export const Buttons = {
   WATCH_GAME_CONFIRM: 'button:has-text("Watch Game")',
   START_GAME: 'button:has-text("Start Game")',
   LEAVE_GAME: 'button:has-text("Leave Game")',
+  LEAVE_GAME_CONFIRM: '.modal-footer button.btn-danger',
   OK: 'button:has-text("OK")',
+  MODAL_OK: 'button:has-text("OK")',
   
   // DevMode
   DEV_GIVE_SAFE_CARD: 'button:has-text("Give me a safe card")',
