@@ -1226,18 +1226,19 @@ export class GameManager {
 
     switch (game.turnPhase) {
       case TurnPhase.Action:
+        if (card.class === CardClass.Nak) return { allowed: false, reason: "NAK can only be played during a reaction." };
         if (isMyTurn) return { allowed: true };
         if (isNowCard) return { allowed: true };
         return { allowed: false, reason: "It's not your turn!" };
 
       case TurnPhase.Reaction:
         if (isMyTurn) return { allowed: false, reason: "You must wait for reactions." };
-        if (isNowCard) return { allowed: true };
-        return { allowed: false, reason: "You can only play 'NOW' cards during a reaction." };
+        if (isNowCard || card.class === CardClass.Nak) return { allowed: true };
+        return { allowed: false, reason: "You can only play 'NOW' or NAK cards during a reaction." };
 
       case TurnPhase.Rereaction:
-        if (isNowCard) return { allowed: true };
-        return { allowed: false, reason: "You can only play 'NOW' cards during a re-reaction." };
+        if (isNowCard || card.class === CardClass.Nak) return { allowed: true };
+        return { allowed: false, reason: "You can only play 'NOW' or NAK cards during a re-reaction." };
 
       case TurnPhase.Executing:
         return { allowed: false, reason: "You can't play cards while the previous play is in progress." };

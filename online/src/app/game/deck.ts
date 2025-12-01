@@ -174,7 +174,7 @@ const cardDefinitions = [
     title: 'Put it on the backlog',
     idname: 'backlog',
     image: 'nak_-_backlog.png',
-    now: true,
+    now: false,
     combo: false,
     count: 1
   },
@@ -183,7 +183,7 @@ const cardDefinitions = [
     title: 'Kelsey Hightower',
     idname: 'kelsey',
     image: 'nak_-_kelsey.png',
-    now: true,
+    now: false,
     combo: false,
     count: 1
   },
@@ -192,7 +192,7 @@ const cardDefinitions = [
     title: 'Feature delayed',
     idname: 'next_release',
     image: 'nak_-_next_release.png',
-    now: true,
+    now: false,
     combo: false,
     count: 1
   },
@@ -201,7 +201,7 @@ const cardDefinitions = [
     title: 'Scratch your own itch',
     idname: 'prs_welcome',
     image: 'nak_-_prs_welcome.png',
-    now: true,
+    now: false,
     combo: false,
     count: 1
   },
@@ -210,7 +210,7 @@ const cardDefinitions = [
     title: 'Bot cmd FTW',
     idname: 'slash_close',
     image: 'nak_-_slash_close.png',
-    now: true,
+    now: false,
     combo: false,
     count: 1
   },

@@ -215,6 +215,8 @@ export default function GameScreen() {
     switch (gameState.turnPhase) {
       case TurnPhase.Action:
         // Action Phase: Can play if it's my turn OR it's a NOW card
+        // NAK is explicit exception (only playable in Reaction/Rereaction)
+        if (card.class === CardClass.Nak) return false;
         if (isMyTurn) return true;
         if (isNowCard) return true;
         return false;
@@ -223,11 +225,11 @@ export default function GameScreen() {
         // - Current player CANNOT play regular cards (waiting).
         // - Current player CANNOT play NOW cards (unless reacting to NAK? Server says no).
         // - Others CAN play NOW cards.
-        if (!isMyTurn && isNowCard) return true;
+        if (!isMyTurn && (isNowCard || card.class === CardClass.Nak)) return true;
         return false;
       case TurnPhase.Rereaction:
         // Rereaction Phase: Anyone can play NOW cards.
-        if (isNowCard) return true;
+        if (isNowCard || card.class === CardClass.Nak) return true;
         return false;
       default:
         return false; // Executing, Exploding, etc.
@@ -617,34 +619,11 @@ export default function GameScreen() {
       // Now handle the actual play
       if (cardsToPlay.length > 0) {
         // --- Client-side Play Validation ---
-        const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
-        const isMyTurn = currentPlayerId === playerId;
-        const isNowCard = cardsToPlay.length === 1 && !!cardsToPlay[0].now;
-
-        let isAllowed = false;
-        switch (gameState.turnPhase) {
-          case TurnPhase.Action:
-            // Action Phase: Can play if it's my turn OR it's a NOW card
-            if (isMyTurn) isAllowed = true;
-            else if (isNowCard) isAllowed = true;
-            break;
-          case TurnPhase.Reaction:
-            // Reaction Phase: 
-            // - Current player CANNOT play regular cards (waiting).
-            // - Current player CANNOT play NOW cards (unless reacting to NAK? Server says no).
-            // - Others CAN play NOW cards.
-            if (!isMyTurn && isNowCard) isAllowed = true;
-            break;
-          case TurnPhase.Rereaction:
-            // Rereaction Phase: Anyone can play NOW cards.
-            if (isNowCard) isAllowed = true;
-            break;
-          default:
-            isAllowed = false;
-        }
+        // Use centralized isCardPlayable logic for consistency
+        const isAllowed = cardsToPlay.every(c => isCardPlayable(c));
 
         if (!isAllowed) {
-          console.log(`Play blocked client-side: phase=${gameState.turnPhase}, isMyTurn=${isMyTurn}, isNowCard=${isNowCard}`);
+          console.log(`Play blocked client-side: isCardPlayable returned false`);
           return;
         }
         // -----------------------------------

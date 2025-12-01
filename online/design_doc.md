@@ -366,10 +366,14 @@ combos.  To play a card, players drag and drop them from their hand into
 discard-pile.  A played card appears, full size, on the discard-pile for all
 players to see.
 
-Once played, and the reactions are done, any card-specific rules
-or actions must be followed (more on that later).  When a player decides they
-are done playing, they must draw a card from the draw-pile, unless the last
-card action they played specifically said they do not need to draw a card.
+After playing, other players are given time to react to the played card.  For
+example, a NAK may be played in response to any played card, unless otherwise
+noted. 
+
+Once played, and all reactions are done, any card-specific rules or actions
+must be followed (more on that later).  When a player decides they are done
+with their turn, they must draw a card from the draw-pile, unless the last card
+action they played specifically said they do not need to draw a card.
 
 When a player plays one or more cards, those cards are removed from the
 player's hand in the server state and in their hand area, and all players can
@@ -736,12 +740,12 @@ area. That period is called the "reaction period".
 If nothing else is played by any player, the timer expires, the played cards
 are executed (more below) and it becomes the "action" period again.
 
-If, during the reaction period, another player plays a "now" card the timer is
-reset to 8 seconds and it becomes the rereaction period.  During rereaction any
-player, including the current player, may play another "now" card.  Every time
-a card is played, the timer is restarted.  If the current player plays it
-becomes a "reaction" period.  If any other player plays it becomes a
-"rereaction" period.
+If, during the reaction period, another player plays a "now" card or a NAK
+card, the timer is reset to 8 seconds and it becomes the rereaction period.
+During rereaction any player, including the current player, may play another
+"now" card or a NAK card.  Every time a card is played, the timer is restarted.
+If the current player plays it becomes a "reaction" period.  If any other
+player plays it becomes a "rereaction" period.
 
 When the timer finally expires the played cards are executed and it becomes the
 "action" period again.
@@ -751,9 +755,18 @@ restarted, it is set to 8 seconds.
 
 #### Race condition: two players playing at the same time
 
-If two players try to play a card at the same time (within 2 seconds of each
-other), the server must accept the first played card, and reject any other
-cards played, with a message like "{player} played a {card-class} card".
+When playing a card, the client must send the last known nonce.  If that nonce
+matches the server's current nonce, the server accepts the played card.  If it
+does not match, the server rejects the played card, and sends a message to the
+player.
+
+This should prevent two players inadvertently playing at the same time due to
+network lag, and causing confusion.
+
+#### Playing NAK cards
+
+NAK cards are only playable during reaction or rereaction periods, in response
+to another played card.  They are not playable during action periods.
 
 ##### Example of turns and the action/reaction/rereaction logic
 
@@ -1031,35 +1044,35 @@ cards:
   - class: NAK
     name: backlog
     image: ./cards/nak_-_backlog.png
-    now: true
+    now: false
     combo: false
     count: 1
 
   - class: NAK
     name: kelsey
     image: ./cards/nak_-_kelsey.png
-    now: true
+    now: false
     combo: false
     count: 1
 
   - class: NAK
     name: next_release
     image: ./cards/nak_-_next_release.png
-    now: true
+    now: false
     combo: false
     count: 1
 
   - class: NAK
     name: prs_welcome
     image: ./cards/nak_-_prs_welcome.png
-    now: true
+    now: false
     combo: false
     count: 1
 
   - class: NAK
     name: slash_close
     image: ./cards/nak_-_slash_close.png
-    now: true
+    now: false
     combo: false
     count: 1
 
@@ -1543,6 +1556,27 @@ We need the following browsers tests to work:
 
   22) TODO: drawing cards
   23) TODO: leave while drawing explodign cluster/upgrade cluster
+
+  24) Action/reaction/rereaction logic
+      * P1 creates game
+      * P2 joins
+      * P1 starts game
+      * Verify P1's lone `DEVELOPER` card is not playable but others are
+      * Verify P2's `SHUFFLE_NOW` is playable and nothing else
+      * P1 plays `SHUFFLE`
+      * Verify that none of P1's cards are playable
+      * Verify that P2's `NAK` and `SHUFFLE_NOW` cards are playable
+      * P2 plays `NAK`
+      * Verify that none of P2's cards are playable
+      * Verify that P1's `NAK`s are playable
+      * P1 plays NAK
+      * Verify thast none of P1s cards are playable
+      * Verify that P2s `SHUFFLE_NOW` is playable
+      * P2 plays `SHUFFLE_NOW`
+      * Verify that none of P2s cards are playable
+      * Verify that P1's NAK is playable
+      * P1 plays NAK
+      * Verify that neither player has playable cards
 
 ### Implementation phases
 
