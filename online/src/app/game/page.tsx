@@ -355,10 +355,15 @@ export default function GameScreen() {
       
     const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
     if (currentPlayerId !== playerId) {
-      console.log("Not your turn to draw!");
+      console.log("Cannot draw: not your turn");
       return; // Or show toast
     }
       
+    if (gameState.turnPhase !== TurnPhase.Action) {
+      console.log("Cannot draw: not in action phase");
+      return;
+    }
+
     socket.emit(SocketEvent.DrawCard, gameCode);
   }, [socket, gameState, playerId, gameCode]);
 
@@ -552,6 +557,39 @@ export default function GameScreen() {
 
       // Now handle the actual play
       if (cardsToPlay.length > 0) {
+        // --- Client-side Play Validation ---
+        const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
+        const isMyTurn = currentPlayerId === playerId;
+        const isNowCard = cardsToPlay.length === 1 && !!cardsToPlay[0].now;
+
+        let isAllowed = false;
+        switch (gameState.turnPhase) {
+          case TurnPhase.Action:
+            // Action Phase: Can play if it's my turn OR it's a NOW card
+            if (isMyTurn) isAllowed = true;
+            else if (isNowCard) isAllowed = true;
+            break;
+          case TurnPhase.Reaction:
+            // Reaction Phase: 
+            // - Current player CANNOT play regular cards (waiting).
+            // - Current player CANNOT play NOW cards (unless reacting to NAK? Server says no).
+            // - Others CAN play NOW cards.
+            if (!isMyTurn && isNowCard) isAllowed = true;
+            break;
+          case TurnPhase.Rereaction:
+            // Rereaction Phase: Anyone can play NOW cards.
+            if (isNowCard) isAllowed = true;
+            break;
+          default:
+            isAllowed = false;
+        }
+
+        if (!isAllowed) {
+          console.log(`Play blocked client-side: phase=${gameState.turnPhase}, isMyTurn=${isMyTurn}, isNowCard=${isNowCard}`);
+          return;
+        }
+        // -----------------------------------
+
         // Rejection Logic: Single DEVELOPER card
         if (cardsToPlay.length === 1 && cardsToPlay[0].class === CardClass.Developer) {
           console.log('Cannot play a single DEVELOPER card');

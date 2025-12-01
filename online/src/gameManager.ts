@@ -12,7 +12,7 @@ import { config } from './config';
 // Define Operation interface for the operations stack
 interface Operation {
   cardClass: CardClass;
-  action: (game: Game) => void;
+  action: (game: Game) => void | Promise<void>;
 }
 
 // Define interfaces for game and player states
@@ -411,7 +411,7 @@ export class GameManager {
     }, this.reactionTimerDuration * 1000);
   }
 
-  private executePlayedCards(game: Game) {
+  private async executePlayedCards(game: Game) {
     if (this.verbose || game.devMode) {
       this.log(game, `reaction timer expired, stack has ${game.pendingOperations.length} operations`);
     }
@@ -420,13 +420,17 @@ export class GameManager {
     game.timer = null;
     game.timerDuration = 0;
 
+    // Transition to Executing phase to block further actions until operations are resolved.
+    game.turnPhase = TurnPhase.Executing;
+    this.updateGameNonce(game); // Notify clients of phase change
+
     // Pop and execute all operations
     while (game.pendingOperations.length > 0) {
       const op = game.pendingOperations.pop();
       if (op) {
         try {
           this.log(game, `executing operation for ${op.cardClass}`);
-          op.action(game);
+          await op.action(game);
         } catch (e) {
           this.log(game, `error executing pending operation: ${e}`);
         }
@@ -933,6 +937,7 @@ export class GameManager {
     }
 
     if (game.turnPhase !== TurnPhase.Action) {
+      this.log(game, `player "${player.name}" tried to draw in phase ${game.turnPhase} (expected Action)`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You cannot draw right now (wait for reactions)." });
       return;
     }
@@ -1172,18 +1177,21 @@ export class GameManager {
         if (isMyTurn) return { allowed: true };
         if (isNowCard) return { allowed: true };
         return { allowed: false, reason: "It's not your turn!" };
-      
+
       case TurnPhase.Reaction:
         if (isMyTurn) return { allowed: false, reason: "You must wait for reactions." };
         if (isNowCard) return { allowed: true };
         return { allowed: false, reason: "You can only play 'NOW' cards during a reaction." };
-      
+
       case TurnPhase.Rereaction:
         if (isNowCard) return { allowed: true };
         return { allowed: false, reason: "You can only play 'NOW' cards during a re-reaction." };
-        
+
+      case TurnPhase.Executing:
+        return { allowed: false, reason: "You can't play cards while the previous play is in progress." };
+
       default:
-        return { allowed: false, reason: "Cannot play cards in this phase." };
+        return { allowed: false, reason: "BUG: Can't play cards in phase ${game.turnPhase}." };
     }
   }
 
@@ -1221,11 +1229,12 @@ export class GameManager {
     // Check permissions using Phase 3.1.3 logic
     const cardInHand = player.hand.find(c => c.id === cardId);
     if (!cardInHand) {
-        this.log(game, `player "${player.name}" tried to play card they don't have (id: ${cardId})`);
-        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card!" });
-        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); 
-        return;
+      this.log(game, `player "${player.name}" tried to play card they don't have (id: ${cardId})`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card!" });
+      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); 
+      return;
     }
+
 
     const { allowed, reason } = this.canPlayCard(game, player, cardInHand);
 
@@ -1252,11 +1261,12 @@ export class GameManager {
       // Phase 3.1.1: Push a do-nothing operation
       game.pendingOperations.push({
         cardClass: card.class,
-        action: (_g: Game) => { 
-          // Do nothing for now
+        action: async (_g: Game) => { 
+          // Sleep for 3 seconds
           if (this.verbose) {
-             this.log(_g, `executing do-nothing operation for card ${card.class}`);
+            this.log(_g, `executing do-nothing operation for card ${card.class} (sleeping 3s)`);
           }
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
       });
 
@@ -1275,7 +1285,7 @@ export class GameManager {
         // Or wait for next action? 
         // Logic says "If the player plays a card... except for a DEBUG card, a timer is set".
         // It implies DEBUG resolves immediately.
-        // Let's call resolveStack immediately for DEBUG.
+        // Let's call executePlayedCards immediately for DEBUG.
         this.executePlayedCards(game);
       }
 
@@ -1405,11 +1415,12 @@ export class GameManager {
       // Phase 3.1.1: Push a do-nothing operation
       game.pendingOperations.push({
         cardClass: c1.class,
-        action: (_g: Game) => { 
-          // Do nothing for now
+        action: async (g: Game) => { 
+          // Sleep for 3 seconds
           if (this.verbose) {
-             this.log(_g, `executing do-nothing operation for combo`);
+             this.log(g, `executing do-nothing operation for combo (sleeping 3s)`);
           }
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
       });
 
