@@ -9,8 +9,11 @@ import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent, TurnPhase }
 import { validatePlayerName, sanitizePlayerName, normalizeNameForComparison, escapeHtml } from './utils/nameValidation';
 import { config } from './config';
 
-// Define Operation type for the operations stack
-type Operation = (game: Game) => void;
+// Define Operation interface for the operations stack
+interface Operation {
+  cardClass: CardClass;
+  action: (game: Game) => void;
+}
 
 // Define interfaces for game and player states
 interface Player {
@@ -425,7 +428,8 @@ export class GameManager {
       const op = game.pendingOperations.pop();
       if (op) {
         try {
-          op(game);
+          this.log(game, `Resolving operation for ${op.cardClass}`);
+          op.action(game);
         } catch (e) {
           this.log(game, `Error executing pending operation: ${e}`);
         }
@@ -1241,10 +1245,13 @@ export class GameManager {
       game.discardPile.push(card);
 
       // Phase 3.1.1: Push a do-nothing operation
-      game.pendingOperations.push((_g: Game) => { 
-        // Do nothing for now
-        if (this.verbose) {
-           this.log(_g, `Executing do-nothing operation for card ${card.class}`);
+      game.pendingOperations.push({
+        cardClass: card.class,
+        action: (_g: Game) => { 
+          // Do nothing for now
+          if (this.verbose) {
+             this.log(_g, `Executing do-nothing operation for card ${card.class}`);
+          }
         }
       });
 
@@ -1391,10 +1398,13 @@ export class GameManager {
       game.discardPile.push(...cardsToPlay);
 
       // Phase 3.1.1: Push a do-nothing operation
-      game.pendingOperations.push((_g: Game) => { 
-        // Do nothing for now
-        if (this.verbose) {
-           this.log(_g, `Executing do-nothing operation for combo`);
+      game.pendingOperations.push({
+        cardClass: c1.class,
+        action: (_g: Game) => { 
+          // Do nothing for now
+          if (this.verbose) {
+             this.log(_g, `Executing do-nothing operation for combo`);
+          }
         }
       });
 

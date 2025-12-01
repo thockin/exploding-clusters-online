@@ -1,5 +1,3 @@
-Log popped cards (change ops from func to {Card, func})
-
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
 
 Later:
