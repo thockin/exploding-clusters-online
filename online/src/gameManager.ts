@@ -60,7 +60,7 @@ export class GameManager {
   constructor(private io: Server) {
     const devMode = config.devMode;
     this.prng = new PseudoRandom(devMode ? 0 : undefined);
-    
+
     this.maxGames = config.maxGames;
     this.maxSpectators = config.maxSpectators;
     this.reactionTimerDuration = config.reactionTimer;
@@ -152,7 +152,7 @@ export class GameManager {
         // Idempotency check: If socket is already removed from both players and spectators, ignore
         const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
         const spectatorIndex = game.spectators.findIndex(s => s.socketId === socket.id);
-        
+
         if (playerIndex === -1 && spectatorIndex === -1) {
           // Already processed, just clean up map entry
           this.playerToGameMap.delete(socket.id);
@@ -1084,7 +1084,7 @@ export class GameManager {
         currentPlayer.hand.push(card);
 
         // Phase 3.1.2: Timer resolution handles ops. Action phase implies empty stack.
-        
+
         // Handle Exploding/Upgrade logic later (Phase 3). 
         // For Phase 2.4: "If it is a regular card... that card goes into their hand... and their turn is over."
         // We treat ALL cards as regular for now.
@@ -1260,7 +1260,7 @@ export class GameManager {
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game has ended." });
       return;
     }
-    
+
     // Reject if caller is a spectator (not a player)
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
@@ -1268,7 +1268,7 @@ export class GameManager {
       this.log(game, `spectator or non-player ${socket.id} attempted to play card in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
-    
+
     // Nonce check
     if (nonce && nonce !== game.nonce) {
       this.log(game, `playCard rejected: nonce mismatch (client=${nonce}, server=${game.nonce})`);
@@ -1280,9 +1280,9 @@ export class GameManager {
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
       return;
     }
-    
+
     // Prevent concurrent card plays from the same player (race condition protection)
-    
+
     if (player.isPlaying) {
       this.log(game, `player "${player.name}" tried to play a card while another play is in progress`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current play to complete." });
@@ -1319,7 +1319,7 @@ export class GameManager {
 
     // Set playing flag to prevent concurrent plays
     player.isPlaying = true;
-    
+
     try {
       const cardIndex = player.hand.findIndex(c => c.id === cardId);
       if (cardIndex === -1) {
@@ -1540,13 +1540,13 @@ export class GameManager {
     const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
     if (playerIndex !== -1) {
       const player = game.players[playerIndex];
-      
+
       // Idempotency check: If already marked as disconnected, skip to avoid double-processing
       if (player.isDisconnected) {
         this.log(game, `handleDisconnect: player "${player.name}" already marked as disconnected, skipping`);
         return;
       }
-      
+
       this.log(game, `player "${player.name}" (${player.socketId}) disconnected`);
 
       const oldSocketId = player.socketId;
