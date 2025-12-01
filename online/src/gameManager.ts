@@ -711,8 +711,8 @@ export class GameManager {
     // Deal hands
     if (game.devMode && game.players.length >= 1) {
       this.dealDevModeHands(game, deck);
-      // Deal random to remaining players (P3+)
-      for (let i = 2; i < game.players.length; i++) {
+      // Deal random to remaining players (P4+)
+      for (let i = 3; i < game.players.length; i++) {
         game.players[i].hand.push(...deck.splice(0, 7));
       }
     } else {
@@ -787,32 +787,30 @@ export class GameManager {
       return found;
     };
 
-    // Identify a developer card name that has at least 3 copies in deck
-    // (deck is shuffled, but fullDeck has 4 of each)
-    // We need 3 copies of Type A, 1 copy of Type B, 1 copy of Type C (or just different from A)
-    // Actually: P1 has 2x A, 1x B. P2 has 1x A, 1x C.
+    // Collect distinct DEVELOPER card names
+    const devCardNames: string[] = [];
+    const allDeveloperCards = fullDeck.filter(c => c.class === CardClass.Developer); // Use fullDeck to get all possible names
+    for (const card of allDeveloperCards) {
+      if (!devCardNames.includes(card.name)) {
+        devCardNames.push(card.name);
+      }
+    }
 
-    // Just pick first developer card found as Type A
-    const devCardA = deck.find(c => c.class === CardClass.Developer);
-    if (!devCardA) return; // Should not happen
-    const nameA = devCardA.name;
+    // Ensure we have enough distinct developer types for the scenario
+    if (devCardNames.length < 4) {
+      this.log(game, `DEVMODE: Not enough distinct DEVELOPER card types in fullDeck for 3+ player setup. Found: ${devCardNames.length}`);
+      // Fallback to default dealing if not enough distinct developer types, or simpler devmode hands.
+      // For now, we proceed with available names, which might lead to non-ideal devmode hands.
+    }
 
-    // Pick Type B (different from A)
-    const devCardB = deck.find(c => c.class === CardClass.Developer && c.name !== nameA);
-    if (!devCardB) return;
-    const nameB = devCardB.name;
-
-    // Pick Type C (different from A and B, or just different from A? "one not [identical to P1's pair]")
-    // P2 needs 2 DEVELOPER cards: one identical to P1's pair (A), one not.
-    // "one not" could be B or C. Let's pick C to be safe/diverse.
-    const devCardC = deck.find(c => c.class === CardClass.Developer && c.name !== nameA && c.name !== nameB);
-    if (!devCardC) return; // Should not happen
-    // If we are unlucky and only A and B are left (unlikely with 28 cards), we can use B.
-    const nameC = devCardC ? devCardC.name : nameB; 
+    const nameA = devCardNames[0] || 'firefighter'; // Default fallback
+    const nameB = devCardNames[1] || 'grumpy_greybeard';
+    const nameC = devCardNames[2] || 'helper';
+    const nameD = devCardNames[3] || 'intern'; // Use fourth distinct name
 
     const p1 = game.players[0];
     const p2 = game.players.length > 1 ? game.players[1] : null;
-
+    const p3 = game.players.length > 2 ? game.players[2] : null;
     // P1 Hand
     p1.hand.push(...findAndRemove(c => c.class === CardClass.Developer && c.name === nameA, 2));
     p1.hand.push(...findAndRemove(c => c.class === CardClass.Developer && c.name === nameB, 1));
@@ -829,6 +827,17 @@ export class GameManager {
       p2.hand.push(...findAndRemove(c => c.class === CardClass.SeeTheFuture, 1));
       p2.hand.push(...findAndRemove(c => c.class === CardClass.Developer && c.name === nameB, 1)); // Matches P1's solo DEVELOPER
       p2.hand.push(...findAndRemove(c => c.class === CardClass.Developer && c.name === nameC, 1)); // Different DEVELOPER
+    }
+
+    if (p3) {
+      // P3 Hand: 1 NAK, 1 SKIP, 1 FAVOR, 1 ATTACK, 1 SEE THE FUTURE, 2 DEVELOPER (1x identical to P1's solo, 1x different)
+      p3.hand.push(...findAndRemove(c => c.class === CardClass.Nak, 1));
+      p3.hand.push(...findAndRemove(c => c.class === CardClass.Skip, 1));
+      p3.hand.push(...findAndRemove(c => c.class === CardClass.Favor, 1));
+      p3.hand.push(...findAndRemove(c => c.class === CardClass.Attack, 1));
+      p3.hand.push(...findAndRemove(c => c.class === CardClass.SeeTheFuture, 1));
+      p3.hand.push(...findAndRemove(c => c.class === CardClass.Developer && c.name === nameB, 1)); // Matches P1's solo DEVELOPER (nameB)
+      p3.hand.push(...findAndRemove(c => c.class === CardClass.Developer && c.name === nameD, 1)); // Different DEVELOPER (nameD)
     }
   }
 
@@ -1285,7 +1294,7 @@ export class GameManager {
 
     // Prevent concurrent card plays from the same player (race condition protection)
 
-    if (player.isPlaying) {
+    if (player!.isPlaying) {
       this.log(game, `player "${player.name}" tried to play a card while another play is in progress`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current play to complete." });
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
@@ -1407,7 +1416,7 @@ export class GameManager {
     }
 
     // Prevent concurrent card plays from the same player (race condition protection)
-    if (player.isPlaying) {
+    if (player!.isPlaying) {
       this.log(game, `player "${player.name}" tried to play a combo while another play is in progress`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current play to complete." });
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });

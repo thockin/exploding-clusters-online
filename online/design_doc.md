@@ -690,6 +690,10 @@ is in developer mode.  In developer mode, the following things are different:
     card, an ATTACK card, a SEE THE FUTURE card, and 2 DEVELOPER cards (one
     identical to the solo DEVELOPER card in player 1's hand, one different).
 
+  * The third player's hand starts with a NAK card, a SKIP card, a FAVOR
+    card, an ATTACK card, a SEE THE FUTURE card, and 2 DEVELOPER cards (one
+    identical to the solo DEVELOPER card in player 1's hand, one different).
+
   * Other players' hands are dealt from the deck.
 
   * The player list is ordered by join sequence.  The game creator is first, the
