@@ -590,8 +590,11 @@ export default function GameScreen() {
         }
 
         // Optimistic update and clear selection for successful plays
-        setSelectedCards([]);
-        setMyHand((prevHand: Card[]) => prevHand.filter(c => !cardsToPlay.some(pc => pc.id === c.id)));
+        // Delay update to avoid "Unable to find drag handle" warning from dnd library trying to restore focus to unmounted item.
+        setTimeout(() => {
+          setSelectedCards([]);
+          setMyHand((prevHand: Card[]) => prevHand.filter(c => !cardsToPlay.some(pc => pc.id === c.id)));
+        }, 50);
       }
       return; // Ensure we exit after handling the drop
     }
