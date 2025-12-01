@@ -1,5 +1,6 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, Locator } from '@playwright/test';
 import { Buttons, Inputs, Headers, Locators } from './constants';
+import { CardClass, TurnPhase } from '../src/api';
 
 // Helper to create game
 // - Navigates to home page
@@ -45,6 +46,49 @@ async function watchGame(page: Page, code: string) {
   await page.click(Buttons.WATCH_GAME_CONFIRM, { timeout: 15000 });
   await expect(page).toHaveURL(/observer/, { timeout: 15000 });
   await expect(page.locator(Locators.LOBBY_TEXT)).toBeVisible({ timeout: 15000 });
+}
+
+// Helper to play a card via drag-and-drop from hand to pile.
+async function playCard(page: Page, card: Locator) {
+    const pile = findDiscardPileDropTarget(page);
+    await expect(pile).toBeVisible();
+
+    const srcBox = await card.boundingBox();
+    const dstBox = await pile.boundingBox();
+    if (!srcBox) throw new Error('Bounding box not found for card');
+    if (!dstBox) throw new Error('Bounding box not found for pile');
+    await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
+    await page.mouse.up();
+}
+
+// Helper to find cards in the hand area by their card class.  Can return
+// multiple cards.
+function findHandCardsByClass(page: Page, cardClass: CardClass): Locator {
+    const hand = page.locator(`div[data-areaName="hand"]`);
+    return hand.locator(`div[data-cardClass="${cardClass}"]`);
+}
+
+// Helper to find all cards in the hand area.  Can return multiple cards.
+function findAllHandCards(page: Page): Locator {
+    const hand = page.locator(`div[data-areaName="hand"]`);
+    return hand.locator(`div[data-cardClass]`);
+}
+
+// Helper to find the discard pile's drop target to play a card.
+function findDiscardPileDropTarget(page: Page): Locator {
+    return page.locator(`div[data-areaName="discard-pile"]`).locator('xpath=..');
+}
+
+// Helper to find the timer area.
+function findTimerArea(page: Page): Locator {
+    return page.locator(`div[data-areaName="timer"]`);
+}
+
+// Helper to find the message area.
+function findMessageArea(page: Page): Locator {
+    return page.locator(`div[data-areaName="message"]`);
 }
 
 test.describe('UI Tests with DEVMODE=1', () => {
@@ -689,13 +733,13 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
     const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-    const messageArea = page1.getByTestId('game-log');
+    const messageArea = findMessageArea(page1);
 
     await expect(handSection.locator('img')).toHaveCount(8);
     await expect(discardPile.locator('img')).not.toBeVisible(); 
 
-    // Find a non-DEVELOPER card to play
-    const cardToPlayLocator = handSection.locator('img:not([src*="developer_-_"]):not([src*="exploding_-_"]):not([src*="upgrade_-_"]):not([src*="debug_-_"])').first();
+    // DEVMODE ensures we have a SHUFFLE card to play
+    const cardToPlayLocator =  handSection.locator('img[alt^="SHUFFLE:"]');
     await expect(cardToPlayLocator).toBeVisible();
 
     const srcBox = await cardToPlayLocator.boundingBox();
@@ -731,21 +775,21 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
     const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-    const messageArea = page1.getByTestId('game-log');
+    const messageArea = findMessageArea(page1);
 
-    // Locate two different cards (NAK and SHUFFLE)
-    const nakCard = handSection.locator('img[alt^="NAK:"]').first();
+    // Locate two different cards (FAVOR and SHUFFLE)
+    const favorCard = handSection.locator('img[alt^="FAVOR:"]').first();
     const shuffleCard = handSection.locator('img[alt^="SHUFFLE:"]').first();
 
-    await expect(nakCard).toBeVisible();
+    await expect(favorCard).toBeVisible();
     await expect(shuffleCard).toBeVisible();
 
-    // 1. Click to Select NAK
-    await nakCard.click();
+    // 1. Click to Select FAVOR
+    await favorCard.click();
     // Verify selection visual (blue border)
-    await expect(nakCard.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+    await expect(favorCard.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
 
-    // 2. Drag SHUFFLE to discard (implicitly deselects NAK and plays SHUFFLE)
+    // 2. Drag SHUFFLE to discard (implicitly deselects FAVOR and plays SHUFFLE)
     const srcBox = await shuffleCard.boundingBox();
     const dstBox = await discardPile.boundingBox();
     if (!srcBox || !dstBox) throw new Error('Missing bounding box');
@@ -759,9 +803,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(shuffleCard).not.toBeVisible(); 
     await expect(handSection.locator('img')).toHaveCount(7);
 
-    // 4. Verify NAK is still there and DESELECTED
-    await expect(nakCard).toBeVisible();
-    await expect(nakCard.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+    // 4. Verify FAVOR is still there and DESELECTED
+    await expect(favorCard).toBeVisible();
+    await expect(favorCard.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
 
     // 5. Verify message
     await expect(messageArea).toContainText(`P1 played SHUFFLE`);
@@ -1002,7 +1046,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await page1.waitForTimeout(3500);
 
     // Verify log message on P2 (other player) indicating turn advancement
-    await expect(page2.getByTestId('game-log')).toContainText(`P1 drew a card, it\'s P2\'s turn`);
+    await expect(findMessageArea(page2)).toContainText(`P1 drew a card, it\'s P2\'s turn`);
 
     // Verify overlay gone
     await expect(currentDrawingOverlay).not.toBeVisible();
@@ -1063,8 +1107,8 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     await expect(handSection.locator('img')).toHaveCount(8);
 
-    // Find a NAK card to play, as Player 1 always starts with one.
-    const card = handSection.locator('img[alt^="NAK:"]').first();
+    // Find a SHUFFLE card to play (P1 has one).
+    const card = handSection.locator('img[alt^="SHUFFLE:"]').first();
     await expect(card).toBeVisible();
 
     // Select Card
@@ -1114,7 +1158,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
     const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-    const messageArea = page1.getByTestId('game-log');
+    const messageArea = findMessageArea(page1);
 
     await expect(handSection.locator('img')).toHaveCount(8);
 
@@ -1227,8 +1271,8 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Locators for areas
     // The green table area (Col md=9)
     const tableArea = page.locator('div[style*="background-color: rgb(34, 139, 34)"]'); 
-    // The fixed height message container parent of game-log
-    const messageArea = page.getByTestId('game-log').locator('xpath=..'); 
+    // The fixed height message container
+    const messageArea = findMessageArea(page).locator('xpath=..'); 
     // The hand container (bg-light, fixed height)
     const handArea = page.locator(Headers.YOUR_HAND).locator('xpath=..'); 
 
@@ -1299,8 +1343,8 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Or simpler: P1 draws a card.
     await page.click(Locators.GAME_PILE); 
     // Wait for log
-    await expect(page.getByTestId('game-log')).toContainText('P1 drew a card');
-    await expect(page2.getByTestId('game-log')).toContainText('P1 drew a card');
+    await expect(findMessageArea(page)).toContainText('P1 drew a card');
+    await expect(findMessageArea(page2)).toContainText('P1 drew a card');
 
     // P1 Leaves Game
     await page.click(Buttons.LEAVE_GAME);
@@ -1330,242 +1374,276 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Verify logs are clean.
     // Game 1 had "P1 drew a card".
     // Game 2 should be empty initially.
-    await expect(page.getByTestId('game-log')).toHaveText('');
-    await expect(page2.getByTestId('game-log')).toHaveText('');
+    await expect(findMessageArea(page)).toHaveText('');
+    await expect(findMessageArea(page2)).toHaveText('');
   });
 
-  test('Turn Logic UI', async ({ browser }) => {
-    // Skipping due to flaky drag interaction in test environment
-    // TODO: Fix drag interaction so we can verify UI state changes
-    const context = await browser.newContext();
-    const page1 = await context.newPage();
-    // ... rest of setup omitted for stability
-    expect(true).toBe(true);
-  });
-
-  test('Race condition: P2 plays NAK, P1 tries NAK (fails), Retries (success)', async ({ browser }) => {
-    // 1. Setup Game
-    const context1 = await browser.newContext();
+  test('Simultaneous NAKs', async ({ browser }) => {
+    // Make pages large to avoid any need to scroll the hand area.
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const page1 = await context1.newPage();
-    await page1.goto('http://localhost:3000');
-    await page1.getByRole('button', { name: 'Start a new game' }).click();
-    await page1.getByPlaceholder('Enter your name').fill('P1');
-    await page1.getByRole('button', { name: 'Create Game' }).click();
-    const gameCode = await page1.getByTestId('game-code').textContent();
-
-    const context2 = await browser.newContext();
     const page2 = await context2.newPage();
-    await page2.goto('http://localhost:3000');
-    await page2.getByRole('button', { name: 'Join a game' }).click();
-    await page2.getByPlaceholder('Enter Game Code').fill(gameCode!);
-    await page2.getByPlaceholder('Enter your name').fill('P2');
-    await page2.getByRole('button', { name: 'Join Game' }).click();
+    const page3 = await context3.newPage();
 
-    await page1.getByRole('button', { name: 'Start the game' }).click();
+    // Setup game
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+    await page3.waitForURL(/game/);
 
-    // 2. P1 plays SHUFFLE to enter Reaction Phase
-    // P1 Hand (DEVMODE): [Dev, Dev, Dev, Nak, Nak, Shuffle, Favor, ...]
-    // Shuffle is index 5? Or find by image.
-    const p1Shuffle = page1.locator('img[alt="SHUFFLE: double_trouble"]'); // Assuming DEVMODE deals double_trouble
-    const discardPile1 = page1.locator('.game-pile').last(); // Usually discard is the second one? Or use renderDiscardPile locator.
-    // The drop target is [data-rbd-droppable-id="discard-pile"]
-    // Playwright dnd is tricky.
-    // We can use dragTo.
-    // Wait, we need to be sure about card names in DEVMODE.
-    // In gameManager: p1 gets 1 SHUFFLE.
-    // Which shuffle? `deck.find(c => c.class === CardClass.Shuffle)`.
-    // It's random which shuffle. But checking alt text starts with SHUFFLE should work.
-    
-    // We need to wait for hand to load
-    await expect(page1.locator('img[alt^="SHUFFLE:"]')).toBeVisible();
-    await page1.locator('img[alt^="SHUFFLE:"]').first().dragTo(page1.locator('[data-rbd-droppable-id="discard-pile"]'));
-    
-    // Verify Reaction Phase (Timer visible)
-    await expect(page1.locator('.timer-area')).toContainText('8');
+    // Find the important elements of the page
+    const p1Shuffle = findHandCardsByClass(page1, CardClass.Shuffle).first();
+    await expect(p1Shuffle).toBeVisible();
+    await expect(p1Shuffle).toHaveAttribute('data-playable', 'true');
 
-    // 3. P2 gets NAK ready (but doesn't drop yet - wait, we need to simulate concurrent action)
-    // We can't easily simulate "concurrent" in Playwright sequentially.
-    // But we can simulate the nonce mismatch by:
-    // a. P1 drags NAK (starts drag, captures nonce N1).
-    // b. P2 plays NAK (updates nonce to N2).
-    // c. P1 drops NAK (sends N1 -> Fail).
+    const p2Nak = findHandCardsByClass(page2, CardClass.Nak).first();
+    await expect(p2Nak).toBeVisible();
+    await expect(p2Nak).toHaveAttribute('data-playable', 'false');
 
-    // a. P1 Starts Dragging NAK
-    // Note: Playwright's `dragTo` is atomic. We need manual mouse events to "hold" the drag?
-    // Or we can just use the fact that the client logic reads nonce on start.
-    // If we can't pause the drag, we can simulate the sequence differently.
-    // But the requirement is "P2 starts to drag NAK, then P1 starts to drag NAK. P2 drops... P1 drops".
-    // Actually, simply:
-    // P1 (Context 1) plays NAK.
-    // P2 (Context 2) plays NAK.
-    // If we do P1 dragTo, it finishes.
-    // To induce failure, we need P1 to read nonce, then P2 to change nonce, then P1 to send.
-    // We can use `page.evaluate` to trigger logic? No, too complex.
-    // We can use manual mouse steps.
-    
-    // Check if P1 has NAK
-    await expect(page1.locator('img[alt^="NAK:"]')).toBeVisible();
-    const p1Nak = page1.locator('img[alt^="NAK:"]').first();
-    const p1Discard = page1.locator('[data-rbd-droppable-id="discard-pile"]');
-    
-    // P1 Mouse Down (Start Drag -> Capture Nonce N1)
-    const box = await p1Nak.boundingBox();
-    if (!box) throw new Error('No NAK card found for P1');
-    await page1.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page1.mouse.down();
+    const p2Discard = findDiscardPileDropTarget(page2);
+    await expect(p2Discard).toBeVisible();
+
+    const p3Nak = findHandCardsByClass(page3, CardClass.Nak).first();
+    await expect(p3Nak).toBeVisible();
+    await expect(p3Nak).toHaveAttribute('data-playable', 'false');
+
+    // P1 plays SHUFFLE, enter reaction phase
+    await playCard(page1, p1Shuffle);
+    await expect(findMessageArea(page2)).toContainText('P1 played SHUFFLE');
+
+    // Verify reaction phase
+    const timerArea = findTimerArea(page1);
+    await expect(timerArea).toBeVisible();
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(p2Nak).toHaveAttribute('data-playable', 'true');
+    await expect(p3Nak).toHaveAttribute('data-playable', 'true');
+
+    // P2 starts to play NAK, but does not finish yet
+    const p2SrcBox = await p2Nak.boundingBox();
+    const p2DstBox = await p2Discard.boundingBox();
+    if (!p2SrcBox) throw new Error('Bounding box not found for card');
+    if (!p2DstBox) throw new Error('Bounding box not found for pile');
+    await page2.mouse.move(p2SrcBox.x + p2SrcBox.width / 2, p2SrcBox.y + p2SrcBox.height / 2);
+    await page2.mouse.down();
     // Move a bit to start drag
-    await page1.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2 + 20);
+    await page2.mouse.move(p2SrcBox.x + p2SrcBox.width / 2 + 20, p2SrcBox.y + p2SrcBox.height / 2 + 20);
 
-    // b. P2 Plays NAK (Updates Nonce to N2)
-    const p2Nak = page2.locator('img[alt^="NAK:"]').first();
-    const p2Discard = page2.locator('[data-rbd-droppable-id="discard-pile"]');
-    await p2Nak.dragTo(p2Discard);
-    
+    // P3 Plays NAK, enter rereaction phase, updates nonce to N2
+    await playCard(page3, p3Nak);
+    await expect(findMessageArea(page2)).toContainText('P3 played NAK');
+
+    // Verify rereaction phase
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Rereaction);
+
+    // P2 finishes their play, drops NAK, but sends nonce N1
+    await page2.mouse.move(p2DstBox.x + p2DstBox.width / 2, p2DstBox.y + p2DstBox.height / 2);
+    await page2.mouse.up();
+
+    // Verify rejection dialog on P2
+    await expect(page2.locator('.modal-title')).toHaveText('Game Updated');
+    await expect(page2.locator('.modal-body')).toContainText('beat you to it');
+
+    // P2 retries (Click OK)
+    await page2.getByRole('button', { name: 'Play it!' }).click();
+
     // Verify P2 played
-    await expect(page2.getByTestId('game-log')).toContainText('played NAK'); // Wait, "P2 played NAK"
-
-    // c. P1 Drops NAK (Sends N1)
-    const discardBox = await p1Discard.boundingBox();
-    if (!discardBox) throw new Error('No discard pile');
-    await page1.mouse.move(discardBox.x + discardBox.width / 2, discardBox.y + discardBox.height / 2);
-    await page1.mouse.up();
-
-    // Verify Rejection Dialog on P1
-    await expect(page1.locator('.modal-title')).toHaveText('Game Updated');
-    await expect(page1.locator('.modal-body')).toContainText('beat you to it');
-
-    // 4. P1 Retries (Click OK)
-    await page1.getByRole('button', { name: 'OK' }).click();
-
-    // Verify Success (P1 played NAK)
-    // Note: P1 NAK negates P2 NAK.
-    // Log should show "P1 played NAK".
-    await expect(page1.getByTestId('game-log')).toContainText('P1 played NAK');
+    await expect(findMessageArea(page1)).toContainText('P2 played NAK');
   });
 
   test('Action/reaction/rereaction logic', async ({ browser }) => {
-    // 1. Setup Game
-    const context1 = await browser.newContext();
+    // Make pages large to avoid any need to scroll the hand area.
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const page1 = await context1.newPage();
-    await page1.goto('http://localhost:3000');
-    await page1.getByRole('button', { name: 'Start a new game' }).click();
-    await page1.getByPlaceholder('Enter your name').fill('P1');
-    await page1.getByRole('button', { name: 'Create Game' }).click();
-    const gameCode = await page1.getByTestId('game-code').textContent();
-
-    const context2 = await browser.newContext();
     const page2 = await context2.newPage();
-    await page2.goto('http://localhost:3000');
-    await page2.getByRole('button', { name: 'Join a game' }).click();
-    await page2.getByPlaceholder('Enter Game Code').fill(gameCode!);
-    await page2.getByPlaceholder('Enter your name').fill('P2');
-    await page2.getByRole('button', { name: 'Join Game' }).click();
 
-    await page1.getByRole('button', { name: 'Start the game' }).click();
+    // Setup game
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
 
-    // Helper to check playability (opacity 1 = playable, 0.5 = unplayable)
-    const expectPlayable = async (page: any, cardName: string) => {
-      // Logic: Find card by alt text, get parent div, check opacity
-      // If cardName ends with ':', use starts-with.
-      const locator = page.locator(`img[alt^="${cardName}"]`).first().locator('..');
-      await expect(locator).toHaveCSS('opacity', '1');
-    };
-    const expectNotPlayable = async (page: any, cardName: string) => {
-      const locator = page.locator(`img[alt^="${cardName}"]`).first().locator('..');
-      await expect(locator).toHaveCSS('opacity', '0.5');
-    };
+    const timerArea = findTimerArea(page1);
+    await expect(timerArea).toBeHidden();
 
-    // Verify P1's lone DEVELOPER card is not playable but others are
-    // P1 Hand: Dev(A)x2, Dev(B)x1. A=firefighter? B=grumpy?
-    // We need to know which is the lone one.
-    // In gameManager: P1 gets 2x A, 1x B.
-    // We can just check all developers in hand.
-    // We expect at least one playable (pair) and one not (lone).
-    // Or we can rely on opacity.
-    // Let's iterate all developer cards in P1 hand.
-    const devCards = page1.locator('img[alt^="DEVELOPER:"]');
-    const count = await devCards.count();
+    // Verify P1's lone DEVELOPER is not playable but others are.
+    const p1Shuffle = findHandCardsByClass(page1, CardClass.Shuffle).first();
+    await expect(p1Shuffle).toHaveAttribute('data-playable', 'true');
+    const p1Nak = findHandCardsByClass(page1, CardClass.Nak).first();
+    await expect(p1Nak).toHaveAttribute('data-playable', 'false');
+
+    const devCards = findHandCardsByClass(page1, CardClass.Developer);
+    await expect(devCards).toHaveCount(3) 
     let foundPlayable = false;
     let foundUnplayable = false;
-    for (let i = 0; i < count; i++) {
-      const card = devCards.nth(i).locator('..');
-      const opacity = await card.evaluate((el) => getComputedStyle(el).opacity);
-      if (opacity === '1') foundPlayable = true;
-      if (opacity === '0.5') foundUnplayable = true;
+    for (const card of await devCards.all()) {
+      const playable = await card.getAttribute('data-playable');
+      if (playable === 'true') {
+          foundPlayable = true;
+      } else if (playable === 'false') {
+          foundUnplayable = true;
+      } else {
+          throw new Error(`Unexpected data-playable value: ${playable} (${typeof playable})`);
+      }
     }
     expect(foundPlayable).toBe(true);
     expect(foundUnplayable).toBe(true);
 
-    // Verify others are playable
-    await expectPlayable(page1, 'SHUFFLE:');
-    
-    // Verify P2's SHUFFLE_NOW is playable and nothing else (Action phase, not P2's turn)
-    await expectPlayable(page2, 'SHUFFLE_NOW:');
-    await expectNotPlayable(page2, 'NAK:');
-    await expectNotPlayable(page2, 'SKIP:');
+    // Verify P2's SHUFFLE_NOW is playable and not others.
+    const p2ShuffleNow = findHandCardsByClass(page2, CardClass.ShuffleNow).first();
+    await expect(p2ShuffleNow).toHaveAttribute('data-playable', 'true');
+    const p2Debug = findHandCardsByClass(page2, CardClass.Debug).first();
+    await expect(p2Debug).toHaveAttribute('data-playable', 'false');
+    const p2Nak = findHandCardsByClass(page2, CardClass.Nak).first();
+    await expect(p2Nak).toHaveAttribute('data-playable', 'false');
+    const p2Skip = findHandCardsByClass(page2, CardClass.Skip).first();
+    await expect(p2Skip).toHaveAttribute('data-playable', 'false');
 
-    // P1 plays SHUFFLE
-    const p1Shuffle = page1.locator('img[alt^="SHUFFLE:"]').first();
-    await p1Shuffle.dragTo(page1.locator('[data-rbd-droppable-id="discard-pile"]'));
-    // Wait for phase change (timer)
-    await expect(page1.locator('.timer-area')).toContainText('8');
+    // P1 plays SHUFFLE, enter reaction phase
+    await playCard(page1, p1Shuffle);
+    await expect(findMessageArea(page2)).toContainText('P1 played SHUFFLE');
+
+    // Verify reaction phase
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(timerArea).toBeVisible();
+    await expect(page1.getByText('Waiting for other players to react')).toBeVisible();
+    await expect(page2.getByText('Want to react')).toBeVisible();
 
     // Verify that none of P1's cards are playable
-    await expectNotPlayable(page1, 'NAK:');
-    await expectNotPlayable(page1, 'FAVOR:');
+    for (const card of await findAllHandCards(page1).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
 
     // Verify that P2's NAK and SHUFFLE_NOW cards are playable
-    await expectPlayable(page2, 'NAK:');
-    await expectPlayable(page2, 'SHUFFLE_NOW:');
+    await expect(p2Nak).toHaveAttribute('data-playable', 'true');
+    await expect(p2ShuffleNow).toHaveAttribute('data-playable', 'true');
 
-    // P2 plays NAK
-    const p2Nak = page2.locator('img[alt^="NAK:"]').first();
-    await p2Nak.dragTo(page2.locator('[data-rbd-droppable-id="discard-pile"]'));
-    await expect(page2.getByTestId('game-log')).toContainText('P2 played NAK');
+    // P2 plays NAK, enter rereaction phase
+    await playCard(page2, p2Nak);
+    await expect(findMessageArea(page1)).toContainText('P2 played NAK');
+
+    // Verify rereaction phase
+    await expect(timerArea).toBeVisible();
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Rereaction);
+    await expect(page1.getByText('Want to react')).toBeVisible();
+    await expect(page2.getByText('Waiting for other players to react')).toBeVisible();
 
     // Verify that none of P2's cards are playable
-    // P2 used NAK. Has ShuffleNow.
-    // Note: My current logic allows ShuffleNow. 
-    // If the requirement is "none", this might fail if I assert "none".
-    // I will assert what my code does: ShuffleNow IS playable.
-    await expectPlayable(page2, 'SHUFFLE_NOW:'); 
-    
-    // Verify that P1's NAKs are playable
-    await expectPlayable(page1, 'NAK:');
-
-    // P1 plays NAK
-    const p1Nak = page1.locator('img[alt^="NAK:"]').first();
-    await p1Nak.dragTo(page1.locator('[data-rbd-droppable-id="discard-pile"]'));
-    await expect(page1.getByTestId('game-log')).toContainText('P1 played NAK');
-
-    // Verify thast none of P1s cards are playable
-    // P1 used 1 NAK. Has 1 left.
-    // Again, logic allows playing again. I will verify it IS playable.
-    await expectPlayable(page1, 'NAK:');
-
-    // Verify that P2s SHUFFLE_NOW is playable
-    await expectPlayable(page2, 'SHUFFLE_NOW:');
-
-    // P2 plays SHUFFLE_NOW
-    const p2ShuffleNow = page2.locator('img[alt^="SHUFFLE_NOW:"]').first();
-    await p2ShuffleNow.dragTo(page2.locator('[data-rbd-droppable-id="discard-pile"]'));
-    await expect(page2.getByTestId('game-log')).toContainText('P2 played SHUFFLE_NOW');
-
-    // Verify that none of P2s cards are playable
-    // P2 used Nak and ShuffleNow. No other NOW cards.
-    await expectNotPlayable(page2, 'SKIP:');
+    for (const card of await findAllHandCards(page2).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
 
     // Verify that P1's NAK is playable
-    await expectPlayable(page1, 'NAK:');
+    await expect(p1Nak).toHaveAttribute('data-playable', 'true');
 
-    // P1 plays NAK
-    const p1Nak2 = page1.locator('img[alt^="NAK:"]').first();
-    await p1Nak2.dragTo(page1.locator('[data-rbd-droppable-id="discard-pile"]'));
-    await expect(page1.getByTestId('game-log')).toContainText('P1 played NAK');
+    // P1 plays NAK, enter reaction phase
+    await playCard(page1, p1Nak);
+    await expect(findMessageArea(page2)).toContainText('P1 played NAK');
 
-    // Verify that neither player has playable cards
-    // P1 used both NAKs. P2 used NOW cards.
-    await expectNotPlayable(page1, 'FAVOR:');
-    await expectNotPlayable(page2, 'SKIP:');
+    // Verify reaction phase
+    await expect(timerArea).toBeVisible();
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(page1.getByText('Waiting for other players to react')).toBeVisible();
+    await expect(page2.getByText('Want to react')).toBeVisible();
+
+    // Verify that none of P1's cards are playable
+    for (const card of await findAllHandCards(page1).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+
+    // Verify that P2's SHUFFLE_NOW card is playable
+    await expect(p2ShuffleNow).toHaveAttribute('data-playable', 'true');
+
+    // P2 plays SHUFFLE_NOW, enter rereaction phase
+    await playCard(page2, p2ShuffleNow);
+    await expect(findMessageArea(page1)).toContainText('P2 played SHUFFLE_NOW');
+
+    // Verify rereaction phase
+    await expect(timerArea).toBeVisible();
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Rereaction);
+    await expect(page1.getByText('Want to react')).toBeVisible();
+    await expect(page2.getByText('Waiting for other players to react')).toBeVisible();
+
+    // P1 plays another NAK, enter reaction phase
+    const p1Nak2 = findHandCardsByClass(page1, CardClass.Nak).first();
+    await playCard(page1, p1Nak2);
+    await expect(findMessageArea(page2)).toContainText('P1 played NAK');
+
+    // Verify reaction phase
+    await expect(timerArea).toBeVisible();
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(page1.getByText('Waiting for other players to react')).toBeVisible();
+    await expect(page2.getByText('Want to react')).toBeVisible();
+
+    // Verify that none of P1's or P2's cards are playable
+    for (const card of await findAllHandCards(page1).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+    for (const card of await findAllHandCards(page2).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+  });
+
+  test('Non-current player plays NOW first', async ({ browser }) => {
+    // Make pages large to avoid any need to scroll the hand area.
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+
+    // Setup game
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    const timerArea = findTimerArea(page1);
+    await expect(timerArea).toBeHidden();
+
+    const p1Nak = findHandCardsByClass(page1, CardClass.Nak).first();
+    await expect(p1Nak).toHaveAttribute('data-playable', 'false');
+
+    const p2ShuffleNow = findHandCardsByClass(page2, CardClass.ShuffleNow).first();
+    await expect(p2ShuffleNow).toHaveAttribute('data-playable', 'true');
+
+    // P2 plays SHUFFLE_NOW, enter reaction phase
+    await playCard(page2, p2ShuffleNow);
+    await expect(findMessageArea(page1)).toContainText('P2 played SHUFFLE_NOW');
+
+    // Verify rereaction phase
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Rereaction);
+    await expect(timerArea).toBeVisible();
+    await expect(page1.getByText('Want to react')).toBeVisible();
+    await expect(page2.getByText('Waiting for other players to react')).toBeVisible();
+
+    // Verify that none of P2's cards are playable
+    for (const card of await findAllHandCards(page2).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+
+    // Verify that P1's NAK card is playable
+    await expect(p1Nak).toHaveAttribute('data-playable', 'true');
+
+    // P1 plays NAK, enter rereaction phase
+    await playCard(page1, p1Nak);
+    await expect(findMessageArea(page2)).toContainText('P1 played NAK');
+
+    // Verify reaction phase
+    await expect(timerArea).toBeVisible();
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(page1.getByText('Waiting for other players to react')).toBeVisible();
+    await expect(page2.getByText('Want to react')).toBeVisible();
+
+    // Verify that none of P1's cards are playable
+    for (const card of await findAllHandCards(page1).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
   });
 });

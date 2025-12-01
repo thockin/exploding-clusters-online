@@ -1,9 +1,16 @@
 phase 3.1.3
+ - Get rid of Rereaction and just always be reaction?
  - DEBUG is not playable during ACTION
- - Fix message to "Waiting for other players" after playing a card
  - Fix messages when P2 plays SHUFFLE_NOW
  - send messages "NAK cancels SHUFFLE" and "Executing SHUFFLE" as we pop ops
  - send BIG messages when executing
+ - colors for reaction timer
+
+tests
+ - locator consts for NAK, SHUFFLE, etc
+ - better locator for timer-area
+ - add test-id to discard pile and draw pile?
+ - constants for area names
 
 repeat clicking "Create" confirm creates multiple games
 
@@ -17,4 +24,5 @@ Later:
 * Reduce card spacing in hand or even overlap them?
 * copyrights on art and code
 * Capitalization and grammar/style in all buttons and labels
+ - Modal dialog for "beat you to it"
 * Nonce changes when players join/leave causing a play-nonce error

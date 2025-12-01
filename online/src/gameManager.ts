@@ -322,6 +322,7 @@ export class GameManager {
       turnOrder: game.turnOrder,
       currentTurnIndex: game.currentTurnIndex,
       turnPhase: game.turnPhase,
+      lastActorName: game.lastActorName,
       timerDuration: game.timerDuration,
       topDiscardCard: topDiscardCard, // Always send top card for rendering
     };
@@ -1246,6 +1247,9 @@ export class GameManager {
         return { allowed: false, reason: "You can only play 'NOW' or NAK cards during a reaction." };
 
       case TurnPhase.Rereaction:
+        if (game.lastActorName && player.name === game.lastActorName) {
+          return { allowed: false, reason: "You must wait for reactions." };
+        }
         if (isNowCard || card.class === CardClass.Nak) return { allowed: true };
         return { allowed: false, reason: "You can only play 'NOW' or NAK cards during a re-reaction." };
 

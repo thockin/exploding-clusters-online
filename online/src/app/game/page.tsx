@@ -228,13 +228,14 @@ export default function GameScreen() {
         if (!isMyTurn && (isNowCard || card.class === CardClass.Nak)) return true;
         return false;
       case TurnPhase.Rereaction:
-        // Rereaction Phase: Anyone can play NOW cards.
+        // Rereaction Phase: Anyone except the last actor can play NOW cards.
+        if (gameState.lastActorName && playerName === gameState.lastActorName) return false;
         if (isNowCard || card.class === CardClass.Nak) return true;
         return false;
       default:
         return false; // Executing, Exploding, etc.
     }
-  }, [gameState, playerId, myHand]);
+  }, [gameState, playerId, myHand, playerName]);
 
   const getCardSize = useCallback((enlarged: boolean = false) => {
     const aspectRatio = 5 / 7;
@@ -789,6 +790,7 @@ export default function GameScreen() {
       <Droppable droppableId="discard-pile">
         {(provided, snapshot) => (
           <div
+            data-areaName="discard-pile"
             ref={provided.innerRef}
             {...provided.droppableProps}
             style={{
@@ -840,6 +842,7 @@ export default function GameScreen() {
 
     return (
       <div 
+        data-areaName="hand"
         style={{ 
           maxWidth: `${maxWidth}px`,
           margin: '0 auto', // Center the container itself
@@ -861,7 +864,7 @@ export default function GameScreen() {
                 }}
               >
                 {rowCards.map((card, index) => (
-                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!isCardPlayable(card)}>
+                  <Draggable key={card.id} draggableId={card.id} index={index}>
                     {(providedDraggable, snapshot) => {
                       const isSelected = selectedCards.some(sc => sc.id === card.id);
                       const shouldHide = isDragging && isSelected && !snapshot.isDragging;
@@ -872,6 +875,8 @@ export default function GameScreen() {
                           ref={providedDraggable.innerRef}
                           {...providedDraggable.draggableProps}
                           {...providedDraggable.dragHandleProps}
+                          data-cardClass={card.class}
+                          data-playable={playable}
                           onMouseDown={(e) => {
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             (providedDraggable.dragHandleProps as any)?.onMouseDown?.(e);
@@ -930,7 +935,7 @@ export default function GameScreen() {
                           )}
                           <Image 
                             src={card.imageUrl} 
-                            alt={`${card.class}: ${card.name}`}
+                            alt={`${card.class}: ${card.name} (${playable ? 'playable' : 'not playable'})`}
                             width={cardWidth} 
                             height={cardWidth * 1.4}
                             draggable={false}
@@ -1064,10 +1069,14 @@ export default function GameScreen() {
               </div>
             )}
             {/* Timer Area */}
-            <div className="timer-area mt-3 text-center">
+            <div className="timer-area mt-3 text-center"
+              data-areaName="timer"
+              data-turnPhase={gameState.turnPhase}
+            >
               {(gameState.turnPhase === TurnPhase.Reaction || gameState.turnPhase === TurnPhase.Rereaction) && countdown > 0 && (
                 <>
-                  {(gameState.turnPhase === TurnPhase.Reaction && me?.id === currentPlayerId) ? (
+                  {((gameState.turnPhase === TurnPhase.Reaction && me?.id === currentPlayerId) || 
+                    (gameState.turnPhase === TurnPhase.Rereaction && gameState.lastActorName && me?.name === gameState.lastActorName)) ? (
                     <h4 className="text-success">Waiting for other players to react</h4>
                   ) : (
                     <h4 className="text-warning">Want to react? Act fast!</h4>
@@ -1148,7 +1157,7 @@ export default function GameScreen() {
               
               <div 
                 ref={messageAreaRef}
-                data-testid="game-log"
+                data-areaName="message"
                 style={{
                   textAlign: 'left', padding: '0.25rem',
                   overflowY: 'auto', flexGrow: 1,
@@ -1243,7 +1252,7 @@ export default function GameScreen() {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setReplayModal(null)}>Cancel</Button>
-            <Button variant="primary" onClick={handleReplayConfirm} autoFocus>OK</Button>
+            <Button variant="primary" onClick={handleReplayConfirm} autoFocus>Play it!</Button>
           </Modal.Footer>
         </Modal>
       </Container>
