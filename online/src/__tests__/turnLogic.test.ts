@@ -161,6 +161,13 @@ describe('Turn Logic (Phase 3.1.3)', () => {
     });
   });
 
+  afterEach(() => {
+    // Clean up any active timers to prevent Jest from hanging
+    if (gameManager) {
+      gameManager.cleanup();
+    }
+  });
+
   // Helper to get last TimerUpdate
   const getLastTimerUpdate = (): TimerUpdateData | undefined => {
     const emits = mockServer.games[gameCode].emitted[SocketEvent.TimerUpdate];

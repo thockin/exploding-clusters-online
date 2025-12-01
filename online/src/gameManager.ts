@@ -66,16 +66,6 @@ export class GameManager {
 
     // Setup Socket.IO event listeners
     this.io.on('connection', (socket: Socket) => {
-      // console.log(`socket connected: ${socket.id}`); // Use this.log inside handlers or just here if we can access this.log?
-      // We can access this.log since we are in constructor closure/class.
-      // But this.log is private. arrow function inside constructor captures 'this'.
-      // Wait, verboseLogging check is inside log().
-      // For raw socket connection, we don't have a game, so game=null.
-      // And verboseLogging defaults to what? false?
-      // game.devMode is used. if game is null, it checks... nothing?
-      // The log function: if (!game || game.devMode)
-      // So if game is null, it ALWAYS logs.
-      // This is fine for server events.
       this.log(null, `socket connected: ${socket.id}`);
 
       if (this.verbose) {
@@ -193,17 +183,27 @@ export class GameManager {
             const turnIndex = game.turnOrder.indexOf(player.id);
             if (turnIndex !== -1) {
               game.turnOrder.splice(turnIndex, 1);
-              // If we removed a player before the current turn, or the current player, adjust index
-              if (turnIndex < game.currentTurnIndex) {
+              // Adjust currentTurnIndex to prevent out-of-bounds access
+              if (game.turnOrder.length === 0) {
+                // No players left, game should end (handled elsewhere)
+                game.currentTurnIndex = 0;
+              } else if (turnIndex < game.currentTurnIndex) {
+                // Removed player was before current turn, decrement index
                 game.currentTurnIndex--;
               } else if (turnIndex === game.currentTurnIndex) {
-                // Current player left. 
-                // If index is now out of bounds (last player left), wrap or handle?
-                // Ideally we should advance turn, but simply clamping or letting it point to next is basic fix.
+                // Current player left - next player shifts into this index
+                // If we were at the last position, wrap to 0
                 if (game.currentTurnIndex >= game.turnOrder.length) {
                   game.currentTurnIndex = 0;
                 }
-                // TODO: Trigger turn advancement logic properly?
+                // Note: Turn advancement logic will be handled by game flow
+              }
+              // Ensure index is always valid
+              if (game.currentTurnIndex < 0) {
+                game.currentTurnIndex = 0;
+              }
+              if (game.currentTurnIndex >= game.turnOrder.length && game.turnOrder.length > 0) {
+                game.currentTurnIndex = game.turnOrder.length - 1;
               }
             }
           }
@@ -384,9 +384,10 @@ export class GameManager {
   }
 
   private startReactionTimer(game: Game, triggeringPlayerId: string) {
-    // Clear existing timer if any
+    // Clear existing timer if any to prevent multiple executions
     if (game.timer) {
       clearTimeout(game.timer);
+      game.timer = null;
     }
 
     game.timerDuration = this.reactionTimerDuration;
@@ -412,6 +413,20 @@ export class GameManager {
   }
 
   private async executePlayedCards(game: Game) {
+    // Prevent multiple concurrent executions
+    if (game.turnPhase === TurnPhase.Executing) {
+      this.log(game, `BUG: executePlayedCards: already executing, ignoring duplicate call`);
+      return;
+    }
+
+    // Check if game has ended before executing
+    if (game.state === GameState.Ended) {
+      this.log(game, `BUG: executePlayedCards: game has ended, aborting`);
+      game.timer = null;
+      game.timerDuration = 0;
+      return;
+    }
+
     if (this.verbose || game.devMode) {
       this.log(game, `reaction timer expired, stack has ${game.pendingOperations.length} operations`);
     }
@@ -424,23 +439,40 @@ export class GameManager {
     game.turnPhase = TurnPhase.Executing;
     this.updateGameNonce(game); // Notify clients of phase change
 
-    // Pop and execute all operations
+    // Pop and execute all operations with timeout protection
+    const OPERATION_TIMEOUT_MS = 5000; // 5 second timeout per operation
     while (game.pendingOperations.length > 0) {
+      // Check game state again before each operation (refresh from map to avoid type narrowing issues)
+      const currentGame = this.games.get(game.code);
+      if (!currentGame || currentGame.state === GameState.Ended) {
+        this.log(game, `executePlayedCards: game ended during execution, aborting remaining operations`);
+        break;
+      }
+
       const op = game.pendingOperations.pop();
       if (op) {
         try {
           this.log(game, `executing operation for ${op.cardClass}`);
-          await op.action(game);
+          // Wrap operation in timeout promise
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Operation timeout')), OPERATION_TIMEOUT_MS);
+          });
+          await Promise.race([op.action(game), timeoutPromise]);
         } catch (e) {
           this.log(game, `error executing pending operation: ${e}`);
+          // Continue with next operation even if one fails
         }
       }
     }
 
-    // Reset Phase to Action
-    game.turnPhase = TurnPhase.Action;
-    this.emitToGame(game.code, SocketEvent.TimerUpdate, { duration: 0, phase: game.turnPhase });
-    this.updateGameNonce(game); // Notify state change
+    // Only reset phase if game hasn't ended (refresh from map to avoid type narrowing issues)
+    const finalGame = this.games.get(game.code);
+    if (finalGame && finalGame.state !== GameState.Ended) {
+      // Reset Phase to Action
+      finalGame.turnPhase = TurnPhase.Action;
+      this.emitToGame(finalGame.code, SocketEvent.TimerUpdate, { duration: 0, phase: finalGame.turnPhase });
+      this.updateGameNonce(finalGame); // Notify state change
+    }
   }
 
   private createGame(socket: Socket, playerName: string, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string }) => void) {
@@ -1134,25 +1166,40 @@ export class GameManager {
         return;
       }
 
-      // Check 2: All cards from old hand exist in new hand (prevents card removal)
-      if (!player.hand.every(card => newHand.some(newCard => newCard.id === card.id))) {
+      // Optimized validation using Sets for O(n) complexity instead of O(n²)
+      // Create Set of card IDs from player's current hand
+      const currentHandIds = new Set(player.hand.map(card => card.id));
+      const newHandIds = new Set<string>();
+
+      // Check 2 & 3: Validate all cards exist in both directions and collect IDs
+      for (const newCard of newHand) {
+        // Validate card structure
+        if (!newCard || newCard.id.length === 0) {
+          this.log(game, `invalid hand reorder attempt by player "${player.name}": invalid card structure`);
+          this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+          return;
+        }
+
+        // Check if card exists in current hand (prevents card injection)
+        if (!currentHandIds.has(newCard.id)) {
+          this.log(game, `invalid hand reorder attempt by player "${player.name}": extra cards`);
+          this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+          return;
+        }
+
+        // Check for duplicates in new hand
+        if (newHandIds.has(newCard.id)) {
+          this.log(game, `player "${player.name}" tried to reorder hand with duplicate card IDs`);
+          this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+          return;
+        }
+
+        newHandIds.add(newCard.id);
+      }
+
+      // Check 4: Ensure all cards from old hand exist in new hand (prevents card removal)
+      if (currentHandIds.size !== newHandIds.size) {
         this.log(game, `invalid hand reorder attempt by player "${player.name}": missing cards`);
-        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
-        return;
-      }
-
-      // Check 3: All cards in new hand exist in old hand (prevents card injection)
-      if (!newHand.every(newCard => player.hand.some(card => card.id === newCard.id))) {
-        this.log(game, `invalid hand reorder attempt by player "${player.name}": extra cards`);
-        this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
-        return;
-      }
-
-      // Check 4: Ensure all card IDs are unique (prevent duplication attacks)
-      const cardIds = newHand.map(c => c.id);
-      const uniqueIds = new Set(cardIds);
-      if (cardIds.length !== uniqueIds.size) {
-        this.log(game, `player "${player.name}" tried to reorder hand with duplicate card IDs`);
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
         return;
       }
@@ -1223,6 +1270,14 @@ export class GameManager {
       this.log(game, `player "${player.name}" tried to play a card while another play is in progress`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current play to complete." });
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
+      return;
+    }
+
+    // Validate cardId is a string
+    if (cardId.length === 0) {
+      this.log(game, `player "${player.name}" tried to play card with no cardId`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid card selection." });
+      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
       return;
     }
 
@@ -1496,10 +1551,26 @@ export class GameManager {
         const turnIndex = game.turnOrder.indexOf(player.id);
         if (turnIndex !== -1) {
           game.turnOrder.splice(turnIndex, 1);
-          // If we removed the current player, the next player shifts into this index.
-          // Unless it was the last player, then wrap to 0.
-          if (game.currentTurnIndex >= game.turnOrder.length) {
+          // Adjust currentTurnIndex to prevent out-of-bounds access
+          if (game.turnOrder.length === 0) {
+            // No players left, game should end (handled elsewhere)
             game.currentTurnIndex = 0;
+          } else if (turnIndex < game.currentTurnIndex) {
+            // Removed player was before current turn, decrement index
+            game.currentTurnIndex--;
+          } else if (turnIndex === game.currentTurnIndex) {
+            // Current player disconnected - next player shifts into this index
+            // If we were at the last position, wrap to 0
+            if (game.currentTurnIndex >= game.turnOrder.length) {
+              game.currentTurnIndex = 0;
+            }
+          }
+          // Ensure index is always valid
+          if (game.currentTurnIndex < 0) {
+            game.currentTurnIndex = 0;
+          }
+          if (game.currentTurnIndex >= game.turnOrder.length && game.turnOrder.length > 0) {
+            game.currentTurnIndex = game.turnOrder.length - 1;
           }
         }
 
@@ -1610,6 +1681,16 @@ export class GameManager {
       const timestamp = new Date().toISOString();
       const prefix = game ? `[${timestamp}] [game ${game.code}] ` : `[${timestamp}] [server] `;
       console.log(prefix + message);
+    }
+  }
+
+  // Cleanup method for tests - clears all timers
+  public cleanup(): void {
+    for (const game of this.games.values()) {
+      if (game.timer) {
+        clearTimeout(game.timer);
+        game.timer = null;
+      }
     }
   }
 

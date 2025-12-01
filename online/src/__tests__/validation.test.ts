@@ -282,6 +282,13 @@ describe('GameManager Validation', () => {
     gameManager = new GameManager(mockServer as any);
   });
 
+  afterEach(() => {
+    // Clean up any active timers to prevent Jest from hanging
+    if (gameManager) {
+      gameManager.cleanup();
+    }
+  });
+
   describe('createGame validation', () => {
     test('rejects invalid player names', (done) => {
       const socket = new MockSocket('socket-1');

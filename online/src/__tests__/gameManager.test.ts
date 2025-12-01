@@ -130,6 +130,13 @@ describe('GameManager', () => {
     gameManager = new GameManager(mockServer as any);
   });
 
+  afterEach(() => {
+    // Clean up any active timers to prevent Jest from hanging
+    if (gameManager) {
+      gameManager.cleanup();
+    }
+  });
+
   test('createGame creates a new game', (done) => {
     const socket = new MockSocket('socket-1');
     mockServer.connectSocket(socket);
