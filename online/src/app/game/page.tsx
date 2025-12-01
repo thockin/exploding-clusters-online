@@ -989,7 +989,7 @@ export default function GameScreen() {
             <div className="timer-area mt-3 text-center">
               {(gameState.turnPhase === TurnPhase.Reaction || gameState.turnPhase === TurnPhase.Rereaction) && countdown > 0 && (
                 <>
-                  {me?.id === currentPlayerId ? (
+                  {(gameState.turnPhase === TurnPhase.Reaction && me?.id === currentPlayerId) ? (
                     <h4 className="text-success">Waiting for other players to react</h4>
                   ) : (
                     <h4 className="text-warning">Want to react? Act fast!</h4>

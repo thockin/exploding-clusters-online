@@ -66,7 +66,7 @@ export class GameManager {
 
     // Setup Socket.IO event listeners
     this.io.on('connection', (socket: Socket) => {
-      // console.log(`Socket connected: ${socket.id}`); // Use this.log inside handlers or just here if we can access this.log?
+      // console.log(`socket connected: ${socket.id}`); // Use this.log inside handlers or just here if we can access this.log?
       // We can access this.log since we are in constructor closure/class.
       // But this.log is private. arrow function inside constructor captures 'this'.
       // Wait, verboseLogging check is inside log().
@@ -147,7 +147,7 @@ export class GameManager {
         // Validate gameCode matches the socket's actual game (prevents leaving games you're not in)
         const actualGameCode = this.playerToGameMap.get(socket.id);
         if (!actualGameCode || actualGameCode !== gameCode) {
-          this.log(null, `LeaveGame: socket ${socket.id} attempted to leave game ${gameCode} but is in game ${actualGameCode || 'none'}`);
+          this.log(null, `socket ${socket.id} attempted to leave game ${gameCode} but is in game ${actualGameCode || 'none'}`);
           return; // Silently ignore invalid leave attempts
         }
 
@@ -173,7 +173,7 @@ export class GameManager {
           const player = game.players[playerIndex];
           if (player.isDisconnected) {
             // Already being handled by disconnect handler, skip to avoid double-processing
-            this.log(game, `LeaveGame: player "${player.name}" already disconnected, skipping leave processing`);
+            this.log(game, `player "${player.name}" already disconnected, skipping leave processing`);
             this.playerToGameMap.delete(socket.id);
             return;
           }
@@ -222,7 +222,7 @@ export class GameManager {
               // Prefer connected players, otherwise take any
               const newGameOwner = connectedPlayers.length > 0 ? connectedPlayers[0] : game.players[0];
               game.gameOwnerId = newGameOwner.id;
-              this.log(game, `game owner "${player.name}" left. new game owner is "${newGameOwner.name}"`);
+              this.log(game, `game owner "${player.name}" left, new game owner is "${newGameOwner.name}"`);
             }
           }
         }
@@ -238,20 +238,14 @@ export class GameManager {
         // Atomic game end check: Only end game if it's actually empty and hasn't already ended
         if (game.state !== GameState.Ended) {
           if (game.players.length === 0 && game.spectators.length === 0) {
-            this.log(game, `game is empty after voluntary leave, purging`);
+            this.log(game, `game is empty, purging`);
             this.endGame(gameCode);
             return; // endGame handles cleanup, don't continue
           } else if (game.state === GameState.Started && game.players.length < 2) {
-            if (game.players.length === 1) {
-              const winner = game.players[0];
-              this.log(game, `game ended due to insufficient players after voluntary leave. winner: ${winner.name}`);
-              this.endGame(gameCode, { winner: winner.name, reason: 'attrition' });
-              return; // endGame handles cleanup, don't continue
-            } else {
-              this.log(game, `game ended due to insufficient players after voluntary leave`);
-              this.endGame(gameCode);
-              return; // endGame handles cleanup, don't continue
-            }
+            const winner = game.players[0];
+            this.log(game, `game ended due to insufficient players, winner: ${winner.name}`);
+            this.endGame(gameCode, { winner: winner.name, reason: 'attrition' });
+            return; // endGame handles cleanup, don't continue
           }
         }
 
@@ -357,19 +351,19 @@ export class GameManager {
       if (p.isDisconnected) {
         game.removedPile.push(...p.hand);
         p.hand = []; // Clear hand
-        this.log(game, `purged disconnected player "${p.name}" (${p.id}). moved hand to removedPile`);
+        this.log(game, `purged disconnected player "${p.name}" and removed their hand`);
         return false; // Exclude disconnected player
       }
       return true; // Keep connected player
     });
     if (game.players.length < initialPlayers.length) {
-      this.log(game, `purged ${initialPlayers.length - game.players.length} disconnected players due to nonce change`);
+      this.log(game, `purged ${initialPlayers.length - game.players.length} disconnected players`);
     }
 
     // Check for attrition win after purge
     if (game.state === GameState.Started && game.players.length === 1) {
       const winner = game.players[0];
-      this.log(game, `game won by attrition by ${winner.name}`);
+      this.log(game, `game won by attrition: winner ${winner.name}`);
       this.endGame(game.code, { winner: winner.name, reason: 'attrition' });
       return; // Stop further updates
     }
@@ -389,7 +383,7 @@ export class GameManager {
     }
   }
 
-  private startReactionTimer(game: Game) {
+  private startReactionTimer(game: Game, triggeringPlayerId: string) {
     // Clear existing timer if any
     if (game.timer) {
       clearTimeout(game.timer);
@@ -397,28 +391,31 @@ export class GameManager {
 
     game.timerDuration = this.reactionTimerDuration;
 
-    // Transition Phase
-    if (game.turnPhase === TurnPhase.Action) {
+    // Transition Phase logic
+    // If the triggering player is the current turn player, it's a "Reaction" phase (others react to them).
+    // If someone else played (interrupting), it's a "Rereaction" phase.
+    const currentTurnPlayerId = game.turnOrder[game.currentTurnIndex];
+    if (triggeringPlayerId === currentTurnPlayerId) {
       game.turnPhase = TurnPhase.Reaction;
-    } else if (game.turnPhase === TurnPhase.Reaction || game.turnPhase === TurnPhase.Rereaction) {
+    } else {
       game.turnPhase = TurnPhase.Rereaction;
     }
 
     this.emitToGame(game.code, SocketEvent.TimerUpdate, { duration: this.reactionTimerDuration, phase: game.turnPhase });
-    if (this.verbose) {
-      this.log(game, `Starting reaction timer (${this.reactionTimerDuration}s) in phase ${game.turnPhase}`);
+    if (this.verbose || game.devMode) {
+      this.log(game, `starting ${game.turnPhase} phase (${this.reactionTimerDuration}s)`);
     }
 
     game.timer = setTimeout(() => {
-      this.resolveStack(game);
+      this.executePlayedCards(game);
     }, this.reactionTimerDuration * 1000);
   }
 
-  private resolveStack(game: Game) {
-    if (this.verbose) {
-      this.log(game, `Timer expired. Resolving stack of ${game.pendingOperations.length} operations.`);
+  private executePlayedCards(game: Game) {
+    if (this.verbose || game.devMode) {
+      this.log(game, `reaction timer expired, stack has ${game.pendingOperations.length} operations`);
     }
-    
+
     // Clear timer reference
     game.timer = null;
     game.timerDuration = 0;
@@ -428,10 +425,10 @@ export class GameManager {
       const op = game.pendingOperations.pop();
       if (op) {
         try {
-          this.log(game, `Resolving operation for ${op.cardClass}`);
+          this.log(game, `executing operation for ${op.cardClass}`);
           op.action(game);
         } catch (e) {
-          this.log(game, `Error executing pending operation: ${e}`);
+          this.log(game, `error executing pending operation: ${e}`);
         }
       }
     }
@@ -501,7 +498,7 @@ export class GameManager {
     const game = this.games.get(gameCode);
 
     if (!game) {
-      this.log(null, `Attempted to join non-existent game: ${gameCode}`);
+      this.log(null, `attempted to join non-existent game: ${gameCode}`);
       return callback({ success: false, error: `Game ${gameCode} does not exist` });
     }
 
@@ -618,7 +615,7 @@ export class GameManager {
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
     if (isSpectator || !player) {
-      this.log(game, `Spectator or non-player ${socket.id} attempted to start game ${gameCode}`);
+      this.log(game, `spectator or non-player ${socket.id} attempted to start game ${gameCode}`);
       return callback({ success: false, error: 'Only players can start the game.' });
     }
 
@@ -802,7 +799,7 @@ export class GameManager {
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
     if (isSpectator || !player) {
-      this.log(game, `Spectator or non-player ${socket.id} attempted to use DEVMODE giveDebugCard in game ${gameCode}`);
+      this.log(game, `spectator or non-player ${socket.id} attempted to use DEVMODE giveDebugCard in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
 
@@ -810,11 +807,11 @@ export class GameManager {
     if (debugCardIndex > -1) {
       const [debugCard] = game.drawPile.splice(debugCardIndex, 1);
       player.hand.push(debugCard);
-      this.log(game, `DEVMODE: gave a DEBUG card to player "${player.name}" (${player.socketId})`);
+      this.log(game, `DEVMODE: gave a DEBUG card to player "${player.name}"`);
       this.updateGameNonce(game); // This triggers gameUpdate and handUpdate
     } else {
       // Optionally create one if none exist?
-      this.log(game, `DEVMODE: no DEBUG cards left in deck for player "${player.name}" (${player.socketId})`);
+      this.log(game, `DEVMODE: no DEBUG cards left in deck for player "${player.name}"`);
       this.emitGameUpdate(game); // Ensure client knows count is 0
     }
   }
@@ -827,7 +824,7 @@ export class GameManager {
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
     if (isSpectator || !player) {
-      this.log(game, `Spectator or non-player ${socket.id} attempted to use DEVMODE giveSafeCard in game ${gameCode}`);
+      this.log(game, `spectator or non-player ${socket.id} attempted to use DEVMODE giveSafeCard in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
 
@@ -835,10 +832,10 @@ export class GameManager {
     if (cardIndex > -1) {
       const [card] = game.drawPile.splice(cardIndex, 1);
       player.hand.push(card);
-      this.log(game, `DEVMODE: gave a "${card.class}" card to player "${player.name}" (${player.socketId})`);
+      this.log(game, `DEVMODE: gave a "${card.class}" card to player "${player.name}"`);
       this.updateGameNonce(game);
     } else {
-      this.log(game, `DEVMODE: no safe cards left in deck for player "${player.name}" (${player.socketId})`);
+      this.log(game, `DEVMODE: no safe cards left in deck for player "${player.name}"`);
       this.emitGameUpdate(game);
     }
   }
@@ -851,7 +848,7 @@ export class GameManager {
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
     if (isSpectator || !player) {
-      this.log(game, `Spectator or non-player ${socket.id} attempted to use DEVMODE putCardBack in game ${gameCode}`);
+      this.log(game, `spectator or non-player ${socket.id} attempted to use DEVMODE putCardBack in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
 
@@ -874,7 +871,7 @@ export class GameManager {
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
     if (isSpectator || !player) {
-      this.log(game, `Spectator or non-player ${socket.id} attempted to use DEVMODE showDeck in game ${gameCode}`);
+      this.log(game, `spectator or non-player ${socket.id} attempted to use DEVMODE showDeck in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
 
@@ -891,7 +888,7 @@ export class GameManager {
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
     if (isSpectator || !player) {
-      this.log(game, `Spectator or non-player ${socket.id} attempted to use DEVMODE showRemovedPile in game ${gameCode}`);
+      this.log(game, `spectator or non-player ${socket.id} attempted to use DEVMODE showRemovedPile in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
 
@@ -913,7 +910,7 @@ export class GameManager {
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
     if (isSpectator || !player) {
-      this.log(game, `Spectator or non-player ${socket.id} attempted to draw card in game ${gameCode}`);
+      this.log(game, `spectator or non-player ${socket.id} attempted to draw card in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
 
@@ -1092,7 +1089,7 @@ export class GameManager {
   private reorderHand(socket: Socket, gameCode: string, newHand: Card[]) {
     const game = this.games.get(gameCode);
     if (!game) {
-      this.log(null, `Attempted to reorder hand for non-existent game: ${gameCode}`);
+      this.log(null, `attempted to reorder hand for non-existent game: ${gameCode}`);
       return;
     }
 
@@ -1106,7 +1103,7 @@ export class GameManager {
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
     if (isSpectator || !player) {
-      this.log(game, `Spectator or non-player ${socket.id} attempted to reorder hand in game ${gameCode}`);
+      this.log(game, `spectator or non-player ${socket.id} attempted to reorder hand in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
 
@@ -1127,21 +1124,21 @@ export class GameManager {
       // Basic validation: ensure the newHand contains the same cards, just reordered.
       // Check 1: Same length
       if (player.hand.length !== newHand.length) {
-        this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}): length mismatch`);
+        this.log(game, `invalid hand reorder attempt by player "${player.name}": length mismatch`);
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
         return;
       }
 
       // Check 2: All cards from old hand exist in new hand (prevents card removal)
       if (!player.hand.every(card => newHand.some(newCard => newCard.id === card.id))) {
-        this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}): missing cards`);
+        this.log(game, `invalid hand reorder attempt by player "${player.name}": missing cards`);
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
         return;
       }
 
       // Check 3: All cards in new hand exist in old hand (prevents card injection)
       if (!newHand.every(newCard => player.hand.some(card => card.id === newCard.id))) {
-        this.log(game, `Invalid hand reorder attempt by player "${player.name}" (${player.socketId}): extra cards`);
+        this.log(game, `invalid hand reorder attempt by player "${player.name}": extra cards`);
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
         return;
       }
@@ -1157,12 +1154,36 @@ export class GameManager {
 
       player.hand = newHand;
       if (this.verbose) {
-        this.log(game, `Player "${player.name}" (${player.socketId}) reordered their hand.`);
+        this.log(game, `player "${player.name}" reordered their hand.`);
       }
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Update only the reordering player
     } finally {
       // Always clear the playing flag, even if validation fails
       player.isPlaying = false;
+    }
+  }
+
+  private canPlayCard(game: Game, player: Player, card: Card): { allowed: boolean; reason?: string } {
+    const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
+    const isNowCard = !!card.now;
+
+    switch (game.turnPhase) {
+      case TurnPhase.Action:
+        if (isMyTurn) return { allowed: true };
+        if (isNowCard) return { allowed: true };
+        return { allowed: false, reason: "It's not your turn!" };
+      
+      case TurnPhase.Reaction:
+        if (isMyTurn) return { allowed: false, reason: "You must wait for reactions." };
+        if (isNowCard) return { allowed: true };
+        return { allowed: false, reason: "You can only play 'NOW' cards during a reaction." };
+      
+      case TurnPhase.Rereaction:
+        if (isNowCard) return { allowed: true };
+        return { allowed: false, reason: "You can only play 'NOW' cards during a re-reaction." };
+        
+      default:
+        return { allowed: false, reason: "Cannot play cards in this phase." };
     }
   }
 
@@ -1185,7 +1206,7 @@ export class GameManager {
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
     if (isSpectator || !player) {
-      this.log(game, `Spectator or non-player ${socket.id} attempted to play card in game ${gameCode}`);
+      this.log(game, `spectator or non-player ${socket.id} attempted to play card in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
 
@@ -1197,11 +1218,7 @@ export class GameManager {
       return;
     }
 
-    // Basic validation: check if it's player's turn (ignoring "now" cards for basic implementation)
-    const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
-
-    // 3.1.2: Check if card is a "now" card (playable out of turn during Reaction/Rereaction/Action)
-    // Note: We need to look up the card properties *before* we validate the turn.
+    // Check permissions using Phase 3.1.3 logic
     const cardInHand = player.hand.find(c => c.id === cardId);
     if (!cardInHand) {
         this.log(game, `player "${player.name}" tried to play card they don't have (id: ${cardId})`);
@@ -1210,23 +1227,11 @@ export class GameManager {
         return;
     }
 
-    const isNowCard = !!cardInHand.now;
-    // Rule: "Now" cards playable by ANYONE during Action/Reaction/Rereaction
-    // Rule: Regular cards playable ONLY by current player during Action
-
-    let allowed = false;
-    if (isMyTurn && game.turnPhase === TurnPhase.Action) {
-      allowed = true;
-    } else if (isNowCard) {
-      // Allowed in Action, Reaction, Rereaction
-      if (game.turnPhase === TurnPhase.Action || game.turnPhase === TurnPhase.Reaction || game.turnPhase === TurnPhase.Rereaction) {
-        allowed = true;
-      }
-    }
+    const { allowed, reason } = this.canPlayCard(game, player, cardInHand);
 
     if (!allowed) {
-      this.log(game, `player "${player.name}" tried to play a card (${cardInHand.class}) out of turn or phase (phase=${game.turnPhase}, isMyTurn=${isMyTurn}, isNow=${isNowCard})`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You can't play that card right now!" });
+      this.log(game, `player "${player.name}" tried to play a card (${cardInHand.class}) rejected: ${reason} (phase=${game.turnPhase})`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: reason || "You can't play that card right now!" });
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
       return;
     }
@@ -1250,7 +1255,7 @@ export class GameManager {
         action: (_g: Game) => { 
           // Do nothing for now
           if (this.verbose) {
-             this.log(_g, `Executing do-nothing operation for card ${card.class}`);
+             this.log(_g, `executing do-nothing operation for card ${card.class}`);
           }
         }
       });
@@ -1260,7 +1265,7 @@ export class GameManager {
 
       // Phase 3.1.2: Trigger Timer if NOT Debug card
       if (card.class !== CardClass.Debug) {
-        this.startReactionTimer(game);
+        this.startReactionTimer(game, player.id);
       } else {
         // Debug executes immediately? Or just no timer?
         // Doc: "DEBUG cards cannot be NAKed... no reaction allowed."
@@ -1271,7 +1276,7 @@ export class GameManager {
         // Logic says "If the player plays a card... except for a DEBUG card, a timer is set".
         // It implies DEBUG resolves immediately.
         // Let's call resolveStack immediately for DEBUG.
-        this.resolveStack(game);
+        this.executePlayedCards(game);
       }
 
       this.updateGameNonce(game);
@@ -1300,7 +1305,7 @@ export class GameManager {
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
     if (isSpectator || !player) {
-      this.log(game, `Spectator or non-player ${socket.id} attempted to play combo in game ${gameCode}`);
+      this.log(game, `spectator or non-player ${socket.id} attempted to play combo in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
 
@@ -1403,7 +1408,7 @@ export class GameManager {
         action: (_g: Game) => { 
           // Do nothing for now
           if (this.verbose) {
-             this.log(_g, `Executing do-nothing operation for combo`);
+             this.log(_g, `executing do-nothing operation for combo`);
           }
         }
       });
@@ -1412,7 +1417,7 @@ export class GameManager {
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.class}.` });
 
       // Phase 3.1.2: Start Timer
-      this.startReactionTimer(game);
+      this.startReactionTimer(game, player.id);
 
       this.updateGameNonce(game);
     } finally {
@@ -1425,7 +1430,7 @@ export class GameManager {
     const gameCode = this.playerToGameMap.get(socket.id);
 
     if (!gameCode) {
-      this.log(null, `Socket ${socket.id} disconnected, not in any game`);
+      this.log(null, `socket ${socket.id} disconnected, not in any game`);
       return;
     }
 

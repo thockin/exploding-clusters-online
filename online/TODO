@@ -1,3 +1,9 @@
+phase 3.1.3
+ - prevent any further action while executing
+ - multiple players playing fast
+ - same player playing twice fast (e.g. nak + shuffle now)
+ - send messages "NAK cancels SHUFFLE" and "Executing SHUFFLE" as we pop ops
+
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
 
 Later:
