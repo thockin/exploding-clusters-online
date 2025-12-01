@@ -42,8 +42,10 @@ export default function GameScreen() {
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
   const clickStartPosRef = useRef({ x: 0, y: 0 });
+  const dragStartNonceRef = useRef<string>('');
   const isShiftKeyPressed = useRef(false);
   const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: Card, playerId?: string } | null>(null);
+  const [replayModal, setReplayModal] = useState<{ show: boolean, reason: string, cardId?: string, cardIds?: string[] } | null>(null);
 
   // Ensure isClient is true after first render
   useEffect(() => {
@@ -100,6 +102,9 @@ export default function GameScreen() {
     const onDeckData = ({ deck }: { deck: Card[] }) => setDeckOverlay(deck);
     const onRemovedData = ({ removedPile }: { removedPile: Card[] }) => setRemovedOverlay(removedPile);
     const onPlayerExploding = ({ card }: { card: Card }) => setExplodingCard(card);
+    const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
+      setReplayModal({ show: true, ...data });
+    };
     const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
       if (phase === TurnPhase.Reaction || phase === TurnPhase.Rereaction) {
         setCountdown(duration);
@@ -128,12 +133,14 @@ export default function GameScreen() {
     socket.on(SocketEvent.DeckData, onDeckData);
     socket.on(SocketEvent.RemovedData, onRemovedData);
     socket.on(SocketEvent.PlayerExploding, onPlayerExploding);
+    socket.on(SocketEvent.PlayError, onPlayError);
     socket.on(SocketEvent.TimerUpdate, onTimerUpdate);
 
     return () => {
       socket.off(SocketEvent.DeckData, onDeckData);
       socket.off(SocketEvent.RemovedData, onRemovedData);
       socket.off(SocketEvent.PlayerExploding, onPlayerExploding);
+      socket.off(SocketEvent.PlayError, onPlayError);
       socket.off(SocketEvent.TimerUpdate, onTimerUpdate);
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
@@ -223,6 +230,17 @@ export default function GameScreen() {
     resetState();
     router.push('/');
   }, [socket, gameCode, resetState, router]);
+
+  const handleReplayConfirm = useCallback(() => {
+    if (!socket || !gameCode || !replayModal || !gameState) return;
+
+    if (replayModal.cardId) {
+      socket.emit(SocketEvent.PlayCard, { gameCode, cardId: replayModal.cardId, nonce: gameState.nonce });
+    } else if (replayModal.cardIds) {
+      socket.emit(SocketEvent.PlayCombo, { gameCode, cardIds: replayModal.cardIds, nonce: gameState.nonce });
+    }
+    setReplayModal(null);
+  }, [socket, gameCode, replayModal, gameState]);
 
   const handleCardClick = useCallback((card: Card, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -617,10 +635,10 @@ export default function GameScreen() {
         if (gameCode) {
           if (cardsToPlay.length === 1) {
             console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
-            socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id });
+            socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id, nonce: dragStartNonceRef.current });
           } else if (cardsToPlay.length === 2) {
             console.debug('Emitting playCombo for DEVELOPER cards');
-            socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id) });
+            socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id), nonce: dragStartNonceRef.current });
           }
         } else {
           console.error("Game code not found, cannot play card.");
@@ -641,6 +659,7 @@ export default function GameScreen() {
   const onDragStart = (start: DragStart) => {
     isDraggingRef.current = true;
     setIsDragging(true);
+    if (gameState) dragStartNonceRef.current = gameState.nonce;
     console.debug('onDragStart', start);
       
     if (start.source.droppableId.startsWith('hand-row-')) {
@@ -1191,6 +1210,19 @@ export default function GameScreen() {
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setShowLeaveModal(false)}>Cancel</Button>
             <Button variant="danger" onClick={handleLeaveGame} autoFocus>Leave Game</Button>
+          </Modal.Footer>
+        </Modal>
+
+        <Modal show={!!replayModal?.show} onHide={() => setReplayModal(null)}>
+          <Modal.Header closeButton>
+            <Modal.Title>Game Updated</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>{replayModal?.reason}</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setReplayModal(null)}>Cancel</Button>
+            <Button variant="primary" onClick={handleReplayConfirm} autoFocus>OK</Button>
           </Modal.Footer>
         </Modal>
       </Container>

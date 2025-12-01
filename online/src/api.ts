@@ -64,7 +64,8 @@ export enum SocketEvent {
   RemovedData = 'removedData',
   PlayerExploding = 'playerExploding',
   DrawCardAnimation = 'drawCardAnimation',
-  TimerUpdate = 'timerUpdate'
+  TimerUpdate = 'timerUpdate',
+  PlayError = 'playError'
 }
 
 export interface Player {

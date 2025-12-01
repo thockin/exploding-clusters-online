@@ -1342,4 +1342,104 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // ... rest of setup omitted for stability
     expect(true).toBe(true);
   });
+
+  test('Race condition: P2 plays NAK, P1 tries NAK (fails), Retries (success)', async ({ browser }) => {
+    // 1. Setup Game
+    const context1 = await browser.newContext();
+    const page1 = await context1.newPage();
+    await page1.goto('http://localhost:3000');
+    await page1.getByRole('button', { name: 'Start a new game' }).click();
+    await page1.getByPlaceholder('Enter your name').fill('P1');
+    await page1.getByRole('button', { name: 'Create Game' }).click();
+    const gameCode = await page1.getByTestId('game-code').textContent();
+
+    const context2 = await browser.newContext();
+    const page2 = await context2.newPage();
+    await page2.goto('http://localhost:3000');
+    await page2.getByRole('button', { name: 'Join a game' }).click();
+    await page2.getByPlaceholder('Enter Game Code').fill(gameCode!);
+    await page2.getByPlaceholder('Enter your name').fill('P2');
+    await page2.getByRole('button', { name: 'Join Game' }).click();
+
+    await page1.getByRole('button', { name: 'Start the game' }).click();
+
+    // 2. P1 plays SHUFFLE to enter Reaction Phase
+    // P1 Hand (DEVMODE): [Dev, Dev, Dev, Nak, Nak, Shuffle, Favor, ...]
+    // Shuffle is index 5? Or find by image.
+    const p1Shuffle = page1.locator('img[alt="SHUFFLE: double_trouble"]'); // Assuming DEVMODE deals double_trouble
+    const discardPile1 = page1.locator('.game-pile').last(); // Usually discard is the second one? Or use renderDiscardPile locator.
+    // The drop target is [data-rbd-droppable-id="discard-pile"]
+    // Playwright dnd is tricky.
+    // We can use dragTo.
+    // Wait, we need to be sure about card names in DEVMODE.
+    // In gameManager: p1 gets 1 SHUFFLE.
+    // Which shuffle? `deck.find(c => c.class === CardClass.Shuffle)`.
+    // It's random which shuffle. But checking alt text starts with SHUFFLE should work.
+    
+    // We need to wait for hand to load
+    await expect(page1.locator('img[alt^="SHUFFLE:"]')).toBeVisible();
+    await page1.locator('img[alt^="SHUFFLE:"]').first().dragTo(page1.locator('[data-rbd-droppable-id="discard-pile"]'));
+    
+    // Verify Reaction Phase (Timer visible)
+    await expect(page1.locator('.timer-area')).toContainText('8');
+
+    // 3. P2 gets NAK ready (but doesn't drop yet - wait, we need to simulate concurrent action)
+    // We can't easily simulate "concurrent" in Playwright sequentially.
+    // But we can simulate the nonce mismatch by:
+    // a. P1 drags NAK (starts drag, captures nonce N1).
+    // b. P2 plays NAK (updates nonce to N2).
+    // c. P1 drops NAK (sends N1 -> Fail).
+
+    // a. P1 Starts Dragging NAK
+    // Note: Playwright's `dragTo` is atomic. We need manual mouse events to "hold" the drag?
+    // Or we can just use the fact that the client logic reads nonce on start.
+    // If we can't pause the drag, we can simulate the sequence differently.
+    // But the requirement is "P2 starts to drag NAK, then P1 starts to drag NAK. P2 drops... P1 drops".
+    // Actually, simply:
+    // P1 (Context 1) plays NAK.
+    // P2 (Context 2) plays NAK.
+    // If we do P1 dragTo, it finishes.
+    // To induce failure, we need P1 to read nonce, then P2 to change nonce, then P1 to send.
+    // We can use `page.evaluate` to trigger logic? No, too complex.
+    // We can use manual mouse steps.
+    
+    // Check if P1 has NAK
+    await expect(page1.locator('img[alt^="NAK:"]')).toBeVisible();
+    const p1Nak = page1.locator('img[alt^="NAK:"]').first();
+    const p1Discard = page1.locator('[data-rbd-droppable-id="discard-pile"]');
+    
+    // P1 Mouse Down (Start Drag -> Capture Nonce N1)
+    const box = await p1Nak.boundingBox();
+    if (!box) throw new Error('No NAK card found for P1');
+    await page1.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page1.mouse.down();
+    // Move a bit to start drag
+    await page1.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2 + 20);
+
+    // b. P2 Plays NAK (Updates Nonce to N2)
+    const p2Nak = page2.locator('img[alt^="NAK:"]').first();
+    const p2Discard = page2.locator('[data-rbd-droppable-id="discard-pile"]');
+    await p2Nak.dragTo(p2Discard);
+    
+    // Verify P2 played
+    await expect(page2.getByTestId('game-log')).toContainText('played NAK'); // Wait, "P2 played NAK"
+
+    // c. P1 Drops NAK (Sends N1)
+    const discardBox = await p1Discard.boundingBox();
+    if (!discardBox) throw new Error('No discard pile');
+    await page1.mouse.move(discardBox.x + discardBox.width / 2, discardBox.y + discardBox.height / 2);
+    await page1.mouse.up();
+
+    // Verify Rejection Dialog on P1
+    await expect(page1.locator('.modal-title')).toHaveText('Game Updated');
+    await expect(page1.locator('.modal-body')).toContainText('beat you to it');
+
+    // 4. P1 Retries (Click OK)
+    await page1.getByRole('button', { name: 'OK' }).click();
+
+    // Verify Success (P1 played NAK)
+    // Note: P1 NAK negates P2 NAK.
+    // Log should show "P1 played NAK".
+    await expect(page1.getByTestId('game-log')).toContainText('P1 played NAK');
+  });
 });

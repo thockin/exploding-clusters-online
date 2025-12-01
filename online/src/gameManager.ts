@@ -42,6 +42,7 @@ interface Game {
   pendingOperations: Operation[];
   gameOwnerId: string;
   nonce: string; // For reconnection logic
+  lastActorName?: string; // Name of the player who caused the last nonce update
   timer: NodeJS.Timeout | null;
   devMode: boolean;
 }
@@ -120,12 +121,12 @@ export class GameManager {
         this.reorderHand(socket, gameCode, newHand);
       });
 
-      socket.on(SocketEvent.PlayCard, (data: { gameCode: string; cardId: string }) => {
-        this.playCard(socket, data.gameCode, data.cardId);
+      socket.on(SocketEvent.PlayCard, (data: { gameCode: string; cardId: string; nonce?: string }) => {
+        this.playCard(socket, data.gameCode, data.cardId, data.nonce);
       });
 
-      socket.on(SocketEvent.PlayCombo, (data: { gameCode: string; cardIds: string[] }) => {
-        this.playCombo(socket, data.gameCode, data.cardIds);
+      socket.on(SocketEvent.PlayCombo, (data: { gameCode: string; cardIds: string[]; nonce?: string }) => {
+        this.playCombo(socket, data.gameCode, data.cardIds, data.nonce);
       });
 
       socket.on(SocketEvent.DrawCard, (gameCode: string) => {
@@ -344,7 +345,10 @@ export class GameManager {
     const data = this.getGameUpdateData(game);
     this.emitToGame(game.code, SocketEvent.GameUpdate, data);
   }
-  private updateGameNonce(game: Game) {
+  private updateGameNonce(game: Game, actorName?: string) {
+    if (actorName) {
+      game.lastActorName = actorName;
+    }
     // Purge disconnected players whenever nonce changes
     const initialPlayers = game.players; // Keep a reference to original players
     game.players = game.players.filter(p => {
@@ -1095,7 +1099,7 @@ export class GameManager {
         }
 
         this.log(currentGame, `draw animation finished. Turn advanced to ${currentGame.turnOrder[currentGame.currentTurnIndex]}`);
-        this.updateGameNonce(currentGame); // Sends updated state (hand, turn, etc)
+        this.updateGameNonce(currentGame, currentPlayer.name); // Sends updated state (hand, turn, etc)
       } catch (error) {
         this.log(null, `drawCard timer callback error: ${error}`);
       } finally {
@@ -1242,7 +1246,7 @@ export class GameManager {
     }
   }
 
-  private playCard(socket: Socket, gameCode: string, cardId: string) {
+  private playCard(socket: Socket, gameCode: string, cardId: string, nonce?: string) {
     const game = this.games.get(gameCode);
     if (!game) {
       this.log(null, `playCard failed: game ${gameCode} not found`);
@@ -1256,7 +1260,7 @@ export class GameManager {
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game has ended." });
       return;
     }
-
+    
     // Reject if caller is a spectator (not a player)
     const isSpectator = game.spectators.some(s => s.socketId === socket.id);
     const player = game.players.find(p => p.socketId === socket.id);
@@ -1264,8 +1268,21 @@ export class GameManager {
       this.log(game, `spectator or non-player ${socket.id} attempted to play card in game ${gameCode}`);
       return; // Silently ignore spectator actions
     }
-
+    
+    // Nonce check
+    if (nonce && nonce !== game.nonce) {
+      this.log(game, `playCard rejected: nonce mismatch (client=${nonce}, server=${game.nonce})`);
+      this.emitToSocket(socket.id, SocketEvent.PlayError, { 
+        reason: `${game.lastActorName || "Another player"} beat you to it, do you still want to play this card?`,
+        cardId,
+        nonce: game.nonce
+      });
+      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+      return;
+    }
+    
     // Prevent concurrent card plays from the same player (race condition protection)
+    
     if (player.isPlaying) {
       this.log(game, `player "${player.name}" tried to play a card while another play is in progress`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current play to complete." });
@@ -1344,14 +1361,14 @@ export class GameManager {
         this.executePlayedCards(game);
       }
 
-      this.updateGameNonce(game);
+      this.updateGameNonce(game, player.name);
     } finally {
       // Always clear the playing flag, even if an error occurred
       player.isPlaying = false;
     }
   }
 
-  private playCombo(socket: Socket, gameCode: string, cardIds: string[]) {
+  private playCombo(socket: Socket, gameCode: string, cardIds: string[], nonce?: string) {
     const game = this.games.get(gameCode);
     if (!game) {
       this.log(null, `playCombo failed: game ${gameCode} not found`);
@@ -1372,6 +1389,18 @@ export class GameManager {
     if (isSpectator || !player) {
       this.log(game, `spectator or non-player ${socket.id} attempted to play combo in game ${gameCode}`);
       return; // Silently ignore spectator actions
+    }
+
+    // Nonce check
+    if (nonce && nonce !== game.nonce) {
+      this.log(game, `playCombo rejected: nonce mismatch (client=${nonce}, server=${game.nonce})`);
+      this.emitToSocket(socket.id, SocketEvent.PlayError, { 
+        reason: `${game.lastActorName || "Another player"} beat you to it, do you still want to play this combo?`,
+        cardIds,
+        nonce: game.nonce
+      });
+      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+      return;
     }
 
     // Prevent concurrent card plays from the same player (race condition protection)
@@ -1485,7 +1514,7 @@ export class GameManager {
       // Phase 3.1.2: Start Timer
       this.startReactionTimer(game, player.id);
 
-      this.updateGameNonce(game);
+      this.updateGameNonce(game, player?.name);
     } finally {
       // Always clear the playing flag, even if an error occurred
       player.isPlaying = false;
