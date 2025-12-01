@@ -12,6 +12,7 @@ import { config } from './config';
 // Define Operation interface for the operations stack
 interface Operation {
   cardClass: CardClass;
+  playerName: string;
   action: (game: Game) => void | Promise<void>;
 }
 
@@ -456,7 +457,7 @@ export class GameManager {
       const op = game.pendingOperations.pop();
       if (op) {
         try {
-          this.log(game, `executing operation for ${op.cardClass}`);
+          this.log(game, `executing operation for ${op.cardClass} played by "${op.playerName}"`);
           // Wrap operation in timeout promise
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Operation timeout')), OPERATION_TIMEOUT_MS);
@@ -1028,92 +1029,92 @@ export class GameManager {
 
       // Set timer to finalize
       game.timer = setTimeout(() => {
-      game.timer = null;
+        game.timer = null;
 
-      try {
+        try {
         // Ensure card was successfully popped
-        if (!card) {
-          this.log(null, `drawCard timer callback: card was undefined`);
-          // Clear isPlaying flag - try to find player in any existing game
-          const tempGame = this.games.get(gameCode);
-          if (tempGame) {
-            const tempPlayer = tempGame.players.find(p => p.id === player.id);
-            if (tempPlayer) {
-              tempPlayer.isPlaying = false;
+          if (!card) {
+            this.log(null, `drawCard timer callback: card was undefined`);
+            // Clear isPlaying flag - try to find player in any existing game
+            const tempGame = this.games.get(gameCode);
+            if (tempGame) {
+              const tempPlayer = tempGame.players.find(p => p.id === player.id);
+              if (tempPlayer) {
+                tempPlayer.isPlaying = false;
+              }
             }
+            return;
           }
-          return;
-        }
 
-        // Race condition protection: Check if game still exists and player is still in game
-        const currentGame = this.games.get(gameCode);
-        if (!currentGame) {
-          this.log(null, `drawCard timer callback: game ${gameCode} no longer exists`);
-          // Cannot clear isPlaying flag if game doesn't exist - this is handled in finally block
-          return; // Game was ended/deleted, abort
-        }
-
-        // Check if player still exists and is still connected
-        const currentPlayer = currentGame.players.find(p => p.id === player.id);
-        if (!currentPlayer || currentPlayer.isDisconnected) {
-          this.log(currentGame, `drawCard timer callback: player "${player.name}" no longer in game or disconnected`);
-          // Card was already popped from deck, need to put it back or discard it
-          // Put it back at a random position to maintain game integrity
-          const insertIndex = Math.floor(this.prng.random() * (currentGame.drawPile.length + 1));
-          currentGame.drawPile.splice(insertIndex, 0, card);
-          // Clear isPlaying flag before returning (player exists in game even if disconnected)
-          if (currentPlayer) {
-            currentPlayer.isPlaying = false;
+          // Race condition protection: Check if game still exists and player is still in game
+          const currentGame = this.games.get(gameCode);
+          if (!currentGame) {
+            this.log(null, `drawCard timer callback: game ${gameCode} no longer exists`);
+            // Cannot clear isPlaying flag if game doesn't exist - this is handled in finally block
+            return; // Game was ended/deleted, abort
           }
-          return;
-        }
 
-        // Verify it's still this player's turn (game state might have changed)
-        if (currentGame.state !== GameState.Started || 
+          // Check if player still exists and is still connected
+          const currentPlayer = currentGame.players.find(p => p.id === player.id);
+          if (!currentPlayer || currentPlayer.isDisconnected) {
+            this.log(currentGame, `drawCard timer callback: player "${player.name}" no longer in game or disconnected`);
+            // Card was already popped from deck, need to put it back or discard it
+            // Put it back at a random position to maintain game integrity
+            const insertIndex = Math.floor(this.prng.random() * (currentGame.drawPile.length + 1));
+            currentGame.drawPile.splice(insertIndex, 0, card);
+            // Clear isPlaying flag before returning (player exists in game even if disconnected)
+            if (currentPlayer) {
+              currentPlayer.isPlaying = false;
+            }
+            return;
+          }
+
+          // Verify it's still this player's turn (game state might have changed)
+          if (currentGame.state !== GameState.Started || 
             currentGame.turnOrder[currentGame.currentTurnIndex] !== player.id) {
-          this.log(currentGame, `drawCard timer callback: turn changed, player "${player.name}" no longer has turn`);
-          // Put card back in deck
-          const insertIndex = Math.floor(this.prng.random() * (currentGame.drawPile.length + 1));
-          currentGame.drawPile.splice(insertIndex, 0, card);
-          // Clear isPlaying flag before returning
-          currentPlayer.isPlaying = false;
-          return;
-        }
+            this.log(currentGame, `drawCard timer callback: turn changed, player "${player.name}" no longer has turn`);
+            // Put card back in deck
+            const insertIndex = Math.floor(this.prng.random() * (currentGame.drawPile.length + 1));
+            currentGame.drawPile.splice(insertIndex, 0, card);
+            // Clear isPlaying flag before returning
+            currentPlayer.isPlaying = false;
+            return;
+          }
 
-        // Add to hand
-        currentPlayer.hand.push(card);
+          // Add to hand
+          currentPlayer.hand.push(card);
 
-        // Phase 3.1.2: Timer resolution handles ops. Action phase implies empty stack.
+          // Phase 3.1.2: Timer resolution handles ops. Action phase implies empty stack.
 
-        // Handle Exploding/Upgrade logic later (Phase 3). 
-        // For Phase 2.4: "If it is a regular card... that card goes into their hand... and their turn is over."
-        // We treat ALL cards as regular for now.
+          // Handle Exploding/Upgrade logic later (Phase 3). 
+          // For Phase 2.4: "If it is a regular card... that card goes into their hand... and their turn is over."
+          // We treat ALL cards as regular for now.
 
-        // Advance turn
-        currentGame.currentTurnIndex = (currentGame.currentTurnIndex + 1) % currentGame.turnOrder.length;
-        const nextPlayerId = currentGame.turnOrder[currentGame.currentTurnIndex];
-        const nextPlayer = currentGame.players.find(p => p.id === nextPlayerId);
+          // Advance turn
+          currentGame.currentTurnIndex = (currentGame.currentTurnIndex + 1) % currentGame.turnOrder.length;
+          const nextPlayerId = currentGame.turnOrder[currentGame.currentTurnIndex];
+          const nextPlayer = currentGame.players.find(p => p.id === nextPlayerId);
 
-        if (nextPlayer) {
-          this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew a card, it's ${nextPlayer.name}'s turn.` });
-        }
+          if (nextPlayer) {
+            this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew a card, it's ${nextPlayer.name}'s turn.` });
+          }
 
-        this.log(currentGame, `draw animation finished. Turn advanced to ${currentGame.turnOrder[currentGame.currentTurnIndex]}`);
-        this.updateGameNonce(currentGame, currentPlayer.name); // Sends updated state (hand, turn, etc)
-      } catch (error) {
-        this.log(null, `drawCard timer callback error: ${error}`);
-      } finally {
+          this.log(currentGame, `draw animation finished. Turn advanced to ${currentGame.turnOrder[currentGame.currentTurnIndex]}`);
+          this.updateGameNonce(currentGame, currentPlayer.name); // Sends updated state (hand, turn, etc)
+        } catch (error) {
+          this.log(null, `drawCard timer callback error: ${error}`);
+        } finally {
         // Always clear the playing flag, even if an error occurred
         // But only if player still exists
-        const currentGame = this.games.get(gameCode);
-        if (currentGame) {
-          const currentPlayer = currentGame.players.find(p => p.id === player.id);
-          if (currentPlayer) {
-            currentPlayer.isPlaying = false;
+          const currentGame = this.games.get(gameCode);
+          if (currentGame) {
+            const currentPlayer = currentGame.players.find(p => p.id === player.id);
+            if (currentPlayer) {
+              currentPlayer.isPlaying = false;
+            }
           }
         }
-      }
-    }, 3000);
+      }, 3000);
     } catch (error) {
       // Handle any errors that occur before or during setTimeout setup
       this.log(game, `drawCard error: ${error}`);
@@ -1333,6 +1334,7 @@ export class GameManager {
       // Phase 3.1.1: Push a do-nothing operation
       game.pendingOperations.push({
         cardClass: card.class,
+        playerName: player.name,
         action: async (_g: Game) => { 
           // Sleep for 3 seconds
           if (this.verbose) {
@@ -1420,10 +1422,10 @@ export class GameManager {
     }
 
     if (game.turnPhase !== TurnPhase.Action) {
-       this.log(game, `player "${player.name}" tried to play a combo in wrong phase: ${game.turnPhase}`);
-       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You can only play combos in your Action phase." });
-       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
-       return;
+      this.log(game, `player "${player.name}" tried to play a combo in wrong phase: ${game.turnPhase}`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You can only play combos in your Action phase." });
+      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+      return;
     }
 
     if (!cardIds || cardIds.length !== 2) {
@@ -1499,10 +1501,11 @@ export class GameManager {
       // Phase 3.1.1: Push a do-nothing operation
       game.pendingOperations.push({
         cardClass: c1.class,
+        playerName: player.name,
         action: async (g: Game) => { 
           // Sleep for 3 seconds
           if (this.verbose) {
-             this.log(g, `executing do-nothing operation for combo (sleeping 3s)`);
+            this.log(g, `executing do-nothing operation for combo (sleeping 3s)`);
           }
           await new Promise(resolve => setTimeout(resolve, 3000));
         }

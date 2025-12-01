@@ -199,6 +199,41 @@ export default function GameScreen() {
     router.push('/');
   }, [resetState, router]);
 
+  const isCardPlayable = useCallback((card: Card) => {
+    if (!gameState || !playerId) return false;
+    const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
+    const isMyTurn = currentPlayerId === playerId;
+    const isNowCard = !!card.now;
+
+    // Developer Card Logic: Must have at least 2 identical cards to be playable (as a pair)
+    if (card.class === CardClass.Developer) {
+      const count = myHand.filter(c => c.class === CardClass.Developer && c.name === card.name).length;
+      if (count < 2) return false;
+    }
+
+    // Phase checks
+    switch (gameState.turnPhase) {
+      case TurnPhase.Action:
+        // Action Phase: Can play if it's my turn OR it's a NOW card
+        if (isMyTurn) return true;
+        if (isNowCard) return true;
+        return false;
+      case TurnPhase.Reaction:
+        // Reaction Phase: 
+        // - Current player CANNOT play regular cards (waiting).
+        // - Current player CANNOT play NOW cards (unless reacting to NAK? Server says no).
+        // - Others CAN play NOW cards.
+        if (!isMyTurn && isNowCard) return true;
+        return false;
+      case TurnPhase.Rereaction:
+        // Rereaction Phase: Anyone can play NOW cards.
+        if (isNowCard) return true;
+        return false;
+      default:
+        return false; // Executing, Exploding, etc.
+    }
+  }, [gameState, playerId, myHand]);
+
   const getCardSize = useCallback((enlarged: boolean = false) => {
     const aspectRatio = 5 / 7;
     if (enlarged) {
@@ -250,6 +285,12 @@ export default function GameScreen() {
       return;
     }
 
+    // Check playability (Phase 3.2)
+    // "If the player single-clicks an unplayable card in their hand, do nothing."
+    if (!isCardPlayable(card)) {
+      return;
+    }
+
     // Calculate distance moved to distinguish click from drag
     const moveX = Math.abs(event.clientX - clickStartPosRef.current.x);
     const moveY = Math.abs(event.clientY - clickStartPosRef.current.y);
@@ -292,7 +333,7 @@ export default function GameScreen() {
         setSelectedCards([card]);
       }
     }
-  }, [selectedCards]);
+  }, [selectedCards, isCardPlayable]);
 
   const handleCardDoubleClick = useCallback((card: Card) => {
     setOverlayCard(card);
@@ -841,10 +882,11 @@ export default function GameScreen() {
                 }}
               >
                 {rowCards.map((card, index) => (
-                  <Draggable key={card.id} draggableId={card.id} index={index}>
+                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!isCardPlayable(card)}>
                     {(providedDraggable, snapshot) => {
                       const isSelected = selectedCards.some(sc => sc.id === card.id);
                       const shouldHide = isDragging && isSelected && !snapshot.isDragging;
+                      const playable = isCardPlayable(card);
 
                       return (
                         <div
@@ -870,9 +912,9 @@ export default function GameScreen() {
                             width: `${cardWidth}px`,
                             height: `${cardWidth * 1.4}px`,
                             boxSizing: 'content-box',
-                            cursor: 'pointer',
+                            cursor: playable ? 'pointer' : 'default',
                             position: 'relative',
-                            opacity: shouldHide ? 0 : 1,
+                            opacity: shouldHide ? 0 : (playable ? 1 : 0.5),
                             ...providedDraggable.draggableProps.style,
                           }}
                           onClick={(event) => handleCardClick(card, event)}
