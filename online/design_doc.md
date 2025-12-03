@@ -745,11 +745,9 @@ If nothing else is played by any player, the timer expires, the played cards
 are executed (more below) and it becomes the "action" period again.
 
 If, during the reaction period, another player plays a "now" card or a NAK
-card, the timer is reset to 8 seconds and it becomes the rereaction period.
-During rereaction any player, including the current player, may play another
+card, the timer is reset to 8 seconds and it remains the reaction period.
+During reaction any player, except the player who just played, may play another
 "now" card or a NAK card.  Every time a card is played, the timer is restarted.
-If the current player plays it becomes a "reaction" period.  If any other
-player plays it becomes a "rereaction" period.
 
 When the timer finally expires the played cards are executed and it becomes the
 "action" period again.
@@ -769,10 +767,10 @@ network lag, and causing confusion.
 
 #### Playing NAK cards
 
-NAK cards are only playable during reaction or rereaction periods, in response
-to another played card.  They are not playable during action periods.
+NAK cards are only playable during reaction periods, in response to another
+played card.  They are not playable during action periods.
 
-##### Example of turns and the action/reaction/rereaction logic
+##### Example of turns and the action/reaction logic
 
 Let's consider an example using 3 hypothetical cards (these cards are to
 simplify example, they are not part of the real game):
@@ -788,6 +786,7 @@ There are 3 players, A, B, C.
     - Begin action period
       - Player A plays a PUNCH card
     - Begin reaction period, start timer
+      - Any player except A can play a NAK or "now" card
       - Timer expires
     - Begin another action period
       - Player A draws a card
@@ -797,19 +796,24 @@ There are 3 players, A, B, C.
     - Begin action period
       - Player B plays a PUNCH card
     - Begin reaction period, start timer
+      - Any player except B can play a NAK or "now" card
       - Player A plays a BLOCK card
-    - Begin rereaction period, restart timer
+    - Restart reaction period, restart timer
+      - Any player except A can play a NAK or "now" card
       - Player C plays a BLOCK card
-    - Still rereaction period, restart timer
+    - Restart reaction period, restart timer
+      - Any player except C can play a NAK or "now" card
       - Player B plays a BLOCK card
-    - Begin another reaction period, restart timer
+    - Restart reaction period, restart timer
+      - Any player except B can play a NAK or "now" card
       - Player A plays a CHEAT card
-    - Begin rereaction period, restart timer
+    - Begin reaction period, restart timer
+      - Any player except A can play a NAK or "now" card
       - Timer expires
     - Begin another action period
       - Player B draws a card, it is an EXPLODING CLUSTER card
     - Begin exploding period
-      - Other players cannot to anything
+      - Other players cannot do anything
       - Player B plays a DEBUG card
       - Player B reinserts the EXPLODING CLUSTER card into the deck
       - Their turn is over
@@ -817,10 +821,11 @@ There are 3 players, A, B, C.
   * Player C's turn
     - Begin action period
       - Player A plays a CHEAT card
-      - Player C plays PUNCH card
     - Begin reaction period, start timer
-      - Player A plays a BLOCK card
-    - Begin rereaction period, restart timer
+      - Any player except A can play a NAK or "now" card
+      - Player C plays a BLOCK card
+    - Restart reaction period, restart timer
+      - Any player except C can play a NAK or "now" card
       - Timer expires
     - Begin another action period
       - Player C draws a card, it is an EXPLODING CLUSTER card
@@ -834,14 +839,19 @@ There are 3 players, A, B, C.
 All the cards will be defined in a later section of this doc. This section will
 define when cards can be played.
 
-Each card has some periods where is is playable.  Most cards are playable by a
-player only during their own turn's action period.  Some cards are playable by
-a player only during their own turn's action period, but only in pairs.  Some
-cards are only playable while that player is exploding.
+Each card has some periods where is is playable.  Most cards (e.g. FAVOR,
+SHUFFLE) are playable by a player only during their own action period.
 
-Some cards are considered "now" cards and are playable by the current player
-during action or rereaction or by any other player during action, reaction, or
-rereaction.
+Some cards (e.g. DEVELOPER) are playable by a player only during their own
+action period, but only in pairs.
+
+Some cards (DEBUG) are only playable while that player is exploding.
+
+Some cards (NAK) are playable by any player, but only during reaction periods,
+in response to another played card.
+
+Some cards are considered "now" cards and are playable by any player during
+action or reaction.
 
 ##### Example of the operation stack
 
@@ -1232,7 +1242,7 @@ which makes sense in the repository, so they can be served to the client.
 #### Actions for each card class
 
 Actions are only performed when the reaction timer expires, as per the
-action/reaction/rereaction loop described above.
+action/reaction loop described above.
 
 EXPLODING CLUSTER cards have already been detailed.
 
@@ -1246,7 +1256,7 @@ Playing a SHUFFLE card shuffles the draw-pile and send a message to all players
 that "The deck was shuffled".
 
 SHUFFLE NOW cards are the same action as SHUFFLE cards, but may be played by
-any player during any action, reaction, or rereaction period.
+any player during any action or reaction period.
 
 Playing a SEE THE FUTURE card shows the current player the top 3 cards from the
 draw-pile in a large overlay, with a "Done" button.  When the player clicks
@@ -1561,7 +1571,7 @@ We need the following browsers tests to work:
   22) TODO: drawing cards
   23) TODO: leave while drawing explodign cluster/upgrade cluster
 
-  24) Action/reaction/rereaction logic
+  24) Action/reaction logic
       * P1 creates game
       * P2 joins
       * P1 starts game
@@ -1655,8 +1665,8 @@ Do not implement any card actions yet.
 
 ###### Phase 3.1.3: Turn logic, full
 
-Implement the action/reaction/rereaction logic and timer fully, as specced
-above.  This includes the loop between reaction and rereaction periods.
+Implement the action/reaction logic and timer fully, as specced above.  This
+includes the loop of restarting reaction periods.
 
 When the timer expires, pop and execute all operations from the stack.
 

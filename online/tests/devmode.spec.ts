@@ -1433,12 +1433,12 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Move a bit to start drag
     await page2.mouse.move(p2SrcBox.x + p2SrcBox.width / 2 + 20, p2SrcBox.y + p2SrcBox.height / 2 + 20);
 
-    // P3 Plays NAK, enter rereaction phase, updates nonce to N2
+    // P3 Plays NAK, restart reaction phase, updates nonce to N2
     await playCard(page3, p3Nak);
     await expect(findMessageArea(page2)).toContainText('P3 played NAK');
 
-    // Verify rereaction phase
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Rereaction);
+    // Verify reaction phase
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
 
     // P2 finishes their play, drops NAK, but sends nonce N1
     await page2.mouse.move(p2DstBox.x + p2DstBox.width / 2, p2DstBox.y + p2DstBox.height / 2);
@@ -1455,7 +1455,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await expect(findMessageArea(page1)).toContainText('P2 played NAK');
   });
 
-  test('Action/reaction/rereaction logic', async ({ browser }) => {
+  test('Action/reaction logic', async ({ browser }) => {
     // Make pages large to avoid any need to scroll the hand area.
     const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -1505,7 +1505,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     const p2Skip = findHandCardsByClass(page2, CardClass.Skip).first();
     await expect(p2Skip).toHaveAttribute('data-playable', 'false');
 
-    // P1 plays SHUFFLE, enter reaction phase
+    // P1 plays SHUFFLE, restart reaction phase
     await playCard(page1, p1Shuffle);
     await expect(findMessageArea(page2)).toContainText('P1 played SHUFFLE');
 
@@ -1524,13 +1524,13 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await expect(p2Nak).toHaveAttribute('data-playable', 'true');
     await expect(p2ShuffleNow).toHaveAttribute('data-playable', 'true');
 
-    // P2 plays NAK, enter rereaction phase
+    // P2 plays NAK, restart reaction phase
     await playCard(page2, p2Nak);
     await expect(findMessageArea(page1)).toContainText('P2 played NAK');
 
-    // Verify rereaction phase
+    // Verify reaction phase
     await expect(timerArea).toBeVisible();
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Rereaction);
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
     await expect(page1.getByText('Want to react')).toBeVisible();
     await expect(page2.getByText('Waiting for other players to react')).toBeVisible();
 
@@ -1542,7 +1542,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Verify that P1's NAK is playable
     await expect(p1Nak).toHaveAttribute('data-playable', 'true');
 
-    // P1 plays NAK, enter reaction phase
+    // P1 plays NAK, restart reaction phase
     await playCard(page1, p1Nak);
     await expect(findMessageArea(page2)).toContainText('P1 played NAK');
 
@@ -1560,17 +1560,17 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Verify that P2's SHUFFLE_NOW card is playable
     await expect(p2ShuffleNow).toHaveAttribute('data-playable', 'true');
 
-    // P2 plays SHUFFLE_NOW, enter rereaction phase
+    // P2 plays SHUFFLE_NOW, restart reaction phase
     await playCard(page2, p2ShuffleNow);
     await expect(findMessageArea(page1)).toContainText('P2 played SHUFFLE_NOW');
 
-    // Verify rereaction phase
+    // Verify reaction phase
     await expect(timerArea).toBeVisible();
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Rereaction);
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
     await expect(page1.getByText('Want to react')).toBeVisible();
     await expect(page2.getByText('Waiting for other players to react')).toBeVisible();
 
-    // P1 plays another NAK, enter reaction phase
+    // P1 plays another NAK, restart reaction phase
     const p1Nak2 = findHandCardsByClass(page1, CardClass.Nak).first();
     await playCard(page1, p1Nak2);
     await expect(findMessageArea(page2)).toContainText('P1 played NAK');
@@ -1617,8 +1617,8 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await playCard(page2, p2ShuffleNow);
     await expect(findMessageArea(page1)).toContainText('P2 played SHUFFLE_NOW');
 
-    // Verify rereaction phase
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Rereaction);
+    // Verify reaction phase
+    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
     await expect(timerArea).toBeVisible();
     await expect(page1.getByText('Want to react')).toBeVisible();
     await expect(page2.getByText('Waiting for other players to react')).toBeVisible();
@@ -1631,7 +1631,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Verify that P1's NAK card is playable
     await expect(p1Nak).toHaveAttribute('data-playable', 'true');
 
-    // P1 plays NAK, enter rereaction phase
+    // P1 plays NAK, restart reaction phase
     await playCard(page1, p1Nak);
     await expect(findMessageArea(page2)).toContainText('P1 played NAK');
 

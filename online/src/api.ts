@@ -30,7 +30,6 @@ export enum GameState {
 export enum TurnPhase {
   Action = 'ACTION',
   Reaction = 'REACTION',
-  Rereaction = 'REREACTION',
   Executing = 'EXECUTING',
   Exploding = 'EXPLODING' // For Phase 3.3
 }

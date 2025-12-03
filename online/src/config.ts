@@ -38,8 +38,8 @@ const envVars: EnvVarDefinition[] = [
   },
   {
     name: 'REACTION_TIMER',
-    description: 'Number of seconds for the reaction and rereaction timer.',
-    defaultValue: 8,
+    description: 'Number of seconds for the reaction timer.',
+    defaultValue: 10,
     type: 'number',
   },
   {
@@ -83,9 +83,9 @@ export const config = {
     if (val) {
       const parsed = parseInt(val, 10);
       if (!isNaN(parsed)) return parsed;
-      console.warn(`Invalid REACTION_TIMER value "${val}", using default of 8`);
+      console.warn(`Invalid REACTION_TIMER value "${val}", using default of 10`);
     }
-    return 8;
+    return 10;
   },
   get nodeEnv(): string {
     return process.env.NODE_ENV || 'development';

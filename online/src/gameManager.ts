@@ -399,14 +399,8 @@ export class GameManager {
     game.timerDuration = this.reactionTimerDuration;
 
     // Transition Phase logic
-    // If the triggering player is the current turn player, it's a "Reaction" phase (others react to them).
-    // If someone else played (interrupting), it's a "Rereaction" phase.
-    const currentTurnPlayerId = game.turnOrder[game.currentTurnIndex];
-    if (triggeringPlayerId === currentTurnPlayerId) {
-      game.turnPhase = TurnPhase.Reaction;
-    } else {
-      game.turnPhase = TurnPhase.Rereaction;
-    }
+    // Always set to Reaction phase.
+    game.turnPhase = TurnPhase.Reaction;
 
     this.emitToGame(game.code, SocketEvent.TimerUpdate, { duration: this.reactionTimerDuration, phase: game.turnPhase });
     if (this.verbose || game.devMode) {
@@ -1242,16 +1236,11 @@ export class GameManager {
         return { allowed: false, reason: "It's not your turn!" };
 
       case TurnPhase.Reaction:
-        if (isMyTurn) return { allowed: false, reason: "You must wait for reactions." };
-        if (isNowCard || card.class === CardClass.Nak) return { allowed: true };
-        return { allowed: false, reason: "You can only play 'NOW' or NAK cards during a reaction." };
-
-      case TurnPhase.Rereaction:
         if (game.lastActorName && player.name === game.lastActorName) {
           return { allowed: false, reason: "You must wait for reactions." };
         }
         if (isNowCard || card.class === CardClass.Nak) return { allowed: true };
-        return { allowed: false, reason: "You can only play 'NOW' or NAK cards during a re-reaction." };
+        return { allowed: false, reason: "You can only play 'NOW' or NAK cards during a reaction." };
 
       case TurnPhase.Executing:
         return { allowed: false, reason: "You can't play cards while the previous play is in progress." };

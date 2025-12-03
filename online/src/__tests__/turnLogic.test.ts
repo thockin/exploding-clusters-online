@@ -196,7 +196,7 @@ describe('Turn Logic (Phase 3.1.3)', () => {
       const update = getLastTimerUpdate();
       expect(update).toBeDefined();
       expect(update!.phase).toBe(TurnPhase.Reaction);
-      expect(update!.duration).toBe(8);
+      expect(update!.duration).toBe(10);
     }, 10);
   });
 
@@ -225,7 +225,7 @@ describe('Turn Logic (Phase 3.1.3)', () => {
     }, 10);
   });
 
-  test('Action, Reaction, Rereaction', (done) => {
+  test('Action, Reaction', (done) => {
     // 1. P1 plays Shuffle
     const p1Hand = (host.emitted[SocketEvent.HandUpdate].pop() as any).hand;
     const shuffleCard = p1Hand.find((c: any) => c.class === CardClass.Shuffle);
@@ -242,42 +242,9 @@ describe('Turn Logic (Phase 3.1.3)', () => {
       p2.trigger('playCard', { gameCode, cardId: nakCard.id });
 
       setTimeout(() => {
-        expect(getLastTimerUpdate()!.phase).toBe(TurnPhase.Rereaction);
+        expect(getLastTimerUpdate()!.phase).toBe(TurnPhase.Reaction);
         done();
       }, 10);
     }, 10);
   });
-
-//  test('Other player can play NOW card during Action (triggers Rereaction)', (done) => {
-//    // P2 has NAK (Now).
-//    // In DEVMODE, P2 hand deals: 1 Nak...
-//    // Host is in Action phase.
-//    // P2 plays NAK.
-//    
-//    // Need P2's hand. P2 gets dealt random cards after P1... wait.
-//    // In DEVMODE:
-//    // P1 Hand: Fixed.
-//    // P2 Hand: Fixed (1 Nak, 1 Skip, 1 ShuffleNow, 1 Attack, 1 SeeFuture, 2 Dev).
-//    
-//    // Wait, let's verify P2 gets HandUpdate.
-//    // P2 socket emitted 'handUpdate'.
-//    const p2HandEvents = p2.emitted[SocketEvent.HandUpdate];
-//    // The last one should be the dealt hand.
-//    const p2Hand = (p2HandEvents[p2HandEvents.length - 1] as any).hand;
-//    const nakCard = p2Hand.find((c: any) => c.class === CardClass.Nak);
-//
-//    expect(nakCard).toBeDefined();
-//
-//    // P2 plays NAK during Host's Action phase
-//    p2.trigger('playCard', { gameCode, cardId: nakCard.id });
-//
-//    setTimeout(() => {
-//      // Should trigger Rereaction (Other player played)
-//      const update = getLastTimerUpdate();
-//      expect(update).toBeDefined();
-//      expect(update!.phase).toBe(TurnPhase.Rereaction);
-//      expect(update!.duration).toBe(8);
-//      done();
-//    }, 10);
-//  });
 });

@@ -106,7 +106,7 @@ export default function GameScreen() {
       setReplayModal({ show: true, ...data });
     };
     const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
-      if (phase === TurnPhase.Reaction || phase === TurnPhase.Rereaction) {
+      if (phase === TurnPhase.Reaction) {
         setCountdown(duration);
         if (countdownIntervalRef.current) {
           clearInterval(countdownIntervalRef.current);
@@ -215,20 +215,15 @@ export default function GameScreen() {
     switch (gameState.turnPhase) {
       case TurnPhase.Action:
         // Action Phase: Can play if it's my turn OR it's a NOW card
-        // NAK is explicit exception (only playable in Reaction/Rereaction)
+        // NAK is explicit exception (only playable in Reaction)
         if (card.class === CardClass.Nak) return false;
         if (isMyTurn) return true;
         if (isNowCard) return true;
         return false;
       case TurnPhase.Reaction:
-        // Reaction Phase: 
-        // - Current player CANNOT play regular cards (waiting).
-        // - Current player CANNOT play NOW cards (unless reacting to NAK? Server says no).
-        // - Others CAN play NOW cards.
-        if (!isMyTurn && (isNowCard || card.class === CardClass.Nak)) return true;
-        return false;
-      case TurnPhase.Rereaction:
-        // Rereaction Phase: Anyone except the last actor can play NOW cards.
+        // Reaction Phase:
+        // - The player who acted last (lastActorName) CANNOT play.
+        // - Others CAN play NOW cards or NAK.
         if (gameState.lastActorName && playerName === gameState.lastActorName) return false;
         if (isNowCard || card.class === CardClass.Nak) return true;
         return false;
@@ -1073,10 +1068,9 @@ export default function GameScreen() {
               data-areaName="timer"
               data-turnPhase={gameState.turnPhase}
             >
-              {(gameState.turnPhase === TurnPhase.Reaction || gameState.turnPhase === TurnPhase.Rereaction) && countdown > 0 && (
+              {(gameState.turnPhase === TurnPhase.Reaction) && countdown > 0 && (
                 <>
-                  {((gameState.turnPhase === TurnPhase.Reaction && me?.id === currentPlayerId) || 
-                    (gameState.turnPhase === TurnPhase.Rereaction && gameState.lastActorName && me?.name === gameState.lastActorName)) ? (
+                  {(gameState.lastActorName && me?.name === gameState.lastActorName) ? (
                     <h4 className="text-success">Waiting for other players to react</h4>
                   ) : (
                     <h4 className="text-warning">Want to react? Act fast!</h4>
