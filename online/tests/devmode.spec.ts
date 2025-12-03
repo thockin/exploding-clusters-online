@@ -828,7 +828,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
 
     // Select a card
-    const card = handSection.locator('img').first();
+    const card = handSection.locator('img').nth(6);
     await expect(card).toBeVisible();
     await card.click();
     await expect(card.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');

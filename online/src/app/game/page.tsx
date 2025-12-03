@@ -211,6 +211,9 @@ export default function GameScreen() {
       if (count < 2) return false;
     }
 
+    // DEBUG card logic
+    if (card.class === CardClass.Debug && gameState.turnPhase !== TurnPhase.Exploding) return false;
+
     // Phase checks
     switch (gameState.turnPhase) {
       case TurnPhase.Action:
@@ -227,8 +230,11 @@ export default function GameScreen() {
         if (gameState.lastActorName && playerName === gameState.lastActorName) return false;
         if (isNowCard || card.class === CardClass.Nak) return true;
         return false;
+      case TurnPhase.Exploding:
+        if (card.class === CardClass.Debug) return true;
+        return false;
       default:
-        return false; // Executing, Exploding, etc.
+        return false; // Executing, etc.
     }
   }, [gameState, playerId, myHand, playerName]);
 

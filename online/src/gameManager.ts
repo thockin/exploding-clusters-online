@@ -1228,6 +1228,11 @@ export class GameManager {
     const isMyTurn = game.turnOrder[game.currentTurnIndex] === player.id;
     const isNowCard = !!card.now;
 
+    // DEBUG cards restriction
+    if (card.class === CardClass.Debug && game.turnPhase !== TurnPhase.Exploding) {
+      return { allowed: false, reason: "DEBUG cards can only be played during an explosion." };
+    }
+
     switch (game.turnPhase) {
       case TurnPhase.Action:
         if (card.class === CardClass.Nak) return { allowed: false, reason: "NAK can only be played during a reaction." };
@@ -1241,6 +1246,10 @@ export class GameManager {
         }
         if (isNowCard || card.class === CardClass.Nak) return { allowed: true };
         return { allowed: false, reason: "You can only play 'NOW' or NAK cards during a reaction." };
+
+      case TurnPhase.Exploding:
+        if (card.class === CardClass.Debug) return { allowed: true };
+        return { allowed: false, reason: "You must play a DEBUG card!" };
 
       case TurnPhase.Executing:
         return { allowed: false, reason: "You can't play cards while the previous play is in progress." };

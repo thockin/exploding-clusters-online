@@ -179,7 +179,7 @@ describe('Executing Phase Blocking', () => {
     // Get a card from Host's hand
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const hand = host.emitted[SocketEvent.HandUpdate][0] as any;
-    const card = hand.hand[0];
+    const card = hand.hand[6];
 
     host.trigger('playCard', { gameCode, cardId: card.id });
 
