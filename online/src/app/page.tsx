@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Button, Container, Row, Col, Card, Form, Alert, Modal } from 'react-bootstrap';
 import { useSocket } from './contexts/SocketContext';
 import { GameState } from '../api';
@@ -18,6 +18,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [nameError, setNameError] = useState<string | null>(null);
   const [mode, setMode] = useState<FileMode>('initial');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (gameCode && playerName && gameState && socket && playerId) {
@@ -38,68 +40,104 @@ export default function Home() {
   };
 
   const handleCreateGame = async () => {
-    if (!inputPlayerName) {
-      setError('Please enter your name to create a game.');
-      return;
-    }
-
-    // Client-side validation
-    const validation = validatePlayerName(inputPlayerName);
-    if (!validation.isValid) {
-      setNameError(validation.error || 'Invalid name');
-      setError(validation.error || 'Invalid name');
-      return;
-    }
-
-    setNameError(null);
-    setError(null);
-    const response = await createGame(inputPlayerName);
-    if (response.success && response.gameCode) {
-      setGameCode(response.gameCode);
-      // Navigation handled by useEffect
-    } else {
-      setError(response.error || 'Failed to create game.');
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    let success = false;
+    try {
+      if (!inputPlayerName) {
+        setError('Please enter your name to create a game.');
+        return;
+      }
+  
+      // Client-side validation
+      const validation = validatePlayerName(inputPlayerName);
+      if (!validation.isValid) {
+        setNameError(validation.error || 'Invalid name');
+        setError(validation.error || 'Invalid name');
+        return;
+      }
+  
+      setNameError(null);
+      setError(null);
+      const response = await createGame(inputPlayerName);
+      success = response.success;
+      if (response.success && response.gameCode) {
+        setGameCode(response.gameCode);
+        // Navigation handled by useEffect
+      } else {
+        setError(response.error || 'Failed to create game.');
+      }
+    } finally {
+      if (!success) {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+      }
     }
   };
 
   const handleJoinGame = async () => {
-    if (!inputGameCode || !inputPlayerName) {
-      setError('Please enter game code and your name to join.');
-      return;
-    }
-
-    // Client-side validation
-    const validation = validatePlayerName(inputPlayerName);
-    if (!validation.isValid) {
-      setNameError(validation.error || 'Invalid name');
-      setError(validation.error || 'Invalid name');
-      return;
-    }
-
-    setNameError(null);
-    setError(null);
-    const response = await joinGame(inputGameCode, inputPlayerName);
-    if (response.success && response.gameCode) {
-      setGameCode(response.gameCode);
-      // Navigation handled by useEffect
-    } else {
-      setError(response.error || 'Failed to join game.');
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    let success = false;
+    try {
+      if (!inputGameCode || !inputPlayerName) {
+        setError('Please enter game code and your name to join.');
+        return;
+      }
+  
+      // Client-side validation
+      const validation = validatePlayerName(inputPlayerName);
+      if (!validation.isValid) {
+        setNameError(validation.error || 'Invalid name');
+        setError(validation.error || 'Invalid name');
+        return;
+      }
+  
+      setNameError(null);
+      setError(null);
+      const response = await joinGame(inputGameCode, inputPlayerName);
+      success = response.success;
+      if (response.success && response.gameCode) {
+        setGameCode(response.gameCode);
+        // Navigation handled by useEffect
+      } else {
+        setError(response.error || 'Failed to join game.');
+      }
+    } finally {
+      if (!success) {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+      }
     }
   };
 
   const handleWatchGame = async () => {
-    if (!inputGameCode) {
-      setError('Please enter a game code to watch.');
-      return;
-    }
-    setError(null);
-    const response = await watchGame(inputGameCode);
-    if (response.success && response.gameCode) {
-      setGameCode(response.gameCode);
-      setPlayerName('Spectator'); // Ensure session saves
-      router.push(`/observer?gameCode=${response.gameCode}`);
-    } else {
-      setError(response.error || 'Failed to watch game.');
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+    let success = false;
+    try {
+      if (!inputGameCode) {
+        setError('Please enter a game code to watch.');
+        return;
+      }
+      setError(null);
+      const response = await watchGame(inputGameCode);
+      success = response.success;
+      if (response.success && response.gameCode) {
+        setGameCode(response.gameCode);
+        setPlayerName('Spectator'); // Ensure session saves
+        router.push(`/observer?gameCode=${response.gameCode}`);
+      } else {
+        setError(response.error || 'Failed to watch game.');
+      }
+    } finally {
+      if (!success) {
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -177,7 +215,7 @@ export default function Home() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button variant="primary" onClick={handleCreateGame}>Create Game</Button>
+          <Button variant="primary" onClick={handleCreateGame} disabled={isSubmitting}>Create Game</Button>
         </Modal.Footer>
       </Modal>
 
@@ -221,7 +259,7 @@ export default function Home() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button variant="success" onClick={handleJoinGame}>Join Game</Button>
+            <Button variant="primary" onClick={handleJoinGame} disabled={isSubmitting}>Join Game</Button>
         </Modal.Footer>
       </Modal>
 
@@ -249,7 +287,7 @@ export default function Home() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button variant="info" onClick={handleWatchGame}>Watch Game</Button>
+          <Button variant="info" onClick={handleWatchGame} disabled={isSubmitting}>Watch Game</Button>
         </Modal.Footer>
       </Modal>
 
