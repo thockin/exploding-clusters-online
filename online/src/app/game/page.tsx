@@ -899,7 +899,7 @@ export default function GameScreen() {
                             boxSizing: 'content-box',
                             cursor: playable ? 'pointer' : 'default',
                             position: 'relative',
-                            opacity: shouldHide ? 0 : (playable ? 1 : 0.5),
+                            opacity: shouldHide ? 0 : (playable ? 1 : 0.6),
                             ...providedDraggable.draggableProps.style,
                           }}
                           onClick={(event) => handleCardClick(card, event)}
