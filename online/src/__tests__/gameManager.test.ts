@@ -188,7 +188,7 @@ describe('GameManager', () => {
           expect(gameEmits).toBeDefined();
           const lastEmit = gameEmits![gameEmits!.length - 1] as GameEndData;
           expect(lastEmit).toBeDefined();
-          expect(lastEmit.reason).toBe('attrition');
+          expect(lastEmit.reason).toBe('Attrition');
           expect(lastEmit.winner).toBe('Host');
           done();
         });

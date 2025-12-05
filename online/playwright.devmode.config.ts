@@ -3,6 +3,9 @@ import { defineConfig, devices } from '@playwright/test';
 // Set DEVMODE=1 so that testing-related features are enabled.
 process.env.DEVMODE = '1';
 
+// Set "fast" mode for tests.
+process.env.GO_FAST = '1';
+
 // Set reaction timer to 2 seconds for tests to speed them up.
 process.env.REACTION_TIMER = '2';
 

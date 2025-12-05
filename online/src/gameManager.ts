@@ -5,7 +5,7 @@ import { randomBytes } from 'crypto';
 import { IncomingMessage, ServerResponse } from 'http';
 import { fullDeck, shuffleDeck } from './app/game/deck';
 import { PseudoRandom } from './utils/PseudoRandom';
-import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent, TurnPhase } from './api';
+import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent, TurnPhase, WinType } from './api';
 import { validatePlayerName, sanitizePlayerName, normalizeNameForComparison, escapeHtml } from './utils/nameValidation';
 import { config } from './config';
 
@@ -134,6 +134,10 @@ export class GameManager {
         this.drawCard(socket, gameCode);
       });
 
+      socket.on(SocketEvent.InsertExplodingCard, (payload: { gameCode: string, index: number, nonce: string }) => {
+        this.insertExplodingCard(socket, payload.gameCode, payload.index, payload.nonce);
+      });
+
       // Handle voluntary leave
       socket.on(SocketEvent.LeaveGame, (gameCode: string) => {
         // Validate gameCode matches the socket's actual game (prevents leaving games you're not in)
@@ -241,13 +245,16 @@ export class GameManager {
         if (game.state !== GameState.Ended) {
           if (game.players.length === 0 && game.spectators.length === 0) {
             this.log(game, `game is empty, purging`);
-            this.endGame(gameCode);
+            this.endGame(gameCode, "Nobody", WinType.Attrition); // No players or spectators left
             return; // endGame handles cleanup, don't continue
           } else if (game.state === GameState.Started && game.players.length < 2) {
-            const winner = game.players[0];
-            this.log(game, `game ended due to insufficient players, winner: ${winner.name}`);
-            this.endGame(gameCode, { winner: winner.name, reason: 'attrition' });
-            return; // endGame handles cleanup, don't continue
+            const remainingPlayers = game.players.filter(p => !p.isOut && !p.isDisconnected);
+            if (remainingPlayers.length === 1) {
+              this.endGame(game.code, remainingPlayers[0].name, WinType.Attrition);
+            } else {
+              this.endGame(game.code, "Nobody", WinType.Attrition); // All players disconnected or out.
+            }
+            return; 
           }
         }
 
@@ -309,6 +316,18 @@ export class GameManager {
   private getGameUpdateData(game: Game): GameUpdatePayload {
     const topDiscardCard = game.discardPile.length > 0 ? game.discardPile[game.discardPile.length - 1] : undefined;
 
+    let activeExplodingCard: Card | undefined;
+    if (game.turnPhase === TurnPhase.Exploding) {
+      // Find the most recent EXPLODING_CLUSTER in discard pile (it might be under a DEBUG card)
+      // Search from end (top)
+      for (let i = game.discardPile.length - 1; i >= 0; i--) {
+        if (game.discardPile[i].class === CardClass.ExplodingCluster) {
+          activeExplodingCard = game.discardPile[i];
+          break;
+        }
+      }
+    }
+
     const baseData: GameUpdatePayload = {
       gameCode: game.code,
       nonce: game.nonce,
@@ -323,6 +342,7 @@ export class GameManager {
       currentTurnIndex: game.currentTurnIndex,
       turnPhase: game.turnPhase,
       lastActorName: game.lastActorName,
+      activeExplodingCard,
       timerDuration: game.timerDuration,
       topDiscardCard: topDiscardCard, // Always send top card for rendering
     };
@@ -370,7 +390,7 @@ export class GameManager {
     if (game.state === GameState.Started && game.players.length === 1) {
       const winner = game.players[0];
       this.log(game, `game won by attrition: winner ${winner.name}`);
-      this.endGame(game.code, { winner: winner.name, reason: 'attrition' });
+      this.handleWin(game, winner, WinType.Attrition);
       return; // Stop further updates
     }
 
@@ -741,14 +761,10 @@ export class GameManager {
 
     game.drawPile = shuffleDeck(deck, this.prng.random.bind(this.prng));
 
-    // DEVMODE: Move Exploding Cluster to top
+    // DEVMODE: Setup fixed deck order
     if (game.devMode) {
-      const explodingIndex = game.drawPile.findIndex(c => c.class === CardClass.ExplodingCluster);
-      if (explodingIndex > -1) {
-        const [explodingCard] = game.drawPile.splice(explodingIndex, 1);
-        game.drawPile.push(explodingCard); // Push to end (which is the top for pop())
-        this.log(game, `DEVMODE: moved EXPLODING_CLUSTER to top of deck`);
-      }
+      this.setupDevModeDeck(game.drawPile);
+      this.log(game, `DEVMODE: setup fixed deck order`);
     }
 
     // Set turn order
@@ -765,6 +781,43 @@ export class GameManager {
     this.updateGameNonce(game);
     this.emitToGame(game.code, SocketEvent.GameStarted);
     callback({ success: true });
+  }
+
+  // Helper to force specific cards to the top of the deck for DEVMODE
+  // Sequence (popped last to first): EXPLODING_CLUSTER, SHUFFLE, NAK, FAVOR, SEE_THE_FUTURE, SKIP, ATTACK
+  public setupDevModeDeck(deck: Card[]) {
+    // The desired sequence of cards to be drawn (popped), in order:
+    const sequence: CardClass[] = [
+      CardClass.Nak,                // 1st pop
+      CardClass.Shuffle,            // 2nd pop
+      CardClass.Favor,              // 3rd pop
+      CardClass.SeeTheFuture,       // 4th pop
+      CardClass.Attack,             // 5th pop
+      CardClass.Skip,               // 6th pop
+      CardClass.ExplodingCluster,   // 7th pop (1st instance)
+      CardClass.Developer,          // 8th pop
+      CardClass.Developer,          // 9th pop
+      CardClass.UpgradeCluster,     // 10th pop (if available)
+      CardClass.Developer,          // 11th pop
+      CardClass.Developer,          // 12th pop
+      CardClass.ExplodingCluster    // 13th pop (if a second one exists)
+    ];
+
+    const cardsToAdd: Card[] = [];
+
+    for (const cardClass of sequence) {
+      // Find a card of this class in the deck
+      const index = deck.findIndex(c => c.class === cardClass);
+      if (index !== -1) {
+        const [card] = deck.splice(index, 1);
+        cardsToAdd.push(card);
+      }
+    }
+
+    // Push them onto the deck in REVERSE order so they are popped in the sequence order.
+    for (let i = cardsToAdd.length - 1; i >= 0; i--) {
+      deck.push(cardsToAdd[i]);
+    }
   }
 
   private dealDevModeHands(game: Game, deck: Card[]) {
@@ -1004,12 +1057,14 @@ export class GameManager {
       }
       this.log(game, `player "${player.name}" is drawing a card. Card is ${card.class} (${card.name})`);
 
+      const animDuration = config.goFast ? 500 : (card.class === CardClass.ExplodingCluster ? 5000 : 3000);
+
       // Start animation phase
       // Current player sees the card
       this.emitToSocket(socket.id, SocketEvent.DrawCardAnimation, { 
         drawingPlayerId: player.id,
         card: card, // They see the card
-        duration: 3000 
+        duration: animDuration 
       });
 
       // Others see "someone drew" (no card info)
@@ -1017,7 +1072,7 @@ export class GameManager {
         if (p.id !== player.id && p.socketId) {
           this.emitToSocket(p.socketId, SocketEvent.DrawCardAnimation, {
             drawingPlayerId: player.id,
-            duration: 3000
+            duration: animDuration
           });
         }
       }
@@ -1025,11 +1080,9 @@ export class GameManager {
       for (const s of game.spectators) {
         this.emitToSocket(s.socketId, SocketEvent.DrawCardAnimation, {
           drawingPlayerId: player.id,
-          duration: 3000
+          duration: animDuration
         });
       }
-
-      // Notify "X drew a card" is now inside setTimeout to include next player's turn.
 
       // Set timer to finalize
       game.timer = setTimeout(() => {
@@ -1085,26 +1138,53 @@ export class GameManager {
             return;
           }
 
-          // Add to hand
-          currentPlayer.hand.push(card);
+          // Check for EXPLODING CLUSTER
+          if (card.class === CardClass.ExplodingCluster) {
+            currentGame.turnPhase = TurnPhase.Exploding;
+            currentGame.discardPile.push(card); // Put on discard pile
+            this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} drew an EXPLODING CLUSTER!` });
 
-          // Phase 3.1.2: Timer resolution handles ops. Action phase implies empty stack.
+            const debugCardIndex = currentPlayer.hand.findIndex(c => c.class === CardClass.Debug);
+            if (debugCardIndex === -1) {
+              // Eliminate player
+              this.log(currentGame, `player "${currentPlayer.name}" exploded (no DEBUG card)`);
+              this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name}'s cluster has exploded, they are out of the game.` });
 
-          // Handle Exploding/Upgrade logic later (Phase 3). 
-          // For Phase 2.4: "If it is a regular card... that card goes into their hand... and their turn is over."
-          // We treat ALL cards as regular for now.
+              const hand = currentPlayer.hand;
+              currentGame.removedPile.push(...hand);
+              currentPlayer.hand = [];
+              currentPlayer.isOut = true;
 
-          // Advance turn
-          currentGame.currentTurnIndex = (currentGame.currentTurnIndex + 1) % currentGame.turnOrder.length;
-          const nextPlayerId = currentGame.turnOrder[currentGame.currentTurnIndex];
-          const nextPlayer = currentGame.players.find(p => p.id === nextPlayerId);
+              // Move EXPLODING CLUSTER from discard to removed
+              const popped = currentGame.discardPile.pop();
+              if (popped) currentGame.removedPile.push(popped);
 
-          if (nextPlayer) {
-            this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew a card, it's ${nextPlayer.name}'s turn.` });
+              currentGame.turnPhase = TurnPhase.Action; // Reset phase for next player
+
+              // Determine the winner (the last remaining active player)
+              const activePlayersAfterExplosion = currentGame.players.filter(p => !p.isOut && !p.isDisconnected && p.id !== currentPlayer.id);
+              if (activePlayersAfterExplosion.length === 1) {
+                this.handleWin(currentGame, activePlayersAfterExplosion[0], WinType.Explosion);
+              } else if (activePlayersAfterExplosion.length === 0) {
+                this.endGame(currentGame.code, "Nobody", WinType.Explosion); // All players exploded.
+              } else {
+                 // Game continues if > 1 player remains after current player explodes and others didn't.
+                 this.advanceTurn(currentGame);
+                 this.updateGameNonce(currentGame, currentPlayer.name);
+              }
+            } else {
+              // Has DEBUG card
+              this.log(currentGame, `player "${currentPlayer.name}" drew EXPLODING CLUSTER but has DEBUG`);
+              // Stay in turn, phase is Exploding
+              this.updateGameNonce(currentGame, currentPlayer.name);
+            }
+          } else {
+            // Regular card
+            this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} drew a card.` });
+            currentPlayer.hand.push(card);
+            this.advanceTurn(currentGame);
+            this.updateGameNonce(currentGame, currentPlayer.name);
           }
-
-          this.log(currentGame, `draw animation finished. Turn advanced to ${currentGame.turnOrder[currentGame.currentTurnIndex]}`);
-          this.updateGameNonce(currentGame, currentPlayer.name); // Sends updated state (hand, turn, etc)
         } catch (error) {
           this.log(null, `drawCard timer callback error: ${error}`);
         } finally {
@@ -1118,7 +1198,7 @@ export class GameManager {
             }
           }
         }
-      }, 3000);
+      }, animDuration);
     } catch (error) {
       // Handle any errors that occur before or during setTimeout setup
       this.log(game, `drawCard error: ${error}`);
@@ -1343,37 +1423,34 @@ export class GameManager {
       const [card] = player.hand.splice(cardIndex, 1);
       game.discardPile.push(card);
 
+      // Special handling for DEBUG card (Phase 3.3)
+      if (card.class === CardClass.Debug) {
+         this.log(game, `player "${player.name}" played "${card.class}: ${card.name}" (resolving immediately)`);
+         // Replace generic message with specific 'almost exploded' message
+         this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name}'s cluster almost exploded, but they debugged it!` });
+         this.updateGameNonce(game, player.name);
+         return;
+      }
+
       // Phase 3.1.1: Push a do-nothing operation
       game.pendingOperations.push({
         cardClass: card.class,
         playerName: player.name,
         action: async (_g: Game) => { 
-          // Sleep for 3 seconds
+          // Sleep for 3 seconds (or less if GO_FAST)
+          const duration = config.goFast ? 500 : 3000;
           if (this.verbose) {
-            this.log(_g, `executing do-nothing operation for card ${card.class} (sleeping 3s)`);
+            this.log(_g, `executing do-nothing operation for card ${card.class} (sleeping ${duration}ms)`);
           }
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await new Promise(resolve => setTimeout(resolve, duration));
         }
       });
 
       this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.class}.` });
 
-      // Phase 3.1.2: Trigger Timer if NOT Debug card
-      if (card.class !== CardClass.Debug) {
-        this.startReactionTimer(game, player.id);
-      } else {
-        // Debug executes immediately? Or just no timer?
-        // Doc: "DEBUG cards cannot be NAKed... no reaction allowed."
-        // We probably shouldn't even push it to the stack if it executes immediately, 
-        // BUT Phase 4 is "card actions". For now, we just don't start the timer.
-        // We should explicitly resolve immediately if it's a debug card to keep flow moving?
-        // Or wait for next action? 
-        // Logic says "If the player plays a card... except for a DEBUG card, a timer is set".
-        // It implies DEBUG resolves immediately.
-        // Let's call executePlayedCards immediately for DEBUG.
-        this.executePlayedCards(game);
-      }
+      // Phase 3.1.2: Trigger Timer
+      this.startReactionTimer(game, player.id);
 
       this.updateGameNonce(game, player.name);
     } finally {
@@ -1640,7 +1717,7 @@ export class GameManager {
       if (game.state === GameState.Started && connectedPlayers.length === 1) {
         const winner = connectedPlayers[0];
         this.log(game, `game won by attrition by ${winner.name} (others disconnected/out)`);
-        this.endGame(game.code, { winner: winner.name, reason: 'attrition' });
+        this.handleWin(game, winner, WinType.Attrition);
         return;
       }
 
@@ -1677,14 +1754,14 @@ export class GameManager {
     this.playerToGameMap.delete(socket.id); // Remove from map after all processing
   }
 
-  private endGame(gameCode: string, result?: { winner: string, reason: string }) {
+
+
+  private endGame(gameCode: string, winnerName: string, winType: WinType) {
     const game = this.games.get(gameCode);
     if (!game) {
-      // Game already ended/deleted, idempotent - just return
+      this.log(null, `endGame failed: game ${gameCode} not found`);
       return;
     }
-
-    // Idempotency check: If game is already ended, don't process again
     if (game.state === GameState.Ended) {
       this.log(null, `endGame called for already-ended game ${gameCode}, ignoring`);
       return;
@@ -1704,15 +1781,9 @@ export class GameManager {
     // Set game state to Ended to prevent new operations and make this idempotent
     game.state = GameState.Ended;
 
-    this.emitToGame(gameCode, SocketEvent.GameEnded, result);
+    const gameEndData = { winner: winnerName, winType: winType };
 
-    // Directly emit to the winner's socket if result and winner are available
-    if (result?.winner) {
-      const winnerPlayer = game.players.find(p => p.name === result.winner && !p.isDisconnected);
-      if (winnerPlayer && winnerPlayer.socketId) {
-        this.emitToSocket(winnerPlayer.socketId, SocketEvent.GameEnded, result);
-      }
-    }
+    this.emitToGame(game.code, SocketEvent.GameEnded, gameEndData);
 
     this.games.delete(gameCode); // Delete game from map after emitting
 
@@ -1726,6 +1797,76 @@ export class GameManager {
       const prefix = game ? `[${timestamp}] [game ${game.code}] ` : `[${timestamp}] [server] `;
       console.log(prefix + message);
     }
+  }
+
+  private advanceTurn(game: Game) {
+    let nextIndex = (game.currentTurnIndex + 1) % game.turnOrder.length;
+    let attempts = 0;
+    while (attempts < game.turnOrder.length) {
+      const nextPlayerId = game.turnOrder[nextIndex];
+      const nextPlayer = game.players.find(p => p.id === nextPlayerId);
+      if (nextPlayer && !nextPlayer.isOut && !nextPlayer.isDisconnected) {
+        break;
+      }
+      nextIndex = (nextIndex + 1) % game.turnOrder.length;
+      attempts++;
+    }
+
+    game.currentTurnIndex = nextIndex;
+  }
+
+  private handleWin(game: Game, winner: Player, winType: WinType) {
+    this.endGame(game.code, winner.name, winType);
+  }
+
+  private insertExplodingCard(socket: Socket, gameCode: string, index: number, nonce: string) {
+    const game = this.games.get(gameCode);
+    if (!game) return;
+
+    if (game.turnPhase !== TurnPhase.Exploding) return;
+
+    const player = game.players.find(p => p.socketId === socket.id);
+    if (!player || game.turnOrder[game.currentTurnIndex] !== player.id) return;
+
+    if (nonce !== game.nonce) {
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game state mismatch." });
+      return;
+    }
+
+    if (index < 0 || index > game.drawPile.length) {
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid insertion index." });
+      return;
+    }
+
+    let cardIndex = -1;
+    for (let i = game.discardPile.length - 1; i >= 0; i--) {
+      if (game.discardPile[i].class === CardClass.ExplodingCluster) {
+        cardIndex = i;
+        break;
+      }
+    }
+
+    if (cardIndex === -1) {
+      this.log(game, "insertExplodingCard: no EXPLODING CLUSTER in discard pile");
+      return;
+    }
+    const [card] = game.discardPile.splice(cardIndex, 1);
+
+    // 0 is top (end of array), N is bottom (start of array)
+    const insertIndex = game.drawPile.length - index;
+    if (insertIndex < 0 || insertIndex > game.drawPile.length) {
+      game.drawPile.push(card);
+    } else {
+      game.drawPile.splice(insertIndex, 0, card);
+    }
+
+    this.log(game, `player "${player.name}" re-inserted EXPLODING CLUSTER at index ${insertIndex} (user input ${index})`);
+
+    // Reset phase to Action (for next player)
+    game.turnPhase = TurnPhase.Action;
+
+    this.advanceTurn(game);
+    this.updateGameNonce(game, player.name);
   }
 
   // Cleanup method for tests - clears all timers

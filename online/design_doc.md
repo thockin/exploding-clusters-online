@@ -16,18 +16,19 @@ we evolve it.
 ### The server and the client
 
 This is a client-server web game. One player creates a game through the UI, and
-other players can join the game.  All game state is stored on the server.  The
-client is a web app which runs in the browser and has minimal state.  The
-server must communicate state and events to clients, including what cards that
-player holds, what other players are in the game, whose turn it is, and what
-cards are being played.
+other players can join or watch the game.  All game state is stored on the
+server.  The client is a web app which runs in the browser and has minimal
+state.  The server must communicate state and events to clients, including what
+cards that player holds, what other players are in the game, whose turn it is,
+and what cards are being played.  Clients can send commands to the server, such
+as "play this card", "draw a card", or "reorder my hand".
 
 The server can support many games at once.  Each game must be totally
 independent from all other games.  Each game can support 2 to 5 players.  A
 game cannot be started with less than 2 players, and if players leave the game
 such that there are less than 2 players remaining, the game ends.
 
-The server can run on any port, and when a client connects to that port, it
+The server can listen on any port, and when a client connects to that port, it
 knows to keep using the same port number for the rest of the game.
 
 Each player gets a unique UUID, and the server tracks the UUID of the game
@@ -37,10 +38,10 @@ owner.  Only the game owner can start the game.
 
 ##### Per-game nonce
 
-At startup, each game generates a random, 64 bit unsigned nonce.  Every time
+At startup, each game generates a random, 64 bit, unsigned nonce.  Every time
 the game's state changes, such as a new player joining a lobby or a card being
 played, a new nonce is chosen and all connected players get an event with an
-updated nonce value.
+updated nonce value.  The nonce helps to synchonize clients with the server.
 
 The nonces are per-game, not global across all games on the server.
 
@@ -68,27 +69,42 @@ dialog with a title like "Sorry!" and a message like "The game has changed
 since you left. Rejoining it is not possible.". When they hit OK, take them to
 the landing page.
 
-When a player tries to rejoin a game that does not exist, take them to the
+When a player tries to rejoin a game that does not exist, take them back to the
 landing page.
 
 ##### Disconnecting Players
 
-When a player leaves the game, either by clicking the button or by navigating
-away, they should not appear in the player list anymore.
+When a player leaves the game, either by clicking the "leave game" button or by
+navigating away, they should not appear in the player list, and all other
+players should see a message like "{player} has left the game."  Their cards
+are held in reserve until the nonce changes.  If the nonce changes, their cards
+are removed from the game (neither in the draw-pile nor the discard-pile), but
+the game should continue as long as there are at least 2 players.
 
 When the next-to-last player leaves the game, either by clicking the button or
 by navigating away, that is a "win by attrition" for the last remaining player.
 
-When the player leaves the game during their turn, their turn is over. Any
-pending operations for that player are discarded. If the player had to take
-multiple turns, those are also discarded. If the player has just drawn an
-EXPLODING CLUSTER card, it is automatically re-inserted at a random position in
-the draw-pile, face-down.  If the player has just drawn an UPGRADE CLUSTER
-card, it is automatically re-inserted at a random position in the draw-pile,
-face-up.  A message is sent to all players like "{player} has abandoned their
-turn, it's {nextplayer}'s turn.".  Play then continues with the next player's
-turn, and the nonce is updated.  Players who leave the game during their turn
-are not eligible to rejoin.
+When a player leaves the game while they are the target of a FAVOR card, the
+player who played the FAVOR card gets a random card from the leaving player's
+hand.
+
+When a player leaves the game while they are the target of a pair of DEVELOPER cards, the
+player who played the DEVELOPER cards gets tho choose a card (by index) from
+the leaving player's hand.
+
+If a player leaves the game during their turn, their turn is over and they are
+not eligible to rejoin the game.
+  * Any pending operations for that player are discarded.
+  * If the player had to take multiple turns (e.g. they were the target of an
+    ATTACK card), those are also discarded.
+  * If the player has just drawn an EXPLODING CLUSTER card, it is automatically
+    re-inserted at a random position in the draw-pile, face-down.
+  * If the player has just drawn an UPGRADE CLUSTER card, it is automatically
+    re-inserted at a random position in the draw-pile, face-up.
+  * A message is sent to all players like "{player} has abandoned their turn,
+    it's {nextplayer}'s turn.".
+  * Play then continues with the next player's turn, causing the nonce to be
+    updated.
 
 When the game owner disconnects while the game is in the lobby, the server
 should randomly choose another player to act as the owner.  The new owner
@@ -104,41 +120,73 @@ chosen - the game is immediately over.
 
 ###### Example
 
-Consider a game with 4 connected players: A, B, C, and D.  The nonce is
-currently 12345.
+Consider a game lobby with 4 connected players: A, B, C, and D.  The nonce is
+currently 123. Player A is the game creator.
 
   * Player B navigates their browser away.
-    - The last nonce they know is 12345
-  * The server's game nonce remains 12345.
+    - The last nonce they know is 123
+    - Players A, C, and D remain
+  * The server's game nonce remains 123.
   * The player list UI for players A, C, and D is updated to remove B.
   * Player C navigates their browser away.
-    - The last nonce they know is 12345
-  * The server's game nonce remains 12345.
+    - The last nonce they know is 123
+    - Players A and D remain
+  * The server's game nonce remains 123.
   * The player list UI for players A and D is updated to remove C.
   * Player D navigates their browser away.
-    - The last nonce they know is 12345
-  * The server's game nonce remains 12345.
+    - The last nonce they know is 123
+    - Player A remains
+  * The server's game nonce remains 123.
   * The player list UI for player A is updated to remove D.
   * Player B hits their browser's back button to rejoin the game.
-    - They offer the last nonce they knew, which is 12345
+    - They offer the last nonce they knew, which is 123
   * That matches the server's nonce, so B is allowed back in.
+    - Players A and B are in the game
   * The player list UI for player A is updated to add B.
-  * The server's game nonce remains 12345.
+  * The server's game nonce remains 123.
   * Player C hits their browser's back button to rejoin the game.
-    - They offer the last nonce they knew, which is 12345
+    - They offer the last nonce they knew, which is 123
   * That matches the server's nonce, so C is allowed back in.
+    - Players A, B, and C are in the game
   * The player list UI for players A and B is updated to add C.
-  * The server's game nonce remains 12345.
+  * The server's game nonce remains 123.
   * New player E joins the game.
-  * The server's game nonce changes to 67890.
+    - Players A, B, C, and E are in the game
+  * The server's game nonce changes to 456.
   * The player list UI for players A, B, and C is updated to add E.
   * Player D hits their browser's back button to rejoin the game.
-    - They offer the last nonce they knew, which is 12345
+    - They offer the last nonce they knew, which is 123
   * That DOES NOT match the server's nonce, so D is sent to the landing page.
+
+Now player A starts the game.
+
+  * The server's game nonce changes to 789.
+  * All players (A, B, C, E) see the game screen.
+  * It is player A's turn.
+  * Player E navigates their browser away.
+    - The last nonce they know is 789
+    - Players A, B, and C remain
+  * The server's game nonce remains 789.
+  * Player E hits their browser's back button to rejoin the game.
+    - They offer the last nonce they knew, which is 789
+  * That matches the server's nonce, so E is allowed back in.
+    - Players A, B, C, and E are in the game
+  * The server's game nonce remains 789.
+  * Player a plays an ATTACK card, targeting B.
+    - It is now player B's turn, and they must take 2 turns.
+    - The server's game nonce changes to abc.
+  * Player B navigates their browser away.
+  * Player B's turn is abandoned.
+    - The ATTACK was cancelled
+    - It is now player C's turn
+    - The server's game nonce changes to def.
+  * Player B hits their browser's back button to rejoin the game.
+    - They offer the last nonce they knew, which is abc
+    - That DOES NOT match the server's nonce, so B is sent to the landing page.
 
 ##### Cleanup
 
-When a user leaves a game, their cards are help in reserve until the server
+When a user leaves a game, their cards are held in reserve until the server
 nonce changes.  Once it changes, those cards are removed from the game (neither
 in the draw-pile nor the discard-pile), but the game should continue as long as
 there are at least 2 players.  When the game ends or the last player leaves,
@@ -177,6 +225,12 @@ is exacty 5 letters, alphabetic, no vowels, upper-case, and  does not contain
 swear words. The player is then taken to the "lobby" screen.  They can see the
 game code and share it with friends. This player is the game owner.
 
+Player names must be validated to be safe (no HTML tags, no control characters,
+etc) and no more than 32 characters long.
+
+Clicking the "join game" button multiple times must only create one game.
+Clicking repeatedly has no additional effect.
+
 The lobby screen is the same for all players, except that the game owner sees
 a "Start the game" button, while other players see a "Waiting for the game to
 start" message. Both show a list of the joined players and how many people are
@@ -189,14 +243,14 @@ client state including the game code and nonce, and takes the player back to
 the landing page.  All that player's state is removed from the server, and all
 other players in the lobby are notified and their player lists are updated.
 
-If the user uses the "/forceNewGame" URL path, the client should be forced to
-forget anything it knows, including the game code and nonce, and the server
-should forget my client ID, and take me to the landing page.  It means "I
-really don't want to rejoin a game"
-
 ### Joining a game
 
 If the user chooses "Join a game", we ask them for a game code and their name.
+
+Player names must be unique within a game, ignoring upper/lower case, and must
+be validated to be safe (no HTML tags, no control characters, etc) and no more
+than 32 characters long.
+
 When they type in a game code, we try to join them to that game.  Before they
 can join, we must:
 
@@ -248,7 +302,8 @@ change to the "game" screen.
 
 ### Game state
 
-The server needs to track three main sets of cards.
+The server needs to track three sets of cards (called piles) and a hand of
+cards for each player.
 
 First is the "draw-pile", sometimes called "the deck".  This is the set of
 cards from which players draw cards.  Cards in this pile are usually face-down,
@@ -264,10 +319,10 @@ the game, such as when a player leaves the game or is out of the game.  Cards
 in this pile are not part of the game anymore.  The removed-pile is empty at
 the start of the game.
 
-The server also needs to track the "pending operations" stack, which is used to
-track what operations need to be performed.
-
 The server also needs to track the list of players, and whose turn it is now.
+
+The server also needs to track the "pending operations" stack, which is used to
+track what operations need to be performed and who played that operation.
 
 #### Per-player state
 
@@ -302,8 +357,8 @@ The main "game" screen is split into several areas:
     green, and whose turn is next in light orange.  The order of players is
     randomized at the start of the game, but all players see the same order.
 
-  * Below the player list is an area which shows the reaction timer when
-    needed.  We will call this the timer area.  More on that later.
+  * Below the player list is the "timer" area which shows the reaction timer
+    when needed.
 
   * To the right of those is the "table" area. It shows the draw-pile on the
     left and the discard-pile on the right. If either pile is empty, show a
@@ -335,13 +390,14 @@ The main "game" screen is split into several areas:
     state is removed from the server, and all other players in the lobby are
     notified and their player lists are updated. The player's cards are removed
     (neither in the draw-pile nor the discard-pile) for the remainder of the
-    game.
+    game.  The hand area should have it's own vertical scroll functionality,
+    when needed.
 
-  * The hand area should have it's own vertical scroll functionality, when
-    needed. The player list area, table area, and message area should be
-    fixed in place and size, unless the browser is resized. If the hand area
-    is larger than the visible space, it can scroll vertically without
-    affecting the other areas. Never scroll horizontally.
+  * All of the areas should be fixed in place and size, unless the browser is
+    resized. If the hand area is larger than the visible space, it can scroll
+    vertically without affecting the other areas. Never scroll horizontally.
+    Adding and removing cards from the hand area should never affect the size
+    or position of any other area.
 
 ##### Message area - whose turn is it
 
@@ -357,23 +413,24 @@ light blue.
 
 ##### Playing cards
 
-A player 's turn consists of two phases - playing cards, and drawing a card.
+A player's turn consists of two phases - playing cards, and drawing a card.
 Unless a card's rules specifically say otherwise, the player must draw a card
 to end their turn.
 
-During their turn, the player may play 0 or more cards, either one at a time or in
-combos.  To play a card, players drag and drop them from their hand into
+During their turn, the player may play 0 or more cards, either one at a time or
+in combos.  To play a card, players drag and drop them from their hand into
 discard-pile.  A played card appears, full size, on the discard-pile for all
 players to see.
 
-After playing, other players are given time to react to the played card.  For
-example, a NAK may be played in response to any played card, unless otherwise
-noted. 
+After a card is played, other players are given time to react to the played
+card.  For example, a NAK may be played in response to any played card, unless
+otherwise noted.  If a card is played in reaction, more cards may be played as
+a reaction to that, and so on.  The reaction timer is shown in the timer area.
 
 Once played, and all reactions are done, any card-specific rules or actions
 must be followed (more on that later).  When a player decides they are done
 with their turn, they must draw a card from the draw-pile, unless the last card
-action they played specifically said they do not need to draw a card.
+they played specifically said they do not need to draw a card.
 
 When a player plays one or more cards, those cards are removed from the
 player's hand in the server state and in their hand area, and all players can
@@ -387,54 +444,68 @@ played a pair of {card-class} cards".
 Only the current player can draw a card, by clicking on the draw-pile.  If any
 other player clicks the draw pile, nothing happens.  If a client sends a
 draw-card event to the server when it is not that player's turn, the server
-ignores it.
+must ignore it.
 
-When a player draws a card by clicking on the draw-pile, they see the top
-card as a large overlay for 3 seconds.  During that time, game play is paused
-for all players.  If it is a regular card (not "EXPLODING CLUSTER" or "UPGRADE
-CLUSTER"), that card goes into their hand on the server and in their hand area,
-and their turn is over.
+When a player draws a card, they see the top card as a large overlay for 3
+seconds. When that is done, if it is a regular card (not "EXPLODING CLUSTER" or
+"UPGRADE CLUSTER"), that card goes into their hand on the server and in their
+hand area, and their turn is over.
 
-When a player draws a card by clicking on the draw-pile, other players see a
-hand come in from the top of the table area, centered on the draw pile.  The
-hand grabs the top card of the draw-pile, and then withdraws back up off the
-top of the screen with the top card of the deck.  During that time, game play
-is paused for all players.  If it is a regular card (not "EXPLODING CLUSTER" or
-"UPGRADE CLUSTER"), that card goes into the drawing player's hand on the server
-and in their hand area, and their turn is over.
+During that time, game play is paused for all players while an animation runs.
+Other players see a hand come in from the top of the table area, centered on
+the draw pile.  The hand grabs the top card of the draw-pile, and then
+withdraws back up off the top of the screen with the top card of the deck.
 
 We send a message to all players that "{player} drew a card, it is
-{next-player}'s turn", but not which card they drew.
+{next-player}'s turn", but never which card they drew.
 
 ##### Drawing an EXPLODING CLUSTER card
 
-If the player draws an "EXPLODING CLUSTER" card, the current player sees that
-card as a large overlay for 3 seconds, and then it is shown on the discard
-pile.  Regular play pauses.  All other players see it as a large overlay until
-play resumes.
+Drawing an EXPLODING CLUSTER card gets special rules.
 
-If the player does not have a DEBUG card, they out of the game, and do not get
-any more turns.  The player list is updated with a strike-through on their
-name.  Send a message to all players that "{player}'s cluster exploded!". All
-the cards in their hand plus the EXPLODING CLUSTER card are removed from the
-duration of the game.  Play then continues with the next player's turn.
+If the player draws an "EXPLODING CLUSTER" card:
+  * Regular play pauses.
+  * The drawing player sees that card as a large overlay for 3 seconds, or
+    until they press escape or click somewhere.  If they do not hit escape or
+    click, the overlay is automatically dismissed after the timeout, and the
+    EXPLODING CLUSTER card is is shown on the discard pile.
+  * All other players see that card as a large overlay until play resumes.
+    This overlay cannot be manually dismissed.
 
-If the player has one or more DEBUG cards, they must now play a DEBUG card, and
-only a DEBUG card, by dragging and dropping from their hand onto the discard
-pile. DEBUG cards cannot be NAKed by another player.  There is no reaction
-allowed.
+Once the drawing player has dismissed the overlay (either by timeout or by
+hitting escape or clicking), they must debug their cluster.
+
+If the player does not have a DEBUG card in their hand, they are out of the
+game, and do not get any more turns.  For remaining players, the overlay is
+dismissed after 3 seconds and the player list is updated with a strike-through
+on their name. Send a message to all players that "{player}'s cluster
+exploded!". All the cards in their hand plus the EXPLODING CLUSTER card are
+removed from the duration of the game.  Play continues with the next player's
+turn.
+
+If the player has one or more DEBUG cards, their "turn area" turns red and says
+"You must play a DEBUG card". Within the hand area, only DEBUG cards are
+playable. The player must play a DEBUG card, and only a DEBUG card, by dragging
+and dropping from their hand onto the discard pile. DEBUG cards cannot be NAKed
+by another player.  There is no reaction allowed.
+
+After playing a DEBUG card, their turn area goes back to normal.  Other players
+get a log message like `"{player}'s cluster almost exploded, but they debugged
+it!"
 
 The player must then re-insert the EXPLODING CLUSTER card back into the draw
-pile at any position they choose.  They are prompted to choose a position,
-like: "There are {n} cards in the draw-pile, where do you want to put the
-EXPLODING CLUSTER card? (0 is the top of the deck, {n} is the bottom)". They
-need to enter a number from 0 to N, and whatever they enter, we put the
-EXPLODING CLUSTER card back into the draw-pile at that position. If they chose
-0, the card goes on the top of the draw-pile.  If they chose {n}, the card goes
-at the bottom of the draw-pile.
+pile at any position they choose.  They get a modal dialog with a title like
+"You're safe, for now", and the message "Where in the deck do you want to put the
+EXPLODING CLUSTER card? 0 means the top of the deck, {N} means the bottom."
+They enter a number from 0-N (where N is the number of cards in the deck), and
+hit an "OK" button. Whatever number they enter, we put the EXPLODING CLUSTER
+card back into the draw-pile at that position, from the top. If they chose 0, the card goes
+on the top of the draw-pile.  If they chose {n}, the card goes at the bottom of
+the draw-pile.
 
 Once the EXPLODING CLUSTER card is re-inserted into the deck, the player's turn
-is over and it becomes the next player's turn.
+is over.  All the EXPLODING CLUSTER overlays for all players are dismissed.
+Play resumes with the next player's turn.
 
 ##### Drawing a face-down UPGRADE CLUSTER card
 

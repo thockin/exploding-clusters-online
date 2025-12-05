@@ -50,45 +50,77 @@ async function watchGame(page: Page, code: string) {
 
 // Helper to play a card via drag-and-drop from hand to pile.
 async function playCard(page: Page, card: Locator) {
-    const pile = findDiscardPileDropTarget(page);
-    await expect(pile).toBeVisible();
+  const pile = findDiscardPileDropTarget(page);
+  await expect(pile).toBeVisible();
 
-    const srcBox = await card.boundingBox();
-    const dstBox = await pile.boundingBox();
-    if (!srcBox) throw new Error('Bounding box not found for card');
-    if (!dstBox) throw new Error('Bounding box not found for pile');
-    await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
-    await page.mouse.up();
+  const srcBox = await card.boundingBox();
+  const dstBox = await pile.boundingBox();
+  if (!srcBox) throw new Error('Bounding box not found for card');
+  if (!dstBox) throw new Error('Bounding box not found for pile');
+  await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
+  await expect(card).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+  await page.mouse.up();
+}
+
+// Helper to draw a card.
+async function drawCard(page: Page) {
+  await expect(findTurnArea(page)).toContainText(`It's your turn`);
+  await findDrawPile(page).click();
 }
 
 // Helper to find cards in the hand area by their card class.  Can return
 // multiple cards.
 function findHandCardsByClass(page: Page, cardClass: CardClass): Locator {
-    const hand = page.locator(`div[data-areaName="hand"]`);
-    return hand.locator(`div[data-cardClass="${cardClass}"]`);
+  const hand = page.locator(`div[data-areaname="hand"]`);
+  return hand.locator(`div[data-cardclass="${cardClass}"]`);
 }
 
 // Helper to find all cards in the hand area.  Can return multiple cards.
 function findAllHandCards(page: Page): Locator {
-    const hand = page.locator(`div[data-areaName="hand"]`);
-    return hand.locator(`div[data-cardClass]`);
+  const hand = page.locator(`div[data-areaname="hand"]`);
+  return hand.locator(`div[data-cardclass]`);
+}
+
+// Helper to find the draw pile.
+function findDrawPile(page: Page): Locator {
+  return page.locator(`div[data-areaname="draw-pile"]`);
+}
+
+// Helper to find the discard pile.
+function findDiscardPile(page: Page): Locator {
+  return page.locator(`div[data-areaname="discard-pile"]`);
 }
 
 // Helper to find the discard pile's drop target to play a card.
 function findDiscardPileDropTarget(page: Page): Locator {
-    return page.locator(`div[data-areaName="discard-pile"]`).locator('xpath=..');
+  return findDiscardPile(page).locator('xpath=..');
 }
 
 // Helper to find the timer area.
 function findTimerArea(page: Page): Locator {
-    return page.locator(`div[data-areaName="timer"]`);
+  return page.locator(`div[data-areaname="timer"]`);
 }
 
 // Helper to find the message area.
 function findMessageArea(page: Page): Locator {
-    return page.locator(`div[data-areaName="message"]`);
+  return page.locator(`div[data-areaname="message"]`);
+}
+
+// Helper to find the log area.
+function findLogArea(page: Page): Locator {
+  return page.locator(`div[data-areaname="log"]`);
+}
+
+// Helper to find the turn area.
+function findTurnArea(page: Page): Locator {
+  return page.locator(`div[data-areaname="turn"]`);
+}
+
+// Helper to find the overlay
+function findOverlay(page: Page): Locator {
+  return page.locator(`div[style*="z-index: 1000"] img`);
 }
 
 test.describe('UI Tests with DEVMODE=1', () => {
@@ -378,7 +410,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p2TurnArea).toHaveCSS('background-color', 'rgb(255, 213, 128)');
 
     // Verify P3 (Other) -> Lightblue background
-    const p3TurnArea = page3.locator('strong:has-text("It is P1\'s turn")').locator('xpath=..');
+    const p3TurnArea = page3.locator(`strong:has-text("It's P1's turn")`).locator('xpath=..');
     await expect(p3TurnArea).toBeVisible();
     await expect(p3TurnArea).toHaveCSS('background-color', 'rgb(173, 216, 230)');
   });
@@ -569,12 +601,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await cardImg.dblclick({ force: true });
 
     // Check for overlay (z-index 1000)
-    const overlay = page1.locator('div[style*="z-index: 1000"]');
-    await expect(overlay).toBeVisible();
+    await expect(findOverlay(page1)).toBeVisible();
 
     // Escape
     await page1.keyboard.press('Escape');
-    await expect(overlay).not.toBeVisible();
+    await expect(findOverlay(page1)).not.toBeVisible();
   });
 
   test('DEVMODE DEBUG Button limit', async ({ browser }) => {
@@ -733,7 +764,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
     const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-    const messageArea = findMessageArea(page1);
+    const messageArea = findLogArea(page1);
 
     await expect(handSection.locator('img')).toHaveCount(8);
     await expect(discardPile.locator('img')).not.toBeVisible(); 
@@ -775,7 +806,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
     const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-    const messageArea = findMessageArea(page1);
+    const messageArea = findLogArea(page1);
 
     // Locate two different cards (FAVOR and SHUFFLE)
     const favorCard = handSection.locator('img[alt^="FAVOR:"]').first();
@@ -1023,42 +1054,36 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await page2.waitForURL(/game/);
 
     // Ensure it's P1's turn
-    await expect(page1.locator(Locators.TURN_MY_TURN)).toBeVisible({ timeout: 10000 });
+    await expect(findTurnArea(page1)).toContainText(`It's your turn`);
+    await expect(findTurnArea(page2)).toContainText(`Your turn is next`);
+    await expect(findAllHandCards(page1)).toHaveCount(8);
 
-    const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
-    const initialHandCount = await handSection.locator('img').count();
-    expect(initialHandCount).toBe(8); 
+    // Click draw pile
+    await findDrawPile(page1).click();
 
-    // Click Draw Pile
-    const drawPile = page1.locator(Locators.GAME_PILE).first();
-    await drawPile.click();
-
-    // Verify Draw Animation Overlay on P1
-    const currentDrawingOverlay = page1.locator('div[style*="z-index: 1000"] img');
-    await expect(currentDrawingOverlay).toBeVisible();
+    // Verify overlay on P1
+    await expect(findOverlay(page1)).toBeVisible();
 
     // Verify Animation on P2
     const animatedHandCard = page2.locator(Locators.HAND_ANIMATION_CARD);
     await expect(animatedHandCard).toBeVisible();
     await expect(animatedHandCard).toHaveAttribute('src', /back\.png/);
 
-    // Wait for animation to finish (3s)
-    await page1.waitForTimeout(3500);
-
-    // Verify log message on P2 (other player) indicating turn advancement
-    await expect(findMessageArea(page2)).toContainText(`P1 drew a card, it\'s P2\'s turn`);
+    // Wait for animation to finish (GO_FAST=1s)
+    //await page1.waitForTimeout(1500);
 
     // Verify overlay gone
-    await expect(currentDrawingOverlay).not.toBeVisible();
+    await expect(findOverlay(page1)).not.toBeVisible();
 
     // Verify hand count +1
-    const newHandCount = await handSection.locator('img').count();
-    expect(newHandCount).toBe(initialHandCount + 1);
+    await expect(findAllHandCards(page1)).toHaveCount(9);
+
+    // Verify log message indicating turn advancement
+    await expect(findLogArea(page1)).toContainText(`P1 drew a card`);
+    await expect(findLogArea(page2)).toContainText(`P1 drew a card`);
 
     // Verify turn passed to P2
-    const p2TurnArea = page2.locator(Locators.TURN_MY_TURN).locator('xpath=..');
-    await expect(p2TurnArea).toBeVisible();
-    await expect(p2TurnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)');
+    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
   });
 
   test('Dismiss Draw Overlay', async ({ browser }) => {
@@ -1075,90 +1100,75 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await page2.waitForURL(/game/);
 
     // P1 draws a card
-    const drawPile = page1.locator(Locators.GAME_PILE).first();
-    await drawPile.click();
+    await findDrawPile(page1).click();
 
     // Verify overlay appears
-    const overlay = page1.locator('div[style*="z-index: 1000"] img');
-    await expect(overlay).toBeVisible();
+    await expect(findOverlay(page1)).toBeVisible();
 
     // Click to dismiss (should disappear immediately)
-    await overlay.click();
-    await expect(overlay).not.toBeVisible();
+    await findOverlay(page1).click();
+    await expect(findOverlay(page1)).not.toBeVisible();
 
     // Verify turn eventually passes to P2 (after server timeout)
-    const p2TurnArea = page2.locator(Locators.TURN_MY_TURN).locator('xpath=..');
-    await expect(p2TurnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)', { timeout: 5000 });
+    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
   });
 
   test('Play Single Card', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
+
     const ctx2 = await browser.newContext();
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
+
     await page1.click(Buttons.START_GAME);
     await page1.waitForURL(/game/);
-    await page1.waitForLoadState('networkidle');
-
-    const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
-    const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-
-    await expect(handSection.locator('img')).toHaveCount(8);
+    await page2.waitForURL(/game/);
 
     // Find a SHUFFLE card to play (P1 has one).
-    const card = handSection.locator('img[alt^="SHUFFLE:"]').first();
+    const card = findHandCardsByClass(page1, CardClass.Shuffle).first();
     await expect(card).toBeVisible();
 
-    // Select Card
-    await card.click();
-    await expect(card.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+    // Verify card count
+    await expect(findAllHandCards(page1)).toHaveCount(8);
 
-    // Drag Card to Discard Pile
-    const srcBox = await card.boundingBox();
-    const dstBox = await discardPile.boundingBox();
-    if (!srcBox || !dstBox) throw new Error('Missing bounding box');
+    // Play the card
+    await playCard(page1, card);
 
-    await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
-    await page1.mouse.down();
-    await page1.waitForTimeout(500);
-    await page1.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 60 });
-    await page1.waitForTimeout(500);
-    await page1.mouse.up();
+    // Check for timer messages
+    await expect(findTimerArea(page1)).toContainText(`Waiting for other players to react`);
+    await expect(findTimerArea(page2)).toContainText(`Want to react?`);
 
-    // Check for timer on Player 1 (Current Player)
-    await expect(page1.getByText('Waiting for other players to react')).toBeVisible({ timeout: 5000 });
-    await expect(page1.locator(Locators.TIMER_AREA)).toBeVisible();
-
-    // Check for timer on Player 2 (Other Player)
-    await expect(page2.getByText('Want to react? Act fast!')).toBeVisible({ timeout: 5000 });
-    await expect(page2.locator(Locators.TIMER_AREA)).toBeVisible();
-
-    // Wait for timer to expire (2 seconds in DEVMODE)
-    await expect(page1.getByText('Waiting for other players to react')).not.toBeVisible({ timeout: 10000 });
+    // Wait for timer to expire (2 seconds in tests)
+    await expect(findTimerArea(page1)).not.toContainText(`Waiting for other players to react`);
 
     // Verify card count decreased
-    await expect(handSection.locator('img')).toHaveCount(7);
+    await expect(findAllHandCards(page1)).toHaveCount(7);
+
     // Verify discard pile has image
-    await expect(discardPile.locator('img')).toBeVisible();
+    await expect(findDiscardPile(page1).locator('img')).toBeVisible();
+    await expect(findDiscardPile(page2).locator('img')).toBeVisible();
   });
 
   test('Play Combo', async ({ browser }) => {
     const viewport = { width: 1200, height: 800 };
+
     const ctx1 = await browser.newContext({ viewport });
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
+
     const ctx2 = await browser.newContext({ viewport });
     const page2 = await ctx2.newPage();
+
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
     await page1.waitForURL(/game/);
-    await page1.waitForLoadState('networkidle');
+    await page2.waitForURL(/game/);
 
     const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
     const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-    const messageArea = findMessageArea(page1);
+    const messageArea = findLogArea(page1);
 
     await expect(handSection.locator('img')).toHaveCount(8);
 
@@ -1272,7 +1282,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // The green table area (Col md=9)
     const tableArea = page.locator('div[style*="background-color: rgb(34, 139, 34)"]'); 
     // The fixed height message container
-    const messageArea = findMessageArea(page).locator('xpath=..'); 
+    const messageArea = findLogArea(page).locator('xpath=..'); 
     // The hand container (bg-light, fixed height)
     const handArea = page.locator(Headers.YOUR_HAND).locator('xpath=..'); 
 
@@ -1343,8 +1353,8 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Or simpler: P1 draws a card.
     await page.click(Locators.GAME_PILE); 
     // Wait for log
-    await expect(findMessageArea(page)).toContainText('P1 drew a card');
-    await expect(findMessageArea(page2)).toContainText('P1 drew a card');
+    await expect(findLogArea(page)).toContainText('P1 drew a card');
+    await expect(findLogArea(page2)).toContainText('P1 drew a card');
 
     // P1 Leaves Game
     await page.click(Buttons.LEAVE_GAME);
@@ -1374,8 +1384,8 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Verify logs are clean.
     // Game 1 had "P1 drew a card".
     // Game 2 should be empty initially.
-    await expect(findMessageArea(page)).toHaveText('');
-    await expect(findMessageArea(page2)).toHaveText('');
+    await expect(findLogArea(page)).toHaveText('');
+    await expect(findLogArea(page2)).toHaveText('');
   });
 
   test('Simultaneous NAKs', async ({ browser }) => {
@@ -1414,12 +1424,12 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     // P1 plays SHUFFLE, enter reaction phase
     await playCard(page1, p1Shuffle);
-    await expect(findMessageArea(page2)).toContainText('P1 played SHUFFLE');
+    await expect(findLogArea(page2)).toContainText('P1 played SHUFFLE');
 
     // Verify reaction phase
     const timerArea = findTimerArea(page1);
     await expect(timerArea).toBeVisible();
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
     await expect(p2Nak).toHaveAttribute('data-playable', 'true');
     await expect(p3Nak).toHaveAttribute('data-playable', 'true');
 
@@ -1435,10 +1445,10 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     // P3 Plays NAK, restart reaction phase, updates nonce to N2
     await playCard(page3, p3Nak);
-    await expect(findMessageArea(page2)).toContainText('P3 played NAK');
+    await expect(findLogArea(page2)).toContainText('P3 played NAK');
 
     // Verify reaction phase
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
 
     // P2 finishes their play, drops NAK, but sends nonce N1
     await page2.mouse.move(p2DstBox.x + p2DstBox.width / 2, p2DstBox.y + p2DstBox.height / 2);
@@ -1452,7 +1462,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await page2.getByRole('button', { name: 'Play it!' }).click();
 
     // Verify P2 played
-    await expect(findMessageArea(page1)).toContainText('P2 played NAK');
+    await expect(findLogArea(page1)).toContainText('P2 played NAK');
   });
 
   test('Action/reaction logic', async ({ browser }) => {
@@ -1507,10 +1517,10 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     // P1 plays SHUFFLE, restart reaction phase
     await playCard(page1, p1Shuffle);
-    await expect(findMessageArea(page2)).toContainText('P1 played SHUFFLE');
+    await expect(findLogArea(page2)).toContainText('P1 played SHUFFLE');
 
     // Verify reaction phase
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
     await expect(timerArea).toBeVisible();
     await expect(page1.getByText('Waiting for other players to react')).toBeVisible();
     await expect(page2.getByText('Want to react')).toBeVisible();
@@ -1526,11 +1536,11 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     // P2 plays NAK, restart reaction phase
     await playCard(page2, p2Nak);
-    await expect(findMessageArea(page1)).toContainText('P2 played NAK');
+    await expect(findLogArea(page1)).toContainText('P2 played NAK');
 
     // Verify reaction phase
     await expect(timerArea).toBeVisible();
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
     await expect(page1.getByText('Want to react')).toBeVisible();
     await expect(page2.getByText('Waiting for other players to react')).toBeVisible();
 
@@ -1544,11 +1554,11 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     // P1 plays NAK, restart reaction phase
     await playCard(page1, p1Nak);
-    await expect(findMessageArea(page2)).toContainText('P1 played NAK');
+    await expect(findLogArea(page2)).toContainText('P1 played NAK');
 
     // Verify reaction phase
     await expect(timerArea).toBeVisible();
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
     await expect(page1.getByText('Waiting for other players to react')).toBeVisible();
     await expect(page2.getByText('Want to react')).toBeVisible();
 
@@ -1562,22 +1572,22 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     // P2 plays SHUFFLE_NOW, restart reaction phase
     await playCard(page2, p2ShuffleNow);
-    await expect(findMessageArea(page1)).toContainText('P2 played SHUFFLE_NOW');
+    await expect(findLogArea(page1)).toContainText('P2 played SHUFFLE_NOW');
 
     // Verify reaction phase
     await expect(timerArea).toBeVisible();
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
     await expect(page1.getByText('Want to react')).toBeVisible();
     await expect(page2.getByText('Waiting for other players to react')).toBeVisible();
 
     // P1 plays another NAK, restart reaction phase
     const p1Nak2 = findHandCardsByClass(page1, CardClass.Nak).first();
     await playCard(page1, p1Nak2);
-    await expect(findMessageArea(page2)).toContainText('P1 played NAK');
+    await expect(findLogArea(page2)).toContainText('P1 played NAK');
 
     // Verify reaction phase
     await expect(timerArea).toBeVisible();
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
     await expect(page1.getByText('Waiting for other players to react')).toBeVisible();
     await expect(page2.getByText('Want to react')).toBeVisible();
 
@@ -1615,10 +1625,10 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     // P2 plays SHUFFLE_NOW, enter reaction phase
     await playCard(page2, p2ShuffleNow);
-    await expect(findMessageArea(page1)).toContainText('P2 played SHUFFLE_NOW');
+    await expect(findLogArea(page1)).toContainText('P2 played SHUFFLE_NOW');
 
     // Verify reaction phase
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
     await expect(timerArea).toBeVisible();
     await expect(page1.getByText('Want to react')).toBeVisible();
     await expect(page2.getByText('Waiting for other players to react')).toBeVisible();
@@ -1633,11 +1643,11 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     // P1 plays NAK, restart reaction phase
     await playCard(page1, p1Nak);
-    await expect(findMessageArea(page2)).toContainText('P1 played NAK');
+    await expect(findLogArea(page2)).toContainText('P1 played NAK');
 
     // Verify reaction phase
     await expect(timerArea).toBeVisible();
-    await expect(timerArea).toHaveAttribute('data-turnPhase', TurnPhase.Reaction);
+    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
     await expect(page1.getByText('Waiting for other players to react')).toBeVisible();
     await expect(page2.getByText('Want to react')).toBeVisible();
 
@@ -1645,5 +1655,212 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     for (const card of await findAllHandCards(page1).all()) {
         await expect(card).toHaveAttribute('data-playable', 'false');
     }
+  });
+
+  test('Drawing EXPLODING CLUSTER', async ({ browser }) => {
+    test.setTimeout(30000);
+
+    // Define a helper to use below
+    type dismissFunc = (page: Page) => Promise<void>;
+    const almostExplode = async (p1: string, page1: Page, p2: string, page2: Page, p3: string, page3: Page, dismiss: dismissFunc, hide: number) => {
+      // P1 draws a card (It should be EXPLODING CLUSTER)
+      await drawCard(page1);
+
+      const p1Overlay = findOverlay(page1);
+      const p2Overlay = findOverlay(page2);
+      const p3Overlay = findOverlay(page3);
+
+      // Verify P1's overlay
+      await expect(p1Overlay).toBeVisible();
+
+      // Dismiss P1's overlay
+      await dismiss(page1);
+      await expect(p1Overlay).toBeHidden();
+      await expect(p2Overlay).toBeVisible();
+      await expect(p3Overlay).toBeVisible();
+      await expect(findLogArea(page1)).toContainText(`${p1} drew an EXPLODING CLUSTER!`);
+      await expect(findLogArea(page2)).toContainText(`${p1} drew an EXPLODING CLUSTER!`);
+      await expect(findLogArea(page3)).toContainText(`${p1} drew an EXPLODING CLUSTER!`);
+
+      // Verify other overlays
+      await expect(p2Overlay).toBeVisible();
+      await expect(p3Overlay).toBeVisible();
+
+      // Discard piles should show EXPLODING CLUSTER
+      const p1Pile = findDiscardPile(page1);
+      const p2Pile = findDiscardPile(page2);
+      const p3Pile = findDiscardPile(page3);
+      await expect(p1Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.ExplodingCluster);
+      await expect(p2Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.ExplodingCluster);
+      await expect(p3Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.ExplodingCluster);
+
+      // Verify P1 messages
+      await expect(findTimerArea(page1)).toContainText("PLAY A DEBUG CARD");
+      const p1TurnArea = findTurnArea(page1);
+      await expect(findTurnArea(page1)).toContainText("It's your turn");
+
+      // Verify P2 messages
+      await expect(findTimerArea(page2)).toContainText(`Waiting for ${p1} to debug`);
+      await expect(findTurnArea(page2)).toContainText("Your turn is next");
+
+      // Verify P3 messages
+      await expect(findTimerArea(page3)).toContainText(`Waiting for ${p1} to debug`);
+      await expect(findTurnArea(page3)).toContainText(`It's ${p1}'s turn`);
+
+      // Verify EXPLODING CLUSTER is NOT in anyone's hand
+      await expect(findHandCardsByClass(page1, CardClass.ExplodingCluster)).toHaveCount(0);
+      await expect(findHandCardsByClass(page2, CardClass.ExplodingCluster)).toHaveCount(0);
+      await expect(findHandCardsByClass(page3, CardClass.ExplodingCluster)).toHaveCount(0);
+
+      // Verify P1 can play DEBUG and P2, P3 cannot (or don't have one)
+      const p1Debug = findHandCardsByClass(page1, CardClass.Debug);
+      await expect(p1Debug.first()).toBeVisible();
+      await expect(p1Debug.first()).toHaveAttribute('data-playable', 'true');
+      const p2Debug = findHandCardsByClass(page2, CardClass.Debug);
+      if (await p2Debug.count() > 0) {
+        await expect(p2Debug.first()).toHaveAttribute('data-playable', 'false');
+      }
+      const p3Debug = findHandCardsByClass(page3, CardClass.Debug);
+      if (await p3Debug.count() > 0) {
+        await expect(p3Debug.first()).toHaveAttribute('data-playable', 'false');
+      }
+
+      // Verify no messages have been sent yet
+      await expect(findLogArea(page1)).not.toContainText(`${p1}'s cluster almost exploded`);
+      await expect(findLogArea(page2)).not.toContainText(`${p1}'s cluster almost exploded`);
+      await expect(findLogArea(page3)).not.toContainText(`${p1}'s cluster almost exploded`);
+
+      // P1 plays DEBUG card
+      await playCard(page1, p1Debug);
+
+      // Verify it was played and messages sent
+      await expect(p1Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.Debug);
+      await expect(p2Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.Debug);
+      await expect(p3Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.Debug);
+      await expect(findLogArea(page1)).not.toContainText(`${p1} played DEBUG`);
+      await expect(findLogArea(page2)).not.toContainText(`${p1} played DEBUG`);
+      await expect(findLogArea(page3)).not.toContainText(`${p1} played DEBUG`);
+      await expect(findLogArea(page1)).toContainText(`${p1}'s cluster almost exploded`);
+      await expect(findLogArea(page2)).toContainText(`${p1}'s cluster almost exploded`);
+      await expect(findLogArea(page3)).toContainText(`${p1}'s cluster almost exploded`);
+
+      // Verify the insertion dialog
+      await expect(page1.locator('.modal-title')).toContainText("You're safe, for now");
+      await expect(page1.locator('input[type="number"]')).toBeVisible();
+
+      // Insert at top (0)
+      await page1.fill('input[type="number"]', hide.toString());
+      await page1.getByRole('button', { name: 'OK', exact: true }).click();
+
+      // Verify turn advance
+      await expect(findTurnArea(page1)).toContainText(`It's ${p2}'s turn`);
+      await expect(findTurnArea(page2)).toContainText(`It's your turn`);
+      await expect(findTurnArea(page3)).toContainText(`Your turn is next`);
+    }
+
+    // Setup game
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const code = await createGame(page1, 'P1');
+
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page2 = await context2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    const context3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page3 = await context3.newPage();
+    await joinGame(page3, 'P3', code);
+
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+    await page3.waitForURL(/game/);
+
+    // Play begins - we have a fixed deck for DEVMODE, so we need to get past
+    // initial safe draws
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+
+    // Verify everyone starts with 1 DEBUG
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
+    await expect(findHandCardsByClass(page2, CardClass.Debug)).toHaveCount(1);
+    await expect(findHandCardsByClass(page3, CardClass.Debug)).toHaveCount(1);
+
+    // P1 draws, explodes, and debugs
+    const waitForAutoDismiss = async (page: Page) => {
+      // Wait for auto-dismiss
+      await expect(findOverlay(page)).toBeHidden();
+    }
+    await almostExplode("P1", page1, "P2", page2, "P3", page3, waitForAutoDismiss, 0);
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(0);
+    await expect(findHandCardsByClass(page2, CardClass.Debug)).toHaveCount(1);
+    await expect(findHandCardsByClass(page3, CardClass.Debug)).toHaveCount(1);
+
+    // P2 draws, explodes, and debugs
+    const hitEscape = async (page: Page) => {
+      // Hit escape to dismiss
+      await page.keyboard.press('Escape');
+    }
+    await almostExplode("P2", page2, "P3", page3, "P1", page1, hitEscape, 0);
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(0);
+    await expect(findHandCardsByClass(page2, CardClass.Debug)).toHaveCount(0);
+    await expect(findHandCardsByClass(page3, CardClass.Debug)).toHaveCount(1);
+
+    // P3 draws, explodes, and debugs
+    const clickSomething = async (page: Page) => {
+      // Click anywhere to dismiss
+      await page.click();
+    }
+    await almostExplode("P3", page3, "P1", page1, "P2", page2, hitEscape, 3);
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(0);
+    await expect(findHandCardsByClass(page2, CardClass.Debug)).toHaveCount(0);
+    await expect(findHandCardsByClass(page3, CardClass.Debug)).toHaveCount(0);
+
+    // Play continues - some more safe draws
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+
+    // P1 draws and explodes
+    await drawCard(page1)
+
+    // Verify P1 is out
+    await expect(findLogArea(page1)).toContainText(`P1's cluster has exploded`);
+    await expect(findLogArea(page2)).toContainText(`P1's cluster has exploded`);
+    await expect(findLogArea(page3)).toContainText(`P1's cluster has exploded`);
+
+    // Verify turn advance
+    await expect(findTurnArea(page1)).toContainText(`You are OUT`);
+    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
+    await expect(findTurnArea(page3)).toContainText(`Your turn is next`);
+
+    // Play continues (we have a fixed deck for DEVMODE)
+    await drawCard(page2);
+    await expect(findTurnArea(page2)).toContainText(`Your turn is next`);
+    await expect(findTurnArea(page3)).toContainText(`It's your turn`);
+    await drawCard(page3);
+    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
+    await expect(findTurnArea(page3)).toContainText(`Your turn is next`);
+
+    // P2 draws and explodes
+    await drawCard(page2)
+
+    // Verify P3 sees "You win!"
+    await expect(page3.locator('.modal-title')).toHaveText("You win!");
+    await expect(page3.locator('.modal-body')).toContainText("You have the last operational cluster");
+    await page3.getByRole('button', { name: 'OK', exact: true }).click();
+
+    // Verify other players' end of game messages
+    await expect(page1.locator('.modal-title')).toHaveText("P3 wins!");
+    await expect(page1.locator('.modal-body')).toContainText("P3 wins, with the last operational cluster");
+    await page1.getByRole('button', { name: 'OK', exact: true }).click();
+
+    await expect(page2.locator('.modal-title')).toHaveText("P3 wins!");
+    await expect(page2.locator('.modal-body')).toContainText("P3 wins, with the last operational cluster");
+    await page2.getByRole('button', { name: 'OK', exact: true }).click();
   });
 });

@@ -49,6 +49,7 @@ export enum SocketEvent {
   PlayCard = 'playCard',
   PlayCombo = 'playCombo',
   DrawCard = 'drawCard',
+  InsertExplodingCard = 'insertExplodingCard',
   LeaveGame = 'leaveGame',
 
   // server -> client
@@ -75,6 +76,11 @@ export interface Player {
   isDisconnected?: boolean;
 }
 
+export enum WinType {
+  Attrition = 'Attrition',
+  Explosion = 'Explosion',
+}
+
 export interface Spectator {
   id: string;
   name?: string; // Optional name if we add it later
@@ -92,6 +98,7 @@ export interface GameUpdatePayload {
   currentTurnIndex: number;
   turnPhase: TurnPhase;
   lastActorName?: string;
+  activeExplodingCard?: Card;
   timerDuration?: number;    // Seconds remaining (or total duration for animation)
   topDiscardCard?: Card;     // optional (may be no discarded cards)
   drawPileCount?: number;    // optional, devMode only

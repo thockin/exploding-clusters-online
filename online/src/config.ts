@@ -43,6 +43,12 @@ const envVars: EnvVarDefinition[] = [
     type: 'number',
   },
   {
+    name: 'GO_FAST',
+    description: 'If "1", speeds up all timers and animations to 0.5s.',
+    defaultValue: 0,
+    type: 'number',
+  },
+  {
     name: 'NODE_ENV',
     description: 'Node environment (e.g., "production", "development").',
     defaultValue: 'development',
@@ -86,6 +92,9 @@ export const config = {
       console.warn(`Invalid REACTION_TIMER value "${val}", using default of 10`);
     }
     return 10;
+  },
+  get goFast(): boolean {
+    return process.env.GO_FAST === '1';
   },
   get nodeEnv(): string {
     return process.env.NODE_ENV || 'development';

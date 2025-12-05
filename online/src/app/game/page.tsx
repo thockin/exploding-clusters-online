@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Container, Row, Col, ListGroup, Button, Modal } from 'react-bootstrap';
+import { Container, Row, Col, ListGroup, Button, Modal, Form } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
-import { Card, Player, SocketEvent, CardClass, TurnPhase } from '../../api';
+import { Card, Player, SocketEvent, CardClass, TurnPhase, WinType } from '../../api';
 import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from '@hello-pangea/dnd';
 import Image from 'next/image';
 
@@ -44,8 +44,10 @@ export default function GameScreen() {
   const clickStartPosRef = useRef({ x: 0, y: 0 });
   const dragStartNonceRef = useRef<string>('');
   const isShiftKeyPressed = useRef(false);
-  const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: Card, playerId?: string } | null>(null);
+  const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: Card, playerId?: string, duration?: number } | null>(null);
   const [replayModal, setReplayModal] = useState<{ show: boolean, reason: string, cardId?: string, cardIds?: string[] } | null>(null);
+  const [insertionModal, setInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
+  const [insertionIndex, setInsertionIndex] = useState<string | number>(0);
 
   // Ensure isClient is true after first render
   useEffect(() => {
@@ -95,6 +97,21 @@ export default function GameScreen() {
     // This effect handles logging exploding card but we don't render it yet?
     // Keeping state setter for future use or debugging.
   }, [explodingCard]); 
+
+  useEffect(() => {
+    // Detect if we are in Exploding phase and need to show Insertion Modal
+    if (gameState?.turnPhase === TurnPhase.Exploding) {
+      const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
+      if (currentPlayerId === playerId) {
+        const hasDebug = myHand.some(c => c.class === CardClass.Debug);
+        if (!hasDebug && !insertionModal) {
+           setInsertionModal({ show: true, maxIndex: gameState.drawPileCount || 50 }); 
+        }
+      }
+    } else {
+      if (insertionModal) setInsertionModal(null);
+    }
+  }, [gameState, playerId, myHand, insertionModal]);
 
   useEffect(() => {
     if (!socket) return;
@@ -199,6 +216,13 @@ export default function GameScreen() {
     router.push('/');
   }, [resetState, router]);
 
+  const handleInsertConfirm = useCallback(() => {
+    if (!socket || !gameCode || !gameState) return;
+    const index = typeof insertionIndex === 'string' ? parseInt(insertionIndex, 10) : insertionIndex;
+    socket.emit(SocketEvent.InsertExplodingCard, { gameCode, index, nonce: gameState.nonce });
+    setInsertionModal(null);
+  }, [socket, gameCode, gameState, insertionIndex]);
+
   const isCardPlayable = useCallback((card: Card) => {
     if (!gameState || !playerId) return false;
     const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
@@ -212,7 +236,10 @@ export default function GameScreen() {
     }
 
     // DEBUG card logic
-    if (card.class === CardClass.Debug && gameState.turnPhase !== TurnPhase.Exploding) return false;
+    if (card.class === CardClass.Debug) {
+        // Playable ONLY in Exploding phase and if it's my turn
+        return gameState.turnPhase === TurnPhase.Exploding && isMyTurn;
+    }
 
     // Phase checks
     switch (gameState.turnPhase) {
@@ -231,7 +258,7 @@ export default function GameScreen() {
         if (isNowCard || card.class === CardClass.Nak) return true;
         return false;
       case TurnPhase.Exploding:
-        if (card.class === CardClass.Debug) return true;
+        // Handled above (DEBUG only)
         return false;
       default:
         return false; // Executing, etc.
@@ -435,7 +462,7 @@ export default function GameScreen() {
       
     const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: Card, duration: number }) => {
       console.debug(SocketEvent.DrawCardAnimation, data);
-      setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId });
+      setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId, duration: data.duration });
           
       // Clear animation after duration
       setTimeout(() => {
@@ -564,8 +591,6 @@ export default function GameScreen() {
 
       let cardsToPlay: Card[] = [];
       let newSelectedCards: Card[] = [];
-
-      // Logic as per updated Design Doc
 
       // Case 0: No Selection
       if (selectedCards.length === 0) {
@@ -717,26 +742,41 @@ export default function GameScreen() {
   };
   const onDragUpdate = () => console.debug('onDragUpdate');
 
+  if (gameEndData) {
+    return (
+      <Container className="d-flex align-items-center justify-content-center" style={{ height: '100vh' }}>
+        <Modal show={true} onHide={handleGameEndConfirm} backdrop="static" keyboard={false} centered>
+          <Modal.Header>
+            <Modal.Title>
+              {
+                gameEndData.winner === playerName
+                  ? "You win!"
+                  : `${gameEndData.winner} wins!`
+              }
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>
+              {
+                gameEndData.winner === playerName
+                  ? (gameEndData.winType === WinType.Explosion
+                    ? "You have the last operational cluster."
+                    : (gameEndData.winType === WinType.Explosion
+                      ? "Winning by attrition is still winning."
+                      : `Unknown win condition: ${gameEndData.winType}.`))
+                  : `${gameEndData.winner} wins, with the last operational cluster.`
+              }
+            </p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={handleGameEndConfirm} autoFocus>OK</Button>
+          </Modal.Footer>
+        </Modal>
+      </Container>
+    );
+  }
+
   if (!gameState || !socket) {
-    if (gameEndData) {
-      return (
-        <Container className="d-flex align-items-center justify-content-center" style={{ height: '100vh' }}>
-          <Modal show={true} onHide={handleGameEndConfirm} backdrop="static" keyboard={false} centered>
-            <Modal.Header>
-              <Modal.Title>
-                {gameEndData.winner === playerName ? 'You win!' : `${gameEndData.winner} wins!`}
-              </Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-              <p>Winning by attrition is still winning.</p>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button variant="primary" onClick={handleGameEndConfirm} autoFocus>OK</Button>
-            </Modal.Footer>
-          </Modal>
-        </Container>
-      );
-    }
     return <div>Loading game...</div>;
   }
 
@@ -769,29 +809,43 @@ export default function GameScreen() {
   let turnStatus = '';
   let turnStatusBgColor = '';
   if (gameState && me && currentPlayer) {
-    const nextTurnIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
-    const nextPlayerId = gameState.turnOrder[nextTurnIndex];
-
-    if (me.id === currentPlayerId) {
-      turnStatus = "It's your turn";
-      turnStatusBgColor = 'lightgreen';
-    } else if (me.id === nextPlayerId) {
-      turnStatus = "Your turn is next";
-      turnStatusBgColor = '#FFD580'; // light orange
+    if (me.isOut) {
+      turnStatus = "You are OUT";
+      turnStatusBgColor = 'lightcoral';
     } else {
-      turnStatus = `It is ${currentPlayer.name}'s turn`;
-      turnStatusBgColor = 'lightblue';
+      // Find the next VALID player (skip eliminated/disconnected)
+      let nextTurnIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
+      let nextPlayerId = gameState.turnOrder[nextTurnIndex];
+      
+      for (let i = 0; i < gameState.turnOrder.length; i++) {
+         const candidateId = gameState.turnOrder[nextTurnIndex];
+         const candidate = gameState.players.find(p => p.id === candidateId);
+         if (candidate && !candidate.isOut && !candidate.isDisconnected) {
+             nextPlayerId = candidateId;
+             break;
+         }
+         nextTurnIndex = (nextTurnIndex + 1) % gameState.turnOrder.length;
+      }
+
+      if (me.id === currentPlayerId) {
+        turnStatus = "It's your turn";
+        turnStatusBgColor = 'lightgreen';
+      } else if (me.id === nextPlayerId) {
+        turnStatus = "Your turn is next";
+        turnStatusBgColor = '#FFD580'; // light orange
+      } else {
+        turnStatus = `It's ${currentPlayer.name}'s turn`;
+        turnStatusBgColor = 'lightblue';
+      }
     }
   }
-
-
 
   const renderDiscardPile = () => {
     return (
       <Droppable droppableId="discard-pile">
         {(provided, snapshot) => (
           <div
-            data-areaName="discard-pile"
+            data-areaname="discard-pile"
             ref={provided.innerRef}
             {...provided.droppableProps}
             style={{
@@ -815,6 +869,7 @@ export default function GameScreen() {
                 fill
                 sizes="(max-width: 768px) 100px, 150px"
                 style={{ objectFit: 'contain', borderRadius: '10px' }}
+                data-cardclass={gameState.topDiscardCard.class}
               />
             )}
             {provided.placeholder}
@@ -843,7 +898,7 @@ export default function GameScreen() {
 
     return (
       <div 
-        data-areaName="hand"
+        data-areaname="hand"
         style={{ 
           maxWidth: `${maxWidth}px`,
           margin: '0 auto', // Center the container itself
@@ -876,7 +931,7 @@ export default function GameScreen() {
                           ref={providedDraggable.innerRef}
                           {...providedDraggable.draggableProps}
                           {...providedDraggable.dragHandleProps}
-                          data-cardClass={card.class}
+                          data-cardclass={card.class}
                           data-playable={playable}
                           onMouseDown={(e) => {
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -959,7 +1014,14 @@ export default function GameScreen() {
   const isSpectator = gameState && !gameState.players.some(p => p.id === playerId);
 
   // Determine which card to show in overlay: Drawing card takes precedence over inspection
-  const activeOverlayCard = drawingAnimation?.card || overlayCard;
+  let activeOverlayCard = drawingAnimation?.card || overlayCard;
+  if (gameState?.turnPhase === TurnPhase.Exploding && gameState?.activeExplodingCard) {
+    // Only show persistent overlay for players who are NOT the active player
+    if (gameState.turnOrder[gameState.currentTurnIndex] !== playerId) {
+      activeOverlayCard = gameState.activeExplodingCard;
+    }
+  }
+  
   // "Game play is paused" - block dismiss if drawing
   const isDrawingPause = !!drawingAnimation?.active;
 
@@ -1071,8 +1133,8 @@ export default function GameScreen() {
             )}
             {/* Timer Area */}
             <div className="timer-area mt-3 text-center"
-              data-areaName="timer"
-              data-turnPhase={gameState.turnPhase}
+              data-areaname="timer"
+              data-turnphase={gameState.turnPhase}
             >
               {(gameState.turnPhase === TurnPhase.Reaction) && countdown > 0 && (
                 <>
@@ -1083,6 +1145,15 @@ export default function GameScreen() {
                   )}
                   <h2 className="display-3">{countdown}</h2>
                 </>
+              )}
+              {(gameState.turnPhase === TurnPhase.Exploding) && (
+                 <>
+                   {playerId === gameState.turnOrder[gameState.currentTurnIndex] ? (
+                     <h4 className="text-danger">PLAY A DEBUG CARD!</h4>
+                   ) : (
+                     <h4 className="text-warning">Waiting for {gameState.players.find(p => p.id === gameState.turnOrder[gameState.currentTurnIndex])?.name} to debug their cluster...</h4>
+                   )}
+                 </>
               )}
             </div>
           </Col>
@@ -1095,6 +1166,7 @@ export default function GameScreen() {
               <div className="d-flex flex-column align-items-center">
                 <div 
                   className="game-pile position-relative" 
+                  data-areaname="draw-pile"
                   style={{ 
                     width: getCardSize().width, 
                     height: getCardSize().height,
@@ -1107,13 +1179,13 @@ export default function GameScreen() {
 
                   {(drawingAnimation?.active && !drawingAnimation.card) && (
                     <div className="hand-animation">
-                      <div className="hand-open" style={{ animation: 'toggleHand 2s step-end forwards' }}>
+                      <div className="hand-open" style={{ animation: `toggleHand ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 2}s step-end forwards` }}>
                         <Image src="/art/hand_open.svg" alt="Hand Open" width={100} height={600} />
                       </div>
-                      <div className="hand-closed" style={{ animation: 'toggleHandReverse 2s step-start forwards' }}>
+                      <div className="hand-closed" style={{ animation: `toggleHandReverse ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 2}s step-start forwards` }}>
                         <Image src="/art/hand_closed.svg" alt="Hand Closed" width={100} height={600} />
                       </div>
-                      <div className="hand-card" style={{ animation: 'toggleHandReverse 2s step-start forwards' }}>
+                      <div className="hand-card" style={{ animation: `toggleHandReverse ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 2}s step-start forwards` }}>
                         <Image 
                           src={'/art/back.png'} 
                           alt={'Face-down card'} 
@@ -1140,24 +1212,30 @@ export default function GameScreen() {
         </Row>
         <Row style={{ flexGrow: isSpectator ? 1 : 0 }}>
           <Col className="d-flex flex-column">
-            <div style={{
-              backgroundColor: '#f0f0f0',
-              borderRadius: '5px', margin: '0.5rem 0', padding: '0.5rem',
-              height: isSpectator ? 'auto' : '120px', 
-              flexGrow: isSpectator ? 1 : 0,
-              display: 'flex', flexDirection: 'column',
-            }}>
-              <div style={{
-                textAlign: 'center', padding: '0.25rem',
-                backgroundColor: turnStatusBgColor,
-                borderRadius: '5px', flexShrink: 0,
-              }}>
+            <div
+              data-areaname="message"
+              style={{
+                backgroundColor: '#f0f0f0',
+                borderRadius: '5px', margin: '0.5rem 0', padding: '0.5rem',
+                height: isSpectator ? 'auto' : '120px', 
+                flexGrow: isSpectator ? 1 : 0,
+                display: 'flex', flexDirection: 'column',
+              }}
+            >
+              <div
+                data-areaname="turn"
+                style={{
+                  textAlign: 'center', padding: '0.25rem',
+                  backgroundColor: turnStatusBgColor,
+                  borderRadius: '5px', flexShrink: 0,
+                }}
+              >
                 <strong>{turnStatus}</strong>
               </div>
-              
+
               <div 
                 ref={messageAreaRef}
-                data-areaName="message"
+                data-areaname="log"
                 style={{
                   textAlign: 'left', padding: '0.25rem',
                   overflowY: 'auto', flexGrow: 1,
@@ -1253,6 +1331,25 @@ export default function GameScreen() {
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setReplayModal(null)}>Cancel</Button>
             <Button variant="primary" onClick={handleReplayConfirm} autoFocus>Play it!</Button>
+          </Modal.Footer>
+        </Modal>
+
+        <Modal show={!!insertionModal?.show} onHide={() => {}} backdrop="static" keyboard={false}>
+          <Modal.Header>
+            <Modal.Title>You&apos;re safe, for now</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>Where in the deck do you want to put the EXPLODING CLUSTER card? 0 means the top of the deck, {insertionModal?.maxIndex} means the bottom.</p>
+            <Form.Control
+              type="number"
+              min={0}
+              max={insertionModal?.maxIndex}
+              value={insertionIndex}
+              onChange={(e) => setInsertionIndex(e.target.value)}
+            />
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={handleInsertConfirm}>OK</Button>
           </Modal.Footer>
         </Modal>
       </Container>
