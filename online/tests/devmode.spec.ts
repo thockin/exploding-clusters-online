@@ -1059,7 +1059,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Ensure it's P1's turn
     await expect(findTurnArea(page1)).toContainText(`It's your turn`);
-    await expect(findTurnArea(page2)).toContainText(`Your turn is next`);
+    await expect(findTurnArea(page2)).toContainText(`your turn is next`);
     await expect(findAllHandCards(page1)).toHaveCount(8);
 
     // Click draw pile
@@ -1700,7 +1700,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
       // Verify P2 messages
       await expect(findTimerArea(page2)).toContainText(`Waiting for ${p1} to debug`);
-      await expect(findTurnArea(page2)).toContainText("Your turn is next");
+      await expect(findTurnArea(page2)).toContainText("your turn is next");
 
       // Verify P3 messages
       await expect(findTimerArea(page3)).toContainText(`Waiting for ${p1} to debug`);
@@ -1754,7 +1754,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
       // Verify turn advance
       await expect(findTurnArea(page1)).toContainText(`It's ${p2}'s turn`);
       await expect(findTurnArea(page2)).toContainText(`It's your turn`);
-      await expect(findTurnArea(page3)).toContainText(`Your turn is next`);
+      await expect(findTurnArea(page3)).toContainText(`your turn is next`);
     }
 
     // Setup game
@@ -1835,15 +1835,15 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify turn advance
     await expect(findTurnArea(page1)).toContainText(`You are OUT`);
     await expect(findTurnArea(page2)).toContainText(`It's your turn`);
-    await expect(findTurnArea(page3)).toContainText(`Your turn is next`);
+    await expect(findTurnArea(page3)).toContainText(`your turn is next`);
 
     // Play continues (we have a fixed deck for DEVMODE)
     await drawCard(page2);
-    await expect(findTurnArea(page2)).toContainText(`Your turn is next`);
+    await expect(findTurnArea(page2)).toContainText(`your turn is next`);
     await expect(findTurnArea(page3)).toContainText(`It's your turn`);
     await drawCard(page3);
     await expect(findTurnArea(page2)).toContainText(`It's your turn`);
-    await expect(findTurnArea(page3)).toContainText(`Your turn is next`);
+    await expect(findTurnArea(page3)).toContainText(`your turn is next`);
 
     // P2 draws and explodes
     await drawCard(page2)

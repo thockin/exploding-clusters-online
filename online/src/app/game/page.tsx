@@ -816,7 +816,7 @@ export default function GameScreen() {
       // Find the next VALID player (skip eliminated/disconnected)
       let nextTurnIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
       let nextPlayerId = gameState.turnOrder[nextTurnIndex];
-      
+
       for (let i = 0; i < gameState.turnOrder.length; i++) {
          const candidateId = gameState.turnOrder[nextTurnIndex];
          const candidate = gameState.players.find(p => p.id === candidateId);
@@ -826,12 +826,13 @@ export default function GameScreen() {
          }
          nextTurnIndex = (nextTurnIndex + 1) % gameState.turnOrder.length;
       }
+      const nextPlayer = gameState.players.find(p => p.id === nextPlayerId);
 
       if (me.id === currentPlayerId) {
-        turnStatus = "It's your turn";
+        turnStatus = `It's your turn, ${nextPlayer.name} is next`;
         turnStatusBgColor = 'lightgreen';
       } else if (me.id === nextPlayerId) {
-        turnStatus = "Your turn is next";
+        turnStatus = `It's ${currentPlayer.name}'s turn, your turn is next`;
         turnStatusBgColor = '#FFD580'; // light orange
       } else {
         turnStatus = `It's ${currentPlayer.name}'s turn`;

@@ -1,4 +1,3 @@
-Add "It is P's turn" before "your turn is next"
 Add "Your cluster is exploding" to turn header
 DEBUG not playable immediately after <esc> until timeout
 Where should EXPLODING CLUSTER go after player explodes?
