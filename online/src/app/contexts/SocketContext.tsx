@@ -17,7 +17,7 @@ interface SocketContextType {
   isLoading: boolean; // New: indicates if context is restoring session
   rejoinError: string | null;
   gameMessages: string[];
-  gameEndData: { winner: string; reason: string; winType: WinType } | null;
+  gameEndData: { winner: string; winType: WinType } | null;
   createGame: (playerName: string) => Promise<{ success: boolean; gameCode?: string; playerId?: string; error?: string }>;
   joinGame: (gameCode: string, playerName: string, clientNonce?: string) => Promise<{ success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }>;
   watchGame: (gameCode: string) => Promise<{ success: boolean; gameCode?: string; error?: string }>;
@@ -46,7 +46,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [rejoinError, setRejoinError] = useState<string | null>(null);
   const [gameMessages, setGameMessages] = useState<string[]>([]);
   const [isSpectator, setIsSpectator] = useState(false);
-  const [gameEndData, setGameEndData] = useState<{ winner: string; reason: string; winType: WinType } | null>(null);
+  const [gameEndData, setGameEndData] = useState<{ winner: string; winType: WinType } | null>(null);
 
   // Restore session on mount/connect
   useEffect(() => {
@@ -258,7 +258,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       }));
     });
 
-    socketIo.on(SocketEvent.GameEnded, (data?: { winner: string; reason: string }) => {
+    socketIo.on(SocketEvent.GameEnded, (data?: { winner: string; winType: string }) => {
       console.log('Game ended.', data);
       if (data) {
         setGameEndData(data);

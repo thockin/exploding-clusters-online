@@ -1165,7 +1165,7 @@ export default function GameScreen() {
               {/* Draw Pile */}
               <div className="d-flex flex-column align-items-center">
                 <div 
-                  className="game-pile position-relative" 
+                  className="draw-pile position-relative" 
                   data-areaname="draw-pile"
                   style={{ 
                     width: getCardSize().width, 

@@ -70,11 +70,15 @@ async function drawCard(page: Page) {
   await findDrawPile(page).click();
 }
 
+// Helper to find the hand area.
+function findHand(page: Page): Locator {
+  return page.locator(`div[data-areaname="hand"]`);
+}
+
 // Helper to find cards in the hand area by their card class.  Can return
 // multiple cards.
 function findHandCardsByClass(page: Page, cardClass: CardClass): Locator {
-  const hand = page.locator(`div[data-areaname="hand"]`);
-  return hand.locator(`div[data-cardclass="${cardClass}"]`);
+  return findHand(page).locator(`div[data-cardclass="${cardClass}"]`);
 }
 
 // Helper to find all cards in the hand area.  Can return multiple cards.
@@ -400,17 +404,17 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page3.waitForURL(/game/);
 
     // Verify P1 (Current Turn) -> Lightgreen background
-    const p1TurnArea = page1.locator(Locators.TURN_MY_TURN).locator('xpath=..');
+    const p1TurnArea = findTurnArea(page1);
     await expect(p1TurnArea).toBeVisible();
     await expect(p1TurnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)');
 
     // Verify P2 (Next Turn) -> Orange background
-    const p2TurnArea = page2.locator('strong:has-text("Your turn is next")').locator('xpath=..');
+    const p2TurnArea = findTurnArea(page2);
     await expect(p2TurnArea).toBeVisible();
     await expect(p2TurnArea).toHaveCSS('background-color', 'rgb(255, 213, 128)');
 
     // Verify P3 (Other) -> Lightblue background
-    const p3TurnArea = page3.locator(`strong:has-text("It's P1's turn")`).locator('xpath=..');
+    const p3TurnArea = findTurnArea(page3);
     await expect(p3TurnArea).toBeVisible();
     await expect(p3TurnArea).toHaveCSS('background-color', 'rgb(173, 216, 230)');
   });
@@ -432,18 +436,18 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page.waitForURL(/game/);
 
     // Wait for hand to render and verify initial count (8)
-    const handSection = page.locator(Headers.YOUR_HAND).locator('xpath=..');
-    await expect(handSection.locator('img')).toHaveCount(8);
+    const handArea = page.locator(Headers.YOUR_HAND).locator('xpath=..');
+    await expect(handArea.locator('img')).toHaveCount(8);
 
     // Check rows: 8 cards should wrap to 2 rows of 4
-    const rows = handSection.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
+    const rows = handArea.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0).locator('img')).toHaveCount(4);
     await expect(rows.nth(1).locator('img')).toHaveCount(4);
 
     // Draw 9th card (using DEVMODE button)
     await page.click(Buttons.DEV_GIVE_SAFE_CARD);
-    await expect(handSection.locator('img')).toHaveCount(9);
+    await expect(handArea.locator('img')).toHaveCount(9);
     // Verify layout: 2 rows (5, 4)
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0).locator('img')).toHaveCount(5);
@@ -451,7 +455,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Draw 10th card
     await page.click(Buttons.DEV_GIVE_SAFE_CARD);
-    await expect(handSection.locator('img')).toHaveCount(10);
+    await expect(handArea.locator('img')).toHaveCount(10);
     // Verify layout: 2 rows (5, 5)
     await expect(rows).toHaveCount(2);
     await expect(rows.nth(0).locator('img')).toHaveCount(5);
@@ -464,7 +468,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     for (let i = 0; i < 5; i++) {
       await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     }
-    await expect(handSection.locator('img')).toHaveCount(15);
+    await expect(handArea.locator('img')).toHaveCount(15);
 
     // Verify layout: Should be 2 rows (small size)
     await expect(rows).toHaveCount(2);
@@ -476,7 +480,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     for (let i = 0; i < 4; i++) {
       await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     }
-    await expect(handSection.locator('img')).toHaveCount(19);
+    await expect(handArea.locator('img')).toHaveCount(19);
 
     // Verify layout: 3 rows (Small size)
     await expect(rows).toHaveCount(3);
@@ -486,7 +490,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     for (let i = 0; i < 4; i++) {
       await page.click(Buttons.DEV_PUT_CARD_BACK);
     }
-    await expect(handSection.locator('img')).toHaveCount(15);
+    await expect(handArea.locator('img')).toHaveCount(15);
 
     // Verify layout: Should be 2 rows (small size)
     await expect(rows).toHaveCount(2);
@@ -496,7 +500,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     for (let i = 0; i < 5; i++) {
       await page.click(Buttons.DEV_PUT_CARD_BACK);
     }
-    await expect(handSection.locator('img')).toHaveCount(10);
+    await expect(handArea.locator('img')).toHaveCount(10);
 
     // Verify layout: 2 rows (5, 5)
     await expect(rows).toHaveCount(2);
@@ -538,8 +542,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify turn passes to next player (Green background check)
     await expect(page2.locator(`.list-group-item:has-text("P2")`)).toHaveClass(/bg-success-subtle/);
-    const turnArea = page2.locator(Locators.TURN_MY_TURN).locator('xpath=..');
-    await expect(turnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)');
+    const turnArea = findTurnArea(page2);
+    await expect(turnArea).toContainText("It's your turn");
 
     // Reconnect attempt by disconnected player
     await page1.goBack();
@@ -594,10 +598,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.waitForSelector(Locators.PLAYER_LIST, { timeout: 15000 }); // Wait for player list to be visible
     await page1.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 }); // Wait for the "Your Hand" heading
     await page1.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 }); // Wait for the "Your Hand" heading
-    const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..'); // Select the parent Row
-    await expect(handSection).toBeVisible({ timeout: 15000 });
-    const cardImg = handSection.locator('img').first();
-    await expect(handSection.locator('img')).toHaveCount(8, { timeout: 10000 }); // Expect 8 cards after start
+    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..'); // Select the parent Row
+    await expect(handArea).toBeVisible({ timeout: 15000 });
+    const cardImg = handArea.locator('img').first();
+    await expect(handArea.locator('img')).toHaveCount(8, { timeout: 10000 }); // Expect 8 cards after start
     await cardImg.dblclick({ force: true });
 
     // Check for overlay (z-index 1000)
@@ -699,11 +703,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Use a player who is NOT current turn to perform reorder
     await page2.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 });
-    const handSection = page2.locator(Headers.YOUR_HAND).locator('xpath=..');
-    await expect(handSection).toBeVisible({ timeout: 15000 });
-    await expect(handSection.locator('img')).toHaveCount(8, { timeout: 10000 });
+    const handArea = page2.locator(Headers.YOUR_HAND).locator('xpath=..');
+    await expect(handArea).toBeVisible({ timeout: 15000 });
+    await expect(handArea.locator('img')).toHaveCount(8, { timeout: 10000 });
 
-    const rows = handSection.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
+    const rows = handArea.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
     await expect(rows).toHaveCount(2);
 
     const row1Cards = rows.nth(0).locator('.m-1');
@@ -762,15 +766,15 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.waitForURL(/game/);
     await page1.waitForLoadState('networkidle');
 
-    const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
+    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
     const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
     const messageArea = findLogArea(page1);
 
-    await expect(handSection.locator('img')).toHaveCount(8);
+    await expect(handArea.locator('img')).toHaveCount(8);
     await expect(discardPile.locator('img')).not.toBeVisible(); 
 
     // DEVMODE ensures we have a SHUFFLE card to play
-    const cardToPlayLocator =  handSection.locator('img[alt^="SHUFFLE:"]');
+    const cardToPlayLocator =  handArea.locator('img[alt^="SHUFFLE:"]');
     await expect(cardToPlayLocator).toBeVisible();
 
     const srcBox = await cardToPlayLocator.boundingBox();
@@ -785,7 +789,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.mouse.up();
 
     // Verify card count decreased
-    await expect(handSection.locator('img')).toHaveCount(7);
+    await expect(handArea.locator('img')).toHaveCount(7);
     // Verify discard pile has image
     await expect(discardPile.locator('img')).toBeVisible();
     // Verify log message
@@ -804,13 +808,13 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.waitForURL(/game/);
     await page1.waitForLoadState('networkidle');
 
-    const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
+    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
     const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
     const messageArea = findLogArea(page1);
 
     // Locate two different cards (FAVOR and SHUFFLE)
-    const favorCard = handSection.locator('img[alt^="FAVOR:"]').first();
-    const shuffleCard = handSection.locator('img[alt^="SHUFFLE:"]').first();
+    const favorCard = handArea.locator('img[alt^="FAVOR:"]').first();
+    const shuffleCard = handArea.locator('img[alt^="SHUFFLE:"]').first();
 
     await expect(favorCard).toBeVisible();
     await expect(shuffleCard).toBeVisible();
@@ -832,7 +836,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // 3. Verify SHUFFLE is played (gone)
     await expect(shuffleCard).not.toBeVisible(); 
-    await expect(handSection.locator('img')).toHaveCount(7);
+    await expect(handArea.locator('img')).toHaveCount(7);
 
     // 4. Verify FAVOR is still there and DESELECTED
     await expect(favorCard).toBeVisible();
@@ -856,10 +860,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.waitForURL(/game/);
     await page1.waitForLoadState('networkidle');
 
-    const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
+    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
 
     // Select a card
-    const card = handSection.locator('img').nth(6);
+    const card = handArea.locator('img').nth(6);
     await expect(card).toBeVisible();
     await card.click();
     await expect(card.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
@@ -912,10 +916,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.waitForURL(/game/);
     await page1.waitForLoadState('networkidle');
 
-    const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
-    await expect(handSection.locator('img')).toHaveCount(8);
+    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
+    await expect(handArea.locator('img')).toHaveCount(8);
 
-const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
+    const devCards = handArea.locator('img[alt^="DEVELOPER:"]');
     const count = await devCards.count();
     expect(count).toBeGreaterThanOrEqual(3);
 
@@ -955,7 +959,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await expect(card2.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
 
     // Drag the first selected card to end of hand (moves both)
-    const lastCard = handSection.locator('img').last();
+    const lastCard = handArea.locator('img').last();
     const srcBox = await card1.boundingBox();
     const dstBox = await lastCard.boundingBox(); 
 
@@ -971,8 +975,8 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await page1.waitForTimeout(500);
 
     // Verify the identical cards are now at the end of the hand
-    const newLast = handSection.locator('img').last();
-    const newSecondLast = handSection.locator('img').nth(-2);
+    const newLast = handArea.locator('img').last();
+    const newSecondLast = handArea.locator('img').nth(-2);
 
     expect(await newLast.getAttribute('src')).toBe(pairSrc);
     expect(await newSecondLast.getAttribute('src')).toBe(pairSrc);
@@ -992,11 +996,11 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await page.click(Buttons.START_GAME);
     await page.waitForURL(/game/);
 
-    const handSection = page.locator(Headers.YOUR_HAND).locator('xpath=..');
-    await expect(handSection.locator('img')).toHaveCount(8); // Wait for hand to populate
+    // Wait for hand to populate
+    await expect(findAllHandCards(page)).toHaveCount(8);
 
-    // Find pair of DEVELOPER cards
-    const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
+    // Find pair of DEVELOPER cards (in the fixed deck)
+    const devCards = findHand(page).locator('img[alt^="DEVELOPER:"]');
     const count = await devCards.count();
     expect(count).toBeGreaterThanOrEqual(3);
 
@@ -1166,15 +1170,13 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await page1.waitForURL(/game/);
     await page2.waitForURL(/game/);
 
-    const handSection = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
-    const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-    const messageArea = findLogArea(page1);
-
-    await expect(handSection.locator('img')).toHaveCount(8);
+    // Wait for the hand to load
+    await expect(findAllHandCards(page1)).toHaveCount(8);
 
     // Find pair of DEVELOPER cards
-    const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
+    const devCards = findHand(page1).locator('img[alt^="DEVELOPER:"]');
     const count = await devCards.count();
+    expect(count).toBeGreaterThanOrEqual(3);
 
     let firstPairIndex = -1;
     let secondPairIndex = -1;
@@ -1203,7 +1205,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
 
     // Drag Pair to Discard Pile
     const srcBox = await card1.boundingBox();
-    const dstBox = await discardPile.boundingBox();
+    const dstBox = await findDiscardPile(page1).boundingBox();
     if (!srcBox || !dstBox) throw new Error('Missing bounding box');
 
     await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
@@ -1213,21 +1215,18 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await page1.waitForTimeout(500); // Longer wait over drop target
     await page1.mouse.up();
 
-    // Check for timer on Player 1 (Current Player)
-    await expect(page1.getByText('Waiting for other players to react')).toBeVisible({ timeout: 5000 });
-    await expect(page1.locator(Locators.TIMER_AREA)).toBeVisible();
+    // Check for timer messages
+    await expect(findTimerArea(page1)).toContainText(`Waiting for other players to react`);
+    await expect(findTimerArea(page2)).toContainText(`Want to react?`);
 
-    // Check for timer on Player 2 (Other Player)
-    await expect(page2.getByText('Want to react? Act fast!')).toBeVisible({ timeout: 5000 });
-    await expect(page2.locator(Locators.TIMER_AREA)).toBeVisible();
-
-    // Wait for timer to expire (2 seconds in DEVMODE)
-    await expect(page1.getByText('Waiting for other players to react')).not.toBeVisible({ timeout: 10000 });
+    // Wait for timer to expire (2 seconds in tests)
+    await expect(findTimerArea(page1)).not.toContainText(`Waiting for other players to react`);
 
     // Verify 2 cards removed
-    await expect(handSection.locator('img')).toHaveCount(6); // 8 - 2 = 6
+    await expect(findAllHandCards(page1)).toHaveCount(6);
+
     // Verify log message
-    await expect(messageArea).toContainText(`P1 played a pair of DEVELOPER`);
+    await expect(findLogArea(page1)).toContainText(`P1 played a pair of DEVELOPER`);
   });
 
   test('Put Card Back', async ({ browser }) => {
@@ -1247,8 +1246,8 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await page.waitForURL(/game/);
 
     // Verify initial hand count (8)
-    const handSection = page.locator(Headers.YOUR_HAND).locator('xpath=..');
-    await expect(handSection.locator('img')).toHaveCount(8);
+    const handArea = page.locator(Headers.YOUR_HAND).locator('xpath=..');
+    await expect(handArea.locator('img')).toHaveCount(8);
 
     // Get initial deck count from UI text (e.g. "(30 cards)")
     const deckCountText = await page.locator(Locators.DRAW_PILE_COUNT).textContent();
@@ -1258,7 +1257,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     await page.click(Buttons.DEV_PUT_CARD_BACK);
 
     // Verify hand count decreased to 7
-    await expect(handSection.locator('img')).toHaveCount(7);
+    await expect(handArea.locator('img')).toHaveCount(7);
 
     // Verify deck count increased by 1
     await expect(page.locator(Locators.DRAW_PILE_COUNT)).toHaveText(`(${initialDeckCount + 1} cards)`);
@@ -1351,7 +1350,7 @@ const devCards = handSection.locator('img[alt^="DEVELOPER:"]');
     // Let's ensure a SPECIFIC unique message is there.
     // "P1 played ATTACK" (if we can).
     // Or simpler: P1 draws a card.
-    await page.click(Locators.GAME_PILE); 
+    drawCard(page);
     // Wait for log
     await expect(findLogArea(page)).toContainText('P1 drew a card');
     await expect(findLogArea(page2)).toContainText('P1 drew a card');
