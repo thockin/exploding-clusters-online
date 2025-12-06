@@ -34,7 +34,7 @@ export default function GameScreen() {
   const [handAreaWidth, setHandAreaWidth] = useState(0);
   const [countdown, setCountdown] = useState(0);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // DEVMODE states
   const [deckOverlay, setDeckOverlay] = useState<Card[] | null>(null);
   const [removedOverlay, setRemovedOverlay] = useState<Card[] | null>(null); // New: for removed pile overlay
@@ -70,7 +70,7 @@ export default function GameScreen() {
   }, []);
 
   const gameStateRef = useRef(gameState);
-  
+
   useEffect(() => {
     const prevGameState = gameStateRef.current;
     if (prevGameState && gameState) {
@@ -92,7 +92,7 @@ export default function GameScreen() {
     }
     console.debug({ myHand, isSpectator: !gameState?.players.some(p => p.id === playerId), playerId, gameCode });
   }, [gameState, isLoading, router, gameEndData, myHand, playerId, gameCode]);
-  
+
   useEffect(() => {
     // This effect handles logging exploding card but we don't render it yet?
     // Keeping state setter for future use or debugging.
@@ -310,7 +310,7 @@ export default function GameScreen() {
 
   const handleCardClick = useCallback((card: Card, event: React.MouseEvent) => {
     event.stopPropagation();
-    
+
     if (isDraggingRef.current) {
       // handleCardClick ignored (isDraggingRef)
       return;
@@ -331,7 +331,7 @@ export default function GameScreen() {
     }
     console.debug('handleCardClick', card.id, card.name, 'shift:', event.shiftKey, 'selected:', selectedCards.map(c => c.id));
     // TODO: Add check for playable cards here (Phase 3)
-    
+
     // If shift key is pressed, attempt combo selection
     if (event.shiftKey) {
       // Only DEVELOPER cards can be part of a combo
@@ -383,7 +383,7 @@ export default function GameScreen() {
     const getRowsAndCols = (cardFullWidth: number) => {
       const maxColsPossible = Math.floor(containerWidth / cardFullWidth);
       if (maxColsPossible === 0) return { rows: numCards, cols: 1 }; 
-        
+
       for (let r = 1; r <= numCards; r++) {
         const cols = Math.ceil(numCards / r);
         if (cols <= maxColsPossible) return { rows: r, cols };
@@ -392,7 +392,7 @@ export default function GameScreen() {
     };
 
     const standard = getRowsAndCols(CARD_FULL_WIDTH_PX);
-    
+
     let chosenCardWidth = CARD_WIDTH_PX;
     let chosenFullWidth = CARD_FULL_WIDTH_PX;
     let chosenCols = standard.cols;
@@ -427,7 +427,7 @@ export default function GameScreen() {
       socket.emit(SocketEvent.PutCardBack, gameCode);
     }
   };
-  
+
   const handleShowDeck = () => {
     if (socket && gameCode) {
       socket.emit(SocketEvent.ShowDeck, gameCode);
@@ -442,13 +442,13 @@ export default function GameScreen() {
 
   const handleDrawClick = useCallback(() => {
     if (!socket || !gameState) return;
-      
+
     const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
     if (currentPlayerId !== playerId) {
       console.log("Cannot draw: not your turn");
       return; // Or show toast
     }
-      
+
     if (gameState.turnPhase !== TurnPhase.Action) {
       console.log("Cannot draw: not in action phase");
       return;
@@ -459,19 +459,19 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (!socket) return;
-      
+
     const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: Card, duration: number }) => {
       console.debug(SocketEvent.DrawCardAnimation, data);
       setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId, duration: data.duration });
-          
+
       // Clear animation after duration
       setTimeout(() => {
         setDrawingAnimation(null);
       }, data.duration);
     };
-      
+
     socket.on(SocketEvent.DrawCardAnimation, onDrawCardAnimation);
-      
+
     return () => {
       socket.off(SocketEvent.DrawCardAnimation, onDrawCardAnimation);
     };
@@ -516,16 +516,16 @@ export default function GameScreen() {
       if (isMultiMove) {
         // Get selected IDs for quick lookup
         const selectedIds = new Set(selectedCards.map(c => c.id));
-            
+
         // Get ordered selection (to maintain relative order)
         const orderedSelection = myHand.filter(c => selectedIds.has(c.id));
-            
+
         // Hand without ANY selected cards (final base)
         const handWithoutSelection = myHand.filter(c => !selectedIds.has(c.id));
-            
+
         // Hand with ONLY the dragged card removed (for dnd reference)
         const handWithoutAnchor = myHand.filter(c => c.id !== draggedCard.id);
-            
+
         console.debug('Multi-move trace', {
           destGlobalIndex,
           handWithoutAnchorLength: handWithoutAnchor.length,
@@ -537,7 +537,7 @@ export default function GameScreen() {
         // dndDestIndex points to an index in handWithoutAnchor
         // We need to find the first non-selected card at or after this position
         let trueReferenceCard: Card | null = null;
-            
+
         // Start looking from the drop index
         // Handle append case
         if (destGlobalIndex >= handWithoutAnchor.length) {
@@ -560,7 +560,7 @@ export default function GameScreen() {
           const idx = handWithoutSelection.findIndex(c => c.id === trueReferenceCard!.id);
           if (idx !== -1) insertIndex = idx;
         }
-            
+
         console.debug('insertIndex', insertIndex);
 
         newHand = [...handWithoutSelection];
@@ -612,7 +612,7 @@ export default function GameScreen() {
                   selected.class === CardClass.Developer && 
                   draggedCard.class === CardClass.Developer &&
                   selected.name === draggedCard.name) {
-                  
+
             // "the second card is also selected and both cards are played"
             cardsToPlay = [selected, draggedCard];
             newSelectedCards = [selected, draggedCard];
@@ -708,7 +708,7 @@ export default function GameScreen() {
     setIsDragging(true);
     if (gameState) dragStartNonceRef.current = gameState.nonce;
     console.debug('onDragStart', start);
-      
+
     if (start.source.droppableId.startsWith('hand-row-')) {
       const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
       const sourceRowIndex = parseInt(start.source.droppableId.replace('hand-row-', ''), 10);
@@ -726,7 +726,7 @@ export default function GameScreen() {
                       draggedCard.class === CardClass.Developer && 
                       selected.name === draggedCard.name &&
                       selected.id !== draggedCard.id) {
-                      
+
             // Add to selection
             setSelectedCards([selected, draggedCard]);
           }
@@ -808,6 +808,8 @@ export default function GameScreen() {
 
   let turnStatus = '';
   let turnStatusBgColor = '';
+  let turnStatusColor = 'black';
+
   if (gameState && me && currentPlayer) {
     if (me.isOut) {
       turnStatus = "You are OUT";
@@ -829,8 +831,14 @@ export default function GameScreen() {
       const nextPlayer = gameState.players.find(p => p.id === nextPlayerId);
 
       if (me.id === currentPlayerId) {
-        turnStatus = `It's your turn, ${nextPlayer.name} is next`;
-        turnStatusBgColor = 'lightgreen';
+        if (gameState.turnPhase === TurnPhase.Exploding) {
+          turnStatus = `Your cluster is exploding - debug it!`;
+          turnStatusBgColor = 'red';
+          turnStatusColor = 'white';
+        } else {
+          turnStatus = `It's your turn, ${nextPlayer.name} is next`;
+          turnStatusBgColor = 'lightgreen';
+        }
       } else if (me.id === nextPlayerId) {
         turnStatus = `It's ${currentPlayer.name}'s turn, your turn is next`;
         turnStatusBgColor = '#FFD580'; // light orange
@@ -892,7 +900,7 @@ export default function GameScreen() {
     } else {
       rows.push(myHand);
     }
-    
+
     if (rows.length === 0) {
       rows.push([]);
     }
@@ -1022,7 +1030,7 @@ export default function GameScreen() {
       activeOverlayCard = gameState.activeExplodingCard;
     }
   }
-  
+
   // "Game play is paused" - block dismiss if drawing
   const isDrawingPause = !!drawingAnimation?.active;
 
@@ -1051,7 +1059,7 @@ export default function GameScreen() {
               width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
         )}
-        
+
         {deckOverlay && (
           <div
             style={{
@@ -1076,7 +1084,7 @@ export default function GameScreen() {
             </div>
           </div>
         )}
-        
+
         {removedOverlay && (
           <div
             style={{
@@ -1115,7 +1123,7 @@ export default function GameScreen() {
                 </ListGroup.Item>
               ))}
             </ListGroup>
-            
+
             {gameState.devMode && !isSpectator && (
               <div className="mt-3 d-grid gap-2">
                 <Button 
@@ -1228,6 +1236,7 @@ export default function GameScreen() {
                 style={{
                   textAlign: 'center', padding: '0.25rem',
                   backgroundColor: turnStatusBgColor,
+                  color: turnStatusColor,
                   borderRadius: '5px', flexShrink: 0,
                 }}
               >
@@ -1295,7 +1304,7 @@ export default function GameScreen() {
             </div>
           </Row>
         )}
-        
+
         {/* Modals... */}
         <Modal show={!!hostPromotionMessage} onHide={() => setHostPromotionMessage(null)}>
           <Modal.Header closeButton>

@@ -1273,7 +1273,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     await page.click(Buttons.START_GAME);
     await page.waitForURL(/game/);
-    
+
     // Wait for initial layout
     await page.waitForSelector(Locators.DRAW_PILE_COUNT);
 
@@ -1288,7 +1288,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(tableArea).toBeVisible();
     await expect(messageArea).toBeVisible();
     await expect(handArea).toBeVisible();
-    
+
     // Get initial bounding boxes
     const initialTableBox = await tableArea.boundingBox();
     const initialMessageBox = await messageArea.boundingBox();
@@ -1302,7 +1302,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     for (let i = 0; i < 20; i++) {
       await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     }
-    
+
     // Wait a bit for any layout settling
     await page.waitForTimeout(500);
 
@@ -1318,10 +1318,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Assert dimensions haven't changed
     expect(finalTableBox.height).toBeCloseTo(initialTableBox.height, 1);
     expect(finalTableBox.width).toBeCloseTo(initialTableBox.width, 1);
-    
+
     expect(finalMessageBox.height).toBeCloseTo(initialMessageBox.height, 1);
     expect(finalMessageBox.y).toBeCloseTo(initialMessageBox.y, 1);
-    
+
     // Hand container HEIGHT should not change (it is 35vh fixed)
     expect(finalHandBox.height).toBeCloseTo(initialHandBox.height, 1);
   });
@@ -1695,8 +1695,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
       // Verify P1 messages
       await expect(findTimerArea(page1)).toContainText("PLAY A DEBUG CARD");
-      const p1TurnArea = findTurnArea(page1);
-      await expect(findTurnArea(page1)).toContainText("It's your turn");
+      await expect(findTurnArea(page1)).toContainText("Your cluster is exploding");
 
       // Verify P2 messages
       await expect(findTimerArea(page2)).toContainText(`Waiting for ${p1} to debug`);
