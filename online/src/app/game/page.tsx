@@ -1108,7 +1108,7 @@ export default function GameScreen() {
               {playersToDisplay.map((player) => (
                 <ListGroup.Item key={player.id} className={getPlayerClassName(player)}>
                   <div>
-                    <span>{player.name} {player.id === gameState.gameOwnerId && '(Host)'} {player.isDisconnected && '(Disconnected)'}</span>
+                    <span>{player.name} {player.isDisconnected && '(Disconnected)'}</span>
                     <span className="float-end">{player.cards} cards</span>
                   </div>
                 </ListGroup.Item>
