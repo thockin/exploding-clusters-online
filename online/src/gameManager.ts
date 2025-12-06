@@ -1055,7 +1055,7 @@ export class GameManager {
         this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "The deck is empty!" });
         return;
       }
-      this.log(game, `player "${player.name}" is drawing a card. Card is ${card.class} (${card.name})`);
+      this.log(game, `player "${player.name}" drew ${card.class} ("${card.name}")`);
 
       const animDuration = config.goFast ? 500 : (card.class === CardClass.ExplodingCluster ? 5000 : 3000);
 

@@ -1,3 +1,4 @@
+* Bold "self" in the player list
 DEBUG not playable immediately after <esc> until timeout
 Where should EXPLODING CLUSTER go after player explodes?
 
@@ -18,7 +19,6 @@ Later:
 * Hand animation is ugly
   - need configurable skin colors?
 * Animate reinsert
-* Bold "self" in the player list
 * Scale cards up in size as they get closer to discard pile (drag)
 * Visual glitch when playing a single developer card (should be unplayable)
 * Reduce card spacing in hand or even overlap them?
