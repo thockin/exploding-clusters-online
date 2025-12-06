@@ -39,5 +39,4 @@ export const Locators = {
   HAND_ANIMATION_CARD: '.hand-animation .hand-card img',
   MODAL_SHOW: '.modal.show',
   LOBBY_PLAYER_LIST: '[data-testid="lobby-player-list"]',
-  PLAYER_LIST: '[data-testid="player-list"]',
 };

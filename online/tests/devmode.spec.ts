@@ -70,6 +70,11 @@ async function drawCard(page: Page) {
   await findDrawPile(page).click();
 }
 
+// Helper to find the player-list area.
+function findPlayerList(page: Page): Locator {
+  return page.locator(`div[data-areaname="player-list"]`);
+}
+
 // Helper to find the hand area.
 function findHand(page: Page): Locator {
   return page.locator(`div[data-areaname="hand"]`);
@@ -147,9 +152,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await watchGame(pageObs, code);
 
     // Verify the player list has 2 players on all screens
-    await expect(page1.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2, { timeout: 10000 });
-    await expect(page2.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2, { timeout: 10000 });
-    await expect(pageObs.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2, { timeout: 10000 });
+    await expect(page1.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2);
+    await expect(page2.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2);
+    await expect(pageObs.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2);
 
     // Verify Lobby Sync on P1: Check that Player Two is listed
     await expect(page1.locator('text=Player Two')).toBeVisible();
@@ -382,7 +387,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page1.locator(Buttons.START_GAME)).not.toBeVisible();
   });
 
-  test('Turn area colors', async ({ browser }) => {
+  test('Initial UI', async ({ browser }) => {
     // Setup 3 players
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
@@ -396,27 +401,43 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const page3 = await ctx3.newPage();
     await joinGame(page3, 'P3', code);
 
-    // Start Game
+    // Start game
     await page1.click(Buttons.START_GAME);
-    // Wait for all to reach game screen
     await page1.waitForURL(/game/);
     await page2.waitForURL(/game/);
     await page3.waitForURL(/game/);
 
-    // Verify P1 (Current Turn) -> Lightgreen background
+    // Verify the player list
+    await expect(findPlayerList(page1).locator('.list-group-item')).toHaveCount(3);
+    await expect(findPlayerList(page1)).toContainText("P1 (that's you)");
+    await expect(findPlayerList(page1)).toContainText("P2");
+    await expect(findPlayerList(page1)).toContainText("P3");
+    await expect(findPlayerList(page2).locator('.list-group-item')).toHaveCount(3);
+    await expect(findPlayerList(page2)).toContainText("P1");
+    await expect(findPlayerList(page2)).toContainText("P2 (that's you)");
+    await expect(findPlayerList(page2)).toContainText("P3");
+    await expect(findPlayerList(page3).locator('.list-group-item')).toHaveCount(3);
+    await expect(findPlayerList(page3)).toContainText("P1");
+    await expect(findPlayerList(page3)).toContainText("P2");
+    await expect(findPlayerList(page3)).toContainText("P3 (that's you)");
+
+    // Verify P1 (current turn) -> Lightgreen background
     const p1TurnArea = findTurnArea(page1);
     await expect(p1TurnArea).toBeVisible();
     await expect(p1TurnArea).toHaveCSS('background-color', 'rgb(144, 238, 144)');
+    await expect(p1TurnArea).toContainText(`It's your turn, P2 is next`);
 
-    // Verify P2 (Next Turn) -> Orange background
+    // Verify P2 (next turn) -> Orange background
     const p2TurnArea = findTurnArea(page2);
     await expect(p2TurnArea).toBeVisible();
     await expect(p2TurnArea).toHaveCSS('background-color', 'rgb(255, 213, 128)');
+    await expect(p2TurnArea).toContainText(`It's P1's turn, your turn is next`);
 
-    // Verify P3 (Other) -> Lightblue background
+    // Verify P3 (other) -> Lightblue background
     const p3TurnArea = findTurnArea(page3);
     await expect(p3TurnArea).toBeVisible();
     await expect(p3TurnArea).toHaveCSS('background-color', 'rgb(173, 216, 230)');
+    await expect(p3TurnArea).toContainText(`It's P1's turn`);
   });
 
   test('Card Wrapping', async ({ browser }) => {
@@ -595,7 +616,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Wait for hand to be visible and have cards
     // Locate the hand container directly by its droppableId, which is applied via provided.droppableProps
-    await page1.waitForSelector(Locators.PLAYER_LIST, { timeout: 15000 }); // Wait for player list to be visible
     await page1.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 }); // Wait for the "Your Hand" heading
     await page1.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 }); // Wait for the "Your Hand" heading
     const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..'); // Select the parent Row

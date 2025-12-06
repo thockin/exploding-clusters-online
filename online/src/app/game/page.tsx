@@ -1113,11 +1113,14 @@ export default function GameScreen() {
         <Row className="flex-grow-1">
           <Col md={3}>
             <h5>Players</h5>
-            <ListGroup data-testid="player-list">
+            <ListGroup
+              data-testid="player-list"
+              data-areaname="player-list"
+            >
               {playersToDisplay.map((player) => (
                 <ListGroup.Item key={player.id} className={getPlayerClassName(player)}>
                   <div>
-                    <span>{player.name} {player.isDisconnected && '(Disconnected)'}</span>
+                    <span>{player.name} {player.id === playerId && "(that's you)"} {player.isDisconnected && '(Disconnected)'}</span>
                     <span className="float-end">{player.cards} cards</span>
                   </div>
                 </ListGroup.Item>
