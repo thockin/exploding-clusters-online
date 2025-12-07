@@ -753,6 +753,11 @@ export class GameManager {
     if (numPlayers >= 3 && numPlayers <= 4) upgradeCount = 1;
     else if (numPlayers === 5) upgradeCount = 2;
 
+    // DEVMODE: Always ensure at least one UPGRADE CLUSTER card is in the deck
+    if (game.devMode && upgradeClusters.length > 0) { // Check if we actually have upgrade cards to add
+      upgradeCount = Math.max(upgradeCount, 1);
+    }
+
     for (let i = 0; i < upgradeCount; i++) {
       if (upgradeClusters.length > 0) deck.push(upgradeClusters.pop()!);
     }
@@ -1642,6 +1647,26 @@ export class GameManager {
           game.drawPile.splice(insertIndex, 0, card);
           this.log(game, `re-inserted ${card.name} (${card.class}) at index ${insertIndex} due to disconnect`);
         });
+
+        // Also check discard pile if we are in Exploding phase (since we moved the card there)
+        if (game.turnPhase === TurnPhase.Exploding) {
+             // Find from end (most recent)
+             let explodingIndex = -1;
+             for (let i = game.discardPile.length - 1; i >= 0; i--) {
+                if (game.discardPile[i].class === CardClass.ExplodingCluster) {
+                    explodingIndex = i;
+                    break;
+                }
+             }
+             if (explodingIndex !== -1) {
+                 const [card] = game.discardPile.splice(explodingIndex, 1);
+                 const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
+                 game.drawPile.splice(insertIndex, 0, card);
+                 this.log(game, `re-inserted ${card.name} (${card.class}) from discard at index ${insertIndex} due to disconnect`);
+             }
+             // Reset phase
+             game.turnPhase = TurnPhase.Action;
+        }
 
         // Move remaining hand to removedPile
         game.removedPile.push(...remainingHand);

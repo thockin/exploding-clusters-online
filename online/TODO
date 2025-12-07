@@ -23,3 +23,4 @@ Later:
 * Nonce changes when players join/leave causing a play-nonce error
 * shuffle animation
 * colors for reaction timer
+* Send card classes to logs as `s/_/ /g`

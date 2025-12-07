@@ -1759,13 +1759,13 @@ Implemement re-inserting the EXPLODING CLUSTER card into the deck.
 Implement drawing an UPGRADE CLUSTER card face down, and re-inserting it into
 the deck.
 
-##### Phase 3.5: Drawing UPGRADE CLUSTER face-up
-
-Implement drawing an UPGRADE CLUSTER card face up, causing a player to be out.
-
 Implement face-up vs. face-down for cards in the deck.
 
 Pass the top-of-deck image to clients to render.
+
+##### Phase 3.5: Drawing UPGRADE CLUSTER face-up
+
+Implement drawing an UPGRADE CLUSTER card face up, causing a player to be out.
 
 #### Phase 4: Cards
 
