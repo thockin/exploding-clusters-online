@@ -1114,7 +1114,6 @@ export default function GameScreen() {
           <Col md={3}>
             <h5>Players</h5>
             <ListGroup
-              data-testid="player-list"
               data-areaname="player-list"
             >
               {playersToDisplay.map((player) => (

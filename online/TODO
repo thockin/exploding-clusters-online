@@ -1,15 +1,11 @@
-DEBUG not playable immediately after <esc> until timeout
-Where should EXPLODING CLUSTER go after player explodes?
-
 Phase 4:
  - send BIG messages when executing
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
 
 tests
- - better locator for all areas
-   - kill testid in favor of areaName
- - remove unused locator consts
  - more helpers
+ - better locator for all areas
+ - remove unused locator consts
 
 
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
