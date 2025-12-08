@@ -1,3 +1,13 @@
+Phase 3.4:
+- draw-card animation
+  - reveal next card (pass to animation)
+- out-of-range value on reinsert -> messages, should be red modal
+- don't message errors when animation is running
+- insert card animation
+- server logs
+- messages
+- test cases
+
 Phase 4:
  - send BIG messages when executing
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops

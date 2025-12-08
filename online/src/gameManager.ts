@@ -138,6 +138,10 @@ export class GameManager {
         this.insertExplodingCard(socket, payload.gameCode, payload.index, payload.nonce);
       });
 
+      socket.on(SocketEvent.InsertUpgradeCard, (payload: { gameCode: string, index: number, nonce: string }) => {
+        this.insertUpgradeCard(socket, payload.gameCode, payload.index, payload.nonce);
+      });
+
       // Handle voluntary leave
       socket.on(SocketEvent.LeaveGame, (gameCode: string) => {
         // Validate gameCode matches the socket's actual game (prevents leaving games you're not in)
@@ -315,14 +319,32 @@ export class GameManager {
 
   private getGameUpdateData(game: Game): GameUpdatePayload {
     const topDiscardCard = game.discardPile.length > 0 ? game.discardPile[game.discardPile.length - 1] : undefined;
+    
+    // Handle face-up cards in draw pile
+    const topDrawCard = game.drawPile.length > 0 ? game.drawPile[game.drawPile.length - 1] : undefined;
+    let drawPileImage = "/art/back.png";
+    let topDrawPileCard: Card | undefined = undefined; // IFF face-up
 
-    let activeExplodingCard: Card | undefined;
+    if (topDrawCard && topDrawCard.isFaceUp) {
+      drawPileImage = topDrawCard.imageUrl;
+      topDrawPileCard = topDrawCard;
+    }
+
+    let overlayCard: Card | undefined;
     if (game.turnPhase === TurnPhase.Exploding) {
       // Find the most recent EXPLODING_CLUSTER in discard pile (it might be under a DEBUG card)
       // Search from end (top)
       for (let i = game.discardPile.length - 1; i >= 0; i--) {
         if (game.discardPile[i].class === CardClass.ExplodingCluster) {
-          activeExplodingCard = game.discardPile[i];
+          overlayCard = game.discardPile[i];
+          break;
+        }
+      }
+    } else if (game.turnPhase === TurnPhase.Upgrading) {
+      // Find the most recent UPGRADE_CLUSTER in discard pile
+      for (let i = game.discardPile.length - 1; i >= 0; i--) {
+        if (game.discardPile[i].class === CardClass.UpgradeCluster) {
+          overlayCard = game.discardPile[i];
           break;
         }
       }
@@ -342,9 +364,11 @@ export class GameManager {
       currentTurnIndex: game.currentTurnIndex,
       turnPhase: game.turnPhase,
       lastActorName: game.lastActorName,
-      activeExplodingCard,
+      overlayCard,
       timerDuration: game.timerDuration,
       topDiscardCard: topDiscardCard, // Always send top card for rendering
+      drawPileImage: drawPileImage,
+      topDrawPileCard: topDrawPileCard,
     };
 
     if (game.devMode) {
@@ -769,7 +793,6 @@ export class GameManager {
     // DEVMODE: Setup fixed deck order
     if (game.devMode) {
       this.setupDevModeDeck(game.drawPile);
-      this.log(game, `DEVMODE: setup fixed deck order`);
     }
 
     // Set turn order
@@ -1062,7 +1085,8 @@ export class GameManager {
       }
       this.log(game, `player "${player.name}" drew ${card.class} ("${card.name}")`);
 
-      const animDuration = config.goFast ? 500 : (card.class === CardClass.ExplodingCluster ? 5000 : 3000);
+      // Empirical - not too fast, not too slow
+      const animDuration = config.goFast ? 500 : 3000;
 
       // Start animation phase
       // Current player sees the card
@@ -1161,6 +1185,12 @@ export class GameManager {
               // Stay in turn, phase is Exploding
               this.updateGameNonce(currentGame, currentPlayer.name);
             }
+          } else if (card!.class === CardClass.UpgradeCluster) {
+            currentGame.turnPhase = TurnPhase.Upgrading; // Changed to Upgrading
+            currentGame.discardPile.push(card!); // Put on discard pile
+            this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew an UPGRADE CLUSTER!` });
+            // Player stays in turn to re-insert. No advanceTurn.
+            this.updateGameNonce(currentGame, currentPlayer.name);
           } else {
             // Regular card
             this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} drew a card.` });
@@ -1181,11 +1211,7 @@ export class GameManager {
         }
       };
 
-      if (card!.class === CardClass.ExplodingCluster) {
-        finalizeDraw();
-      } else {
-        game.timer = setTimeout(finalizeDraw, animDuration);
-      }
+      game.timer = setTimeout(finalizeDraw, animDuration * 0.8);
     } catch (error) {
       // Handle any errors that occur before or during setTimeout setup
       this.log(game, `drawCard error: ${error}`);
@@ -1378,7 +1404,7 @@ export class GameManager {
       return;
     }
 
-    // Check permissions using Phase 3.1.3 logic
+    // Check permissions
     const cardInHand = player.hand.find(c => c.id === cardId);
     if (!cardInHand) {
       this.log(game, `player "${player.name}" tried to play card they don't have (id: ${cardId})`);
@@ -1410,7 +1436,7 @@ export class GameManager {
       const [card] = player.hand.splice(cardIndex, 1);
       game.discardPile.push(card);
 
-      // Special handling for DEBUG card (Phase 3.3)
+      // Special handling for DEBUG card
       if (card.class === CardClass.Debug) {
          this.log(game, `player "${player.name}" played "${card.class}: ${card.name}" (resolving immediately)`);
          // Replace generic message with specific 'almost exploded' message
@@ -1419,7 +1445,7 @@ export class GameManager {
          return;
       }
 
-      // Phase 3.1.1: Push a do-nothing operation
+      // Push a do-nothing operation
       game.pendingOperations.push({
         cardClass: card.class,
         playerName: player.name,
@@ -1436,7 +1462,7 @@ export class GameManager {
       this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.class}.` });
 
-      // Phase 3.1.2: Trigger Timer
+      // Trigger Timer
       this.startReactionTimer(game, player.id);
 
       this.updateGameNonce(game, player.name);
@@ -1574,7 +1600,7 @@ export class GameManager {
       // Add to discard pile
       game.discardPile.push(...cardsToPlay);
 
-      // Phase 3.1.1: Push a do-nothing operation
+      // Push a do-nothing operation
       game.pendingOperations.push({
         cardClass: c1.class,
         playerName: player.name,
@@ -1590,7 +1616,7 @@ export class GameManager {
       this.log(game, `player "${player.name}" played 2x combo "${c1.class}: ${c1.name}"`);
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${c1.class}.` });
 
-      // Phase 3.1.2: Start Timer
+      // Start Timer
       this.startReactionTimer(game, player.id);
 
       this.updateGameNonce(game, player?.name);
@@ -1666,6 +1692,24 @@ export class GameManager {
              }
              // Reset phase
              game.turnPhase = TurnPhase.Action;
+        }
+        // Handle Upgrade Cluster in discard on disconnect
+        else if (game.turnPhase === TurnPhase.Upgrading) {
+             let upgradeIndex = -1;
+             for (let i = game.discardPile.length - 1; i >= 0; i--) {
+                if (game.discardPile[i].class === CardClass.UpgradeCluster) {
+                    upgradeIndex = i;
+                    break;
+                }
+             }
+             if (upgradeIndex !== -1) {
+                 const [card] = game.discardPile.splice(upgradeIndex, 1);
+                 card.isFaceUp = true; // Re-insert face-up
+                 const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
+                 game.drawPile.splice(insertIndex, 0, card);
+                 this.log(game, `re-inserted ${card.name} (${card.class}) from discard (face-up) at index ${insertIndex} due to disconnect`);
+             }
+             game.turnPhase = TurnPhase.Action; // Reset phase
         }
 
         // Move remaining hand to removedPile
@@ -1824,6 +1868,58 @@ export class GameManager {
 
   private handleWin(game: Game, winner: Player, winType: WinType) {
     this.endGame(game.code, winner.name, winType);
+  }
+
+  private insertUpgradeCard(socket: Socket, gameCode: string, index: number, nonce: string) {
+    const game = this.games.get(gameCode);
+    if (!game) return;
+
+    if (game.turnPhase !== TurnPhase.Upgrading) return;
+
+    const player = game.players.find(p => p.socketId === socket.id);
+    if (!player || game.turnOrder[game.currentTurnIndex] !== player.id) return;
+
+    if (nonce !== game.nonce) {
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game state mismatch." });
+      return;
+    }
+
+    if (index < 0 || index > game.drawPile.length) {
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid insertion index." });
+      return;
+    }
+
+    // Find UPGRADE CLUSTER in discard pile
+    let cardIndex = -1;
+    for (let i = game.discardPile.length - 1; i >= 0; i--) {
+      if (game.discardPile[i].class === CardClass.UpgradeCluster) {
+        cardIndex = i;
+        break;
+      }
+    }
+
+    if (cardIndex === -1) {
+      this.log(game, "insertUpgradeCard: no UPGRADE CLUSTER in discard pile");
+      return;
+    }
+    const [card] = game.discardPile.splice(cardIndex, 1);
+    card.isFaceUp = true; // Mark as face up!
+
+    // 0 is top (end of array), N is bottom (start of array)
+    const insertIndex = game.drawPile.length - index;
+    if (insertIndex < 0 || insertIndex > game.drawPile.length) {
+      game.drawPile.push(card);
+    } else {
+      game.drawPile.splice(insertIndex, 0, card);
+    }
+
+    this.log(game, `player "${player.name}" re-inserted UPGRADE CLUSTER (face-up) at index ${insertIndex} (user input ${index})`);
+
+    // Reset phase to Action (for next player)
+    game.turnPhase = TurnPhase.Action;
+
+    this.advanceTurn(game);
+    this.updateGameNonce(game, player.name);
   }
 
   private insertExplodingCard(socket: Socket, gameCode: string, index: number, nonce: string) {

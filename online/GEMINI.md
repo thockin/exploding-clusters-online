@@ -15,14 +15,21 @@ to do.
 
 # Code style
 
+Always use two spaces to indent code.
+
 Code and comment lines should never have trailing whitespace.
 
 Blank lines should never have whitespace.
 
-Follow the indenting style (e.g. tabs vs. spaces) of the surrounding code and
-the conventions of the language.
-
 Always change as little as possible to get the desired effect.
+
+# Comments
+
+Always write comments which explain WHY the code is doing something, not WHAT
+it is doing, unless the code is doing something particularly complex.
+
+Never add comments which just cite sections of the design doc. E.g. don't write
+`// See section 3.2 of the design doc` or `// Phase 11.1`.
 
 # Testing
 

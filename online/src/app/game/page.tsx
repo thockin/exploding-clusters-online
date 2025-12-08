@@ -48,6 +48,7 @@ export default function GameScreen() {
   const [replayModal, setReplayModal] = useState<{ show: boolean, reason: string, cardId?: string, cardIds?: string[] } | null>(null);
   const [insertionModal, setInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
   const [insertionIndex, setInsertionIndex] = useState<string | number>(0);
+  const [upgradeInsertionModal, setUpgradeInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
 
   // Ensure isClient is true after first render
   useEffect(() => {
@@ -96,7 +97,7 @@ export default function GameScreen() {
   useEffect(() => {
     // This effect handles logging exploding card but we don't render it yet?
     // Keeping state setter for future use or debugging.
-  }, [explodingCard]); 
+  }, [explodingCard]);
 
   useEffect(() => {
     // Detect if we are in Exploding phase and need to show Insertion Modal
@@ -105,13 +106,27 @@ export default function GameScreen() {
       if (currentPlayerId === playerId) {
         const hasDebug = myHand.some(c => c.class === CardClass.Debug);
         if (!hasDebug && !insertionModal) {
-           setInsertionModal({ show: true, maxIndex: gameState.drawPileCount || 50 }); 
+           setInsertionModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
         }
       }
     } else {
       if (insertionModal) setInsertionModal(null);
     }
   }, [gameState, playerId, myHand, insertionModal]);
+
+  useEffect(() => {
+    // Detect if we are in Upgrading phase and need to show Insertion Modal
+    if (gameState?.turnPhase === TurnPhase.Upgrading) {
+      const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
+      if (currentPlayerId === playerId) {
+        if (!upgradeInsertionModal) {
+           setUpgradeInsertionModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
+        }
+      }
+    } else {
+      if (upgradeInsertionModal) setUpgradeInsertionModal(null);
+    }
+  }, [gameState, playerId, upgradeInsertionModal]);
 
   useEffect(() => {
     if (!socket) return;
@@ -210,6 +225,13 @@ export default function GameScreen() {
       return () => observer.disconnect();
     }
   }, []);
+
+  const handleUpgradeInsertConfirm = useCallback(() => {
+    if (!socket || !gameCode || !gameState) return;
+    const index = typeof insertionIndex === 'string' ? parseInt(insertionIndex, 10) : insertionIndex;
+    socket.emit(SocketEvent.InsertUpgradeCard, { gameCode, index, nonce: gameState.nonce });
+    setUpgradeInsertionModal(null);
+  }, [socket, gameCode, gameState, insertionIndex]);
 
   const handleGameEndConfirm = useCallback(() => {
     resetState();
@@ -345,8 +367,8 @@ export default function GameScreen() {
       } else if (selectedCards.length === 1) {
         const existingCard = selectedCards[0];
         // Only allow combo with identical DEVELOPER cards and not the same card instance
-        if (existingCard.class === CardClass.Developer && 
-            existingCard.name === card.name && 
+        if (existingCard.class === CardClass.Developer &&
+            existingCard.name === card.name &&
             existingCard.id !== card.id) {
           setSelectedCards(prev => [...prev, card]); // Form a combo
         }
@@ -371,9 +393,9 @@ export default function GameScreen() {
   }, []);
 
   // Helper function to calculate layout constraints
-  const calculateHandLayout = useCallback(( 
-    numCards: number, 
-    containerWidth: number 
+  const calculateHandLayout = useCallback((
+    numCards: number,
+    containerWidth: number
   ): { maxWidth: number, cardWidth: number, cols: number } => {
     if (numCards === 0) return { maxWidth: 0, cardWidth: CARD_WIDTH_PX, cols: 1 };
     // Fallback to single column (vertical stack) if container width is not yet measured
@@ -382,7 +404,7 @@ export default function GameScreen() {
 
     const getRowsAndCols = (cardFullWidth: number) => {
       const maxColsPossible = Math.floor(containerWidth / cardFullWidth);
-      if (maxColsPossible === 0) return { rows: numCards, cols: 1 }; 
+      if (maxColsPossible === 0) return { rows: numCards, cols: 1 };
 
       for (let r = 1; r <= numCards; r++) {
         const cols = Math.ceil(numCards / r);
@@ -608,8 +630,8 @@ export default function GameScreen() {
         // Dragging a different card
         else {
           // Check Shift-Drag for Developer Combo
-          if (isShiftKeyPressed.current && 
-                  selected.class === CardClass.Developer && 
+          if (isShiftKeyPressed.current &&
+                  selected.class === CardClass.Developer &&
                   draggedCard.class === CardClass.Developer &&
                   selected.name === draggedCard.name) {
 
@@ -662,7 +684,7 @@ export default function GameScreen() {
           // Do NOT emit. Do NOT setMyHand. DnD will snap back.
           // Do NOT clear selection (newSelectedCards is set, user sees what they tried to play).
           // TODO: Display message to user? The design doc says "Return it... with a message".
-          // We need a way to show local message? 
+          // We need a way to show local message?
           // Current gameMessages come from server.
           // We can manually append to gameMessages?
           // But gameMessages is state from server.
@@ -675,7 +697,7 @@ export default function GameScreen() {
           // For now, console log is all we have locally unless we add local message state.
           // BUT, checking `SocketContext`: `gameMessages` is `string[]`. `setGameMessages` is not exposed.
           // Maybe we should ignore the "message" part for now or implement local toast later.
-          return; 
+          return;
         }
 
         // Emit the appropriate event to the server
@@ -689,7 +711,7 @@ export default function GameScreen() {
           }
         } else {
           console.error("Game code not found, cannot play card.");
-          return; 
+          return;
         }
 
         // Optimistic update and clear selection for successful plays
@@ -722,8 +744,8 @@ export default function GameScreen() {
         // "If there is a single DEVELOPER card selected and the player shift-clicks and drags another identical card..."
         if (selectedCards.length === 1) {
           const selected = selectedCards[0];
-          if (selected.class === CardClass.Developer && 
-                      draggedCard.class === CardClass.Developer && 
+          if (selected.class === CardClass.Developer &&
+                      draggedCard.class === CardClass.Developer &&
                       selected.name === draggedCard.name &&
                       selected.id !== draggedCard.id) {
 
@@ -838,6 +860,7 @@ export default function GameScreen() {
         } else {
           turnStatus = `It's your turn, ${nextPlayer.name} is next`;
           turnStatusBgColor = 'lightgreen';
+          turnStatusColor = 'black'; // Default
         }
       } else if (me.id === nextPlayerId) {
         turnStatus = `It's ${currentPlayer.name}'s turn, your turn is next`;
@@ -906,9 +929,9 @@ export default function GameScreen() {
     }
 
     return (
-      <div 
+      <div
         data-areaname="hand"
-        style={{ 
+        style={{
           maxWidth: `${maxWidth}px`,
           margin: '0 auto', // Center the container itself
           display: 'flex',
@@ -923,7 +946,7 @@ export default function GameScreen() {
                 {...provided.droppableProps}
                 ref={provided.innerRef}
                 className="d-flex justify-content-center flex-nowrap w-100"
-                style={{ 
+                style={{
                   minHeight: `${cardWidth * 1.4 + 10}px`, // Ensure height for drop target + margin
                   width: '100%',
                 }}
@@ -987,10 +1010,10 @@ export default function GameScreen() {
                                     background: 'white',
                                   }}
                                 >
-                                  <Image 
-                                    src={sc.imageUrl} 
+                                  <Image
+                                    src={sc.imageUrl}
                                     alt={`${sc.class}: ${sc.name}`}
-                                    width={cardWidth} 
+                                    width={cardWidth}
                                     height={cardWidth * 1.4}
                                     draggable={false}
                                   />
@@ -998,10 +1021,10 @@ export default function GameScreen() {
                               ))}
                             </>
                           )}
-                          <Image 
-                            src={card.imageUrl} 
+                          <Image
+                            src={card.imageUrl}
                             alt={`${card.class}: ${card.name} (${playable ? 'playable' : 'not playable'})`}
-                            width={cardWidth} 
+                            width={cardWidth}
                             height={cardWidth * 1.4}
                             draggable={false}
                             style={{ zIndex: 1, position: 'relative', backgroundColor: 'white', borderRadius: '5px' }}
@@ -1024,10 +1047,10 @@ export default function GameScreen() {
 
   // Determine which card to show in overlay: Drawing card takes precedence over inspection
   let activeOverlayCard = drawingAnimation?.card || overlayCard;
-  if (gameState?.turnPhase === TurnPhase.Exploding && gameState?.activeExplodingCard) {
+  if ((gameState?.turnPhase === TurnPhase.Exploding || gameState?.turnPhase === TurnPhase.Upgrading) && gameState?.overlayCard) {
     // Only show persistent overlay for players who are NOT the active player
     if (gameState.turnOrder[gameState.currentTurnIndex] !== playerId) {
-      activeOverlayCard = gameState.activeExplodingCard;
+      activeOverlayCard = gameState.overlayCard;
     }
   }
 
@@ -1128,10 +1151,10 @@ export default function GameScreen() {
 
             {gameState.devMode && !isSpectator && (
               <div className="mt-3 d-grid gap-2">
-                <Button 
-                  variant="warning" 
-                  size="sm" 
-                  onClick={handleGiveDebugCard} 
+                <Button
+                  variant="warning"
+                  size="sm"
+                  onClick={handleGiveDebugCard}
                   disabled={(gameState.debugCardsCount ?? 0) === 0}
                 >
                   Give me a DEBUG card
@@ -1169,41 +1192,45 @@ export default function GameScreen() {
             </div>
           </Col>
           <Col md={9} className="d-flex flex-column position-relative" style={{ backgroundColor: '#228B22', borderRadius: '10px', padding: `${FIXED_TABLE_PADDING}px`, overflow: 'hidden', minHeight: 0 }} ref={tableAreaRef}>
-            <div 
-              className="d-flex justify-content-center align-items-center flex-grow-1" 
+            <div
+              className="d-flex justify-content-center align-items-center flex-grow-1"
               style={{ gap: `${FIXED_PILE_GAP}px` }}
             >
               {/* Draw Pile */}
               <div className="d-flex flex-column align-items-center">
-                <div 
-                  className="draw-pile position-relative" 
+                <div
+                  className="draw-pile position-relative"
                   data-areaname="draw-pile"
-                  style={{ 
-                    width: getCardSize().width, 
+                  style={{
+                    width: getCardSize().width,
                     height: getCardSize().height,
                     cursor: 'pointer',
-                    borderRadius: '5px' 
+                    borderRadius: '5px'
                   }}
                   onClick={handleDrawClick}
                 >
-                  <Image src="/art/back.png" alt="Draw Pile: Face-down card" width={getCardSize().width} height={getCardSize().height} />
+                  <Image
+                    src={gameState?.drawPileImage || "/art/back.png"}
+                    alt={`Draw Pile: ${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
+                    width={getCardSize().width}
+                    height={getCardSize().height} />
 
                   {(drawingAnimation?.active && !drawingAnimation.card) && (
-                    <div className="hand-animation">
-                      <div className="hand-open" style={{ animation: `toggleHand ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 2}s step-end forwards` }}>
+                    <div className="hand-animation" style={{animation: `drawCard ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 4}s ease-in-out forwards` }}>
+                      <div className="hand-open" style={{ animation: `handReachIn ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-end forwards` }}>
                         <Image src="/art/hand_open.svg" alt="Hand Open" width={100} height={600} />
                       </div>
-                      <div className="hand-closed" style={{ animation: `toggleHandReverse ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 2}s step-start forwards` }}>
+                      <div className="hand-closed" style={{ animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards` }}>
                         <Image src="/art/hand_closed.svg" alt="Hand Closed" width={100} height={600} />
                       </div>
-                      <div className="hand-card" style={{ animation: `toggleHandReverse ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 2}s step-start forwards` }}>
-                        <Image 
-                          src={'/art/back.png'} 
-                          alt={'Face-down card'} 
-                          width={getCardSize().width} 
-                          height={getCardSize().height} 
+                      <div className="hand-card" style={{ animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards` }}>
+                        <Image
+                          src={gameState?.drawPileImage || "/art/back.png"}
+                          alt={`${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
+                          width={getCardSize().width}
+                          height={getCardSize().height}
                           style={{position: 'absolute', left: `${(100 - getCardSize().width) / 2}px`}} /* Centered within hand div */
-                        /> 
+                        />
                       </div>
                     </div>
                   )}
@@ -1228,7 +1255,7 @@ export default function GameScreen() {
               style={{
                 backgroundColor: '#f0f0f0',
                 borderRadius: '5px', margin: '0.5rem 0', padding: '0.5rem',
-                height: isSpectator ? 'auto' : '120px', 
+                height: isSpectator ? 'auto' : '120px',
                 flexGrow: isSpectator ? 1 : 0,
                 display: 'flex', flexDirection: 'column',
               }}
@@ -1245,7 +1272,7 @@ export default function GameScreen() {
                 <strong>{turnStatus}</strong>
               </div>
 
-              <div 
+              <div
                 ref={messageAreaRef}
                 data-areaname="log"
                 style={{
@@ -1262,9 +1289,9 @@ export default function GameScreen() {
           </Col>
         </Row>
         {!isSpectator && (
-          <div className="bg-light p-3 d-flex flex-column position-relative" 
-            style={{ 
-              borderTop: '1px solid #ccc', 
+          <div className="bg-light p-3 d-flex flex-column position-relative"
+            style={{
+              borderTop: '1px solid #ccc',
               flexShrink: 0,
               height: '35vh',
               minHeight: '250px'
@@ -1275,15 +1302,15 @@ export default function GameScreen() {
             }}
           >
             <h5 className="text-start mb-2 flex-shrink-0">Your Hand</h5>
-            <div 
+            <div
               ref={handAreaRef}
               className="flex-grow-1"
               style={{ overflowY: 'auto', width: '100%' }}
             >
               {renderHand()}
             </div>
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               className="position-absolute bottom-0 end-0 m-3 w-auto"
               style={{ zIndex: 10 }}
               onClick={() => setShowLeaveModal(true)}
@@ -1295,8 +1322,8 @@ export default function GameScreen() {
         {isSpectator && (
           <Row className="bg-light p-3 position-relative" style={{ borderTop: '1px solid #ccc', flexShrink: 0 }}>
             <div className="d-flex justify-content-end w-100">
-              <Button 
-                variant="secondary" 
+              <Button
+                variant="secondary"
                 className="w-auto"
                 style={{ zIndex: 10 }}
                 onClick={() => setShowLeaveModal(true)}
@@ -1346,12 +1373,35 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
+        <Modal show={!!upgradeInsertionModal?.show} onHide={() => {}} backdrop="static" keyboard={false}>
+          <Modal.Header>
+            <Modal.Title>Put the UPGRADE CLUSTER card back into the deck</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>You can put this card back into the deck anywhere you like.</p>
+            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards in the deck, where do you want to put the UPGRADE CLUSTER card?</p>
+            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '??'} is the bottom.</p>
+            <Form.Control
+              type="number"
+              min={0}
+              max={gameState?.drawPileCount || 50}
+              value={insertionIndex}
+              onChange={(e) => setInsertionIndex(e.target.value)}
+            />
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={handleUpgradeInsertConfirm}>OK</Button>
+          </Modal.Footer>
+        </Modal>
+
         <Modal show={!!insertionModal?.show} onHide={() => {}} backdrop="static" keyboard={false}>
           <Modal.Header>
             <Modal.Title>You&apos;re safe, for now</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <p>Where in the deck do you want to put the EXPLODING CLUSTER card? 0 means the top of the deck, {insertionModal?.maxIndex} means the bottom.</p>
+            <p>You can put this card back into the deck anywhere you like.</p>
+            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards in the deck, where do you want to hide the EXPLODING CLUSTER card?</p>
+            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '??'} is the bottom.</p>
             <Form.Control
               type="number"
               min={0}

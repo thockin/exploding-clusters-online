@@ -19,6 +19,7 @@ export interface Card {
   imageUrl: string;
   now?: boolean;
   combo?: boolean;
+  isFaceUp?: boolean;
 }
 
 export enum GameState {
@@ -31,7 +32,8 @@ export enum TurnPhase {
   Action = 'ACTION',
   Reaction = 'REACTION',
   Executing = 'EXECUTING',
-  Exploding = 'EXPLODING' // For Phase 3.3
+  Exploding = 'EXPLODING',
+  Upgrading = 'UPGRADING',
 }
 
 export enum SocketEvent {
@@ -50,6 +52,7 @@ export enum SocketEvent {
   PlayCombo = 'playCombo',
   DrawCard = 'drawCard',
   InsertExplodingCard = 'insertExplodingCard',
+  InsertUpgradeCard = 'insertUpgradeCard',
   LeaveGame = 'leaveGame',
 
   // server -> client
@@ -65,7 +68,7 @@ export enum SocketEvent {
   PlayerExploding = 'playerExploding',
   DrawCardAnimation = 'drawCardAnimation',
   TimerUpdate = 'timerUpdate',
-  PlayError = 'playError'
+  PlayError = 'playError',
 }
 
 export interface Player {
@@ -98,9 +101,11 @@ export interface GameUpdatePayload {
   currentTurnIndex: number;
   turnPhase: TurnPhase;
   lastActorName?: string;
-  activeExplodingCard?: Card;
+  overlayCard?: Card;        // If an overlay needs to be shown
   timerDuration?: number;    // Seconds remaining (or total duration for animation)
   topDiscardCard?: Card;     // optional (may be no discarded cards)
+  drawPileImage?: string;    // Image to show for the draw pile
+  topDrawPileCard?: Card;    // If the top card is face-up, this is the card, else nothing
   drawPileCount?: number;    // optional, devMode only
   discardPileCount?: number; // optional, devMode only
   removedPileCount?: number; // optional, devMode only
