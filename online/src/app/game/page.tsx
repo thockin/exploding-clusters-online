@@ -1397,11 +1397,28 @@ export default function GameScreen() {
               max={gameState?.drawPileCount || 50}
               value={insertionIndex}
               onChange={(e) => setInsertionIndex(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleUpgradeInsertConfirm(); } }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const val = parseInt(String(insertionIndex), 10);
+                  const max = gameState?.drawPileCount ?? 50;
+                  if (!isNaN(val) && val >= 0 && val <= max) {
+                    handleUpgradeInsertConfirm();
+                  }
+                }
+              }}
             />
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="primary" onClick={handleUpgradeInsertConfirm}>OK</Button>
+            <Button
+              variant="primary"
+              onClick={handleUpgradeInsertConfirm}
+              disabled={(() => {
+                const val = parseInt(String(insertionIndex), 10);
+                const max = gameState?.drawPileCount ?? 50;
+                return isNaN(val) || val < 0 || val > max;
+              })()}
+            >OK</Button>
           </Modal.Footer>
         </Modal>
 
@@ -1419,11 +1436,28 @@ export default function GameScreen() {
               max={insertionModal?.maxIndex}
               value={insertionIndex}
               onChange={(e) => setInsertionIndex(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleInsertConfirm(); } }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const val = parseInt(String(insertionIndex), 10);
+                  const max = insertionModal?.maxIndex ?? 50;
+                  if (!isNaN(val) && val >= 0 && val <= max) {
+                    handleInsertConfirm();
+                  }
+                }
+              }}
             />
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="primary" onClick={handleInsertConfirm}>OK</Button>
+            <Button
+              variant="primary"
+              onClick={handleInsertConfirm}
+              disabled={(() => {
+                const val = parseInt(String(insertionIndex), 10);
+                const max = insertionModal?.maxIndex ?? 50;
+                return isNaN(val) || val < 0 || val > max;
+              })()}
+            >OK</Button>
           </Modal.Footer>
         </Modal>
 
