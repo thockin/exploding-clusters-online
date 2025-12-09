@@ -1,7 +1,7 @@
 Phase 3.4:
-- stashed
 - don't message errors when animation is running
-  - clicking after dismiss but before timer messages an error
+  - clicking after dismiss but before timer messages an error: Please wait for your current operation to complete
+  - playing when not your turn: Please wait for your current play to complete
 - insert card animation
 - server logs
 - messages
@@ -34,3 +34,4 @@ Later:
 * shuffle animation
 * colors for reaction timer
 * Send card classes to logs as `s/_/ /g`
+* Nonce updsates in `finally` blocks
