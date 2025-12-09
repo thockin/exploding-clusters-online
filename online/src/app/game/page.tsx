@@ -1398,6 +1398,7 @@ export default function GameScreen() {
               max={gameState?.drawPileCount || 50}
               value={insertionIndex}
               onChange={(e) => setInsertionIndex(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleUpgradeInsertConfirm(); } }}
             />
           </Modal.Body>
           <Modal.Footer>
@@ -1419,6 +1420,7 @@ export default function GameScreen() {
               max={insertionModal?.maxIndex}
               value={insertionIndex}
               onChange={(e) => setInsertionIndex(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleInsertConfirm(); } }}
             />
           </Modal.Body>
           <Modal.Footer>

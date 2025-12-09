@@ -1,10 +1,10 @@
 Phase 3.4:
-- default button on reinsert dialogs (only button!)
+- hand animation for drawing player, too.
 - double-click on draw immediately dismisses - maybe require 500ms or 1s?
 - out-of-range value on reinsert -> messages, should be red modal
 - don't message errors when animation is running
+  - clicking after dismiss but before timer messages an error
 - insert card animation
-- hand animation for drawing player, too.
 - server logs
 - messages
 - test cases
