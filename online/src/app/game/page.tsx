@@ -1221,10 +1221,10 @@ export default function GameScreen() {
                       transform: `translateX(-50%) ${drawingAnimation.card ? 'rotate(180deg)' : ''}`
                     }}>
                       <div className="hand-open" style={{ animation: `handReachIn ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-end forwards` }}>
-                        <Image src="/art/hand_open.svg" alt="Hand Open" width={100} height={600} />
+                        <Image src="/art/hand_open.png" alt="Hand Open" width={250} height={500} />
                       </div>
                       <div className="hand-closed" style={{ animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards` }}>
-                        <Image src="/art/hand_closed.svg" alt="Hand Closed" width={100} height={600} />
+                        <Image src="/art/hand_closed.png" alt="Hand Closed" width={250} height={500} />
                       </div>
                       <div className="hand-card" style={{
                         animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards`
@@ -1237,6 +1237,7 @@ export default function GameScreen() {
                           style={{
                             position: 'absolute', 
                             left: `${(100 - getCardSize().width) / 2}px`,
+                            top: `${(180 - getCardSize().height) / 2}px`,
                             transform: drawingAnimation.card ? 'rotate(180deg)' : 'none'
                           }} /* Centered within hand div */
                         />

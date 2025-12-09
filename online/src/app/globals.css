@@ -12,17 +12,16 @@
 
 @keyframes drawCard {
   0% { top: -600px; } /* Start off-screen above */
-  40% { top: -400px; } /* Hand reaches down further over the card */
-  50% { top: -400px; } /* Pause to 'grab' */
-  75% { top: -1000px; } /* Retracts fully off-screen */
-  100% { top: -2000px; } /* Retracts fully off-screen */
+  40% { top: -250px; } /* Hand reaches down further over the card */
+  50% { top: -250px; } /* Pause to 'grab' */
+  100% { top: -1500px; } /* Retracts fully off-screen */
 }
 
 @keyframes drawCardSelf {
   0% { top: 600px; } /* Start off-screen below */
-  40% { top: 280px; } /* Hand reaches up over the card */
-  50% { top: 280px; } /* Pause to 'grab' */
-  100% { top: 2000px; } /* Retracts fully off-screen below */
+  40% { top: 100px; } /* Hand reaches up over the card */
+  50% { top: 100px; } /* Pause to 'grab' */
+  100% { top: 1500px; } /* Retracts fully off-screen below */
 }
 
 @keyframes showCard {
@@ -59,7 +58,7 @@
   left: 50%;
   transform: translateX(-50%);
   width: 100px;
-  height: 600px; /* Match SVG height */
+  height: 600px; /* Match img height */
   animation: drawCard 2s ease-in-out forwards;
   pointer-events: none;
   z-index: 20;
