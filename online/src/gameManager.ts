@@ -1086,7 +1086,7 @@ export class GameManager {
       this.log(game, `player "${player.name}" drew ${card.class} ("${card.name}")`);
 
       // Empirical - not too fast, not too slow
-      const animDuration = config.goFast ? 500 : 3000;
+      const animDuration = config.goFast ? 500 : 2000;
 
       // Determine next card image (for animation background)
       const nextCard = game.drawPile.length > 0 ? game.drawPile[game.drawPile.length - 1] : undefined;

@@ -14,7 +14,15 @@
   0% { top: -600px; } /* Start off-screen above */
   40% { top: -400px; } /* Hand reaches down further over the card */
   50% { top: -400px; } /* Pause to 'grab' */
+  75% { top: -1000px; } /* Retracts fully off-screen */
   100% { top: -2000px; } /* Retracts fully off-screen */
+}
+
+@keyframes drawCardSelf {
+  0% { top: 600px; } /* Start off-screen below */
+  40% { top: 280px; } /* Hand reaches up over the card */
+  50% { top: 280px; } /* Pause to 'grab' */
+  100% { top: 2000px; } /* Retracts fully off-screen below */
 }
 
 @keyframes showCard {

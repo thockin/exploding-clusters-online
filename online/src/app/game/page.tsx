@@ -105,28 +105,28 @@ export default function GameScreen() {
       const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
       if (currentPlayerId === playerId) {
         const hasDebug = myHand.some(c => c.class === CardClass.Debug);
-        if (!hasDebug && !insertionModal) {
+        if (!hasDebug && !insertionModal && !overlayCard) {
            setInsertionModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
         }
       }
     } else {
       if (insertionModal) setInsertionModal(null);
     }
-  }, [gameState, playerId, myHand, insertionModal]);
+  }, [gameState, playerId, myHand, insertionModal, overlayCard]);
 
   useEffect(() => {
     // Detect if we are in Upgrading phase and need to show Insertion Modal
     if (gameState?.turnPhase === TurnPhase.Upgrading) {
       const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
       if (currentPlayerId === playerId) {
-        if (!upgradeInsertionModal) {
+        if (!upgradeInsertionModal && !overlayCard) {
            setUpgradeInsertionModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
         }
       }
     } else {
       if (upgradeInsertionModal) setUpgradeInsertionModal(null);
     }
-  }, [gameState, playerId, upgradeInsertionModal]);
+  }, [gameState, playerId, upgradeInsertionModal, overlayCard]);
 
   useEffect(() => {
     if (!socket) return;
@@ -486,6 +486,22 @@ export default function GameScreen() {
       console.debug(SocketEvent.DrawCardAnimation, data);
       const currentPileImageUrl = gameStateRef.current?.drawPileImage || "/art/back.png";
       setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId, duration: data.duration, nextCardImageUrl: data.nextCardImageUrl, currentPileImageUrl });
+
+      // Show overlay slightly before animation ends to avoid gap/flicker
+      setTimeout(() => {
+        if (data.card) {
+          setOverlayCard(data.card);
+          
+          let dismissDelay = 3000;
+          if (data.card.class === CardClass.ExplodingCluster || data.card.class === CardClass.UpgradeCluster) {
+             dismissDelay = 4000;
+          }
+
+          setTimeout(() => {
+            setOverlayCard(null);
+          }, dismissDelay);
+        }
+      }, Math.max(0, data.duration - 666));
 
       // Clear animation after duration
       setTimeout(() => {
@@ -1047,10 +1063,11 @@ export default function GameScreen() {
   const isSpectator = gameState && !gameState.players.some(p => p.id === playerId);
 
   // Determine which card to show in overlay: Drawing card takes precedence over inspection
-  let activeOverlayCard = drawingAnimation?.card || overlayCard;
+  let activeOverlayCard = overlayCard;
   if ((gameState?.turnPhase === TurnPhase.Exploding || gameState?.turnPhase === TurnPhase.Upgrading) && gameState?.overlayCard) {
     // Only show persistent overlay for players who are NOT the active player
-    if (gameState.turnOrder[gameState.currentTurnIndex] !== playerId) {
+    // AND suppress it if animation is active (so they see the animation instead)
+    if (gameState.turnOrder[gameState.currentTurnIndex] !== playerId && !drawingAnimation?.active) {
       activeOverlayCard = gameState.overlayCard;
     }
   }
@@ -1226,21 +1243,30 @@ export default function GameScreen() {
                     </div>
                   )}
 
-                  {(drawingAnimation?.active && !drawingAnimation.card) && (
-                    <div className="hand-animation" style={{animation: `drawCard ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 4}s ease-in-out forwards` }}>
+                  {(drawingAnimation?.active) && (
+                    <div className="hand-animation" style={{
+                      animation: `${drawingAnimation.card ? 'drawCardSelf' : 'drawCard'} ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 4}s ease-in-out forwards`,
+                      transform: `translateX(-50%) ${drawingAnimation.card ? 'rotate(180deg)' : ''}`
+                    }}>
                       <div className="hand-open" style={{ animation: `handReachIn ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-end forwards` }}>
                         <Image src="/art/hand_open.svg" alt="Hand Open" width={100} height={600} />
                       </div>
                       <div className="hand-closed" style={{ animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards` }}>
                         <Image src="/art/hand_closed.svg" alt="Hand Closed" width={100} height={600} />
                       </div>
-                      <div className="hand-card" style={{ animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards` }}>
+                      <div className="hand-card" style={{
+                        animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards`
+                      }}>
                         <Image
-                          src={gameState?.drawPileImage || "/art/back.png"}
+                          src={drawingAnimation.currentPileImageUrl || "/art/back.png"}
                           alt={`${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
                           width={getCardSize().width}
                           height={getCardSize().height}
-                          style={{position: 'absolute', left: `${(100 - getCardSize().width) / 2}px`}} /* Centered within hand div */
+                          style={{
+                            position: 'absolute', 
+                            left: `${(100 - getCardSize().width) / 2}px`,
+                            transform: drawingAnimation.card ? 'rotate(180deg)' : 'none'
+                          }} /* Centered within hand div */
                         />
                       </div>
                     </div>

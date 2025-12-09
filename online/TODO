@@ -1,5 +1,5 @@
 Phase 3.4:
-- hand animation for drawing player, too.
+- Win happens too fast, changes screen
 - double-click on draw immediately dismisses - maybe require 500ms or 1s?
 - out-of-range value on reinsert -> messages, should be red modal
 - don't message errors when animation is running
