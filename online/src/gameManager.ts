@@ -1045,7 +1045,6 @@ export class GameManager {
     // Prevent concurrent hand modifications (race condition protection)
     if (player.isPlaying) {
       this.log(game, `player "${player.name}" tried to draw a card while another operation is in progress`);
-      //FIXME: client should prevent this
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current operation to complete." });
       return;
     }
@@ -1441,7 +1440,7 @@ export class GameManager {
 
       // Special handling for DEBUG card
       if (card.class === CardClass.Debug) {
-         this.log(game, `player "${player.name}" played "${card.class}: ${card.name}" (resolving immediately)`);
+         this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
          this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name}'s cluster almost exploded, but they debugged it!` });
          this.updateGameNonce(game, player.name);
          return;

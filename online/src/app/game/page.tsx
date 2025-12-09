@@ -467,6 +467,7 @@ export default function GameScreen() {
     if (!socket || !gameState) return;
 
     if (isDrawingRef.current) return;
+    if (drawingAnimation?.active) return;
 
     const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
     if (currentPlayerId !== playerId) {
@@ -483,7 +484,7 @@ export default function GameScreen() {
     setTimeout(() => { isDrawingRef.current = false; }, 1000);
 
     socket.emit(SocketEvent.DrawCard, gameCode);
-  }, [socket, gameState, playerId, gameCode]);
+  }, [socket, gameState, playerId, gameCode, drawingAnimation]);
 
   useEffect(() => {
     if (!socket) return;
@@ -745,6 +746,8 @@ export default function GameScreen() {
   };
 
   const onDragStart = (start: DragStart) => {
+    if (drawingAnimation?.active) return;
+
     isDraggingRef.current = true;
     setIsDragging(true);
     if (gameState) dragStartNonceRef.current = gameState.nonce;
@@ -937,7 +940,7 @@ export default function GameScreen() {
                 }}
               >
                 {rowCards.map((card, index) => (
-                  <Draggable key={card.id} draggableId={card.id} index={index}>
+                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!!drawingAnimation?.active}>
                     {(providedDraggable, snapshot) => {
                       const isSelected = selectedCards.some(sc => sc.id === card.id);
                       const shouldHide = isDragging && isSelected && !snapshot.isDragging;
