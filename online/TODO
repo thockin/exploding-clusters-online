@@ -1,6 +1,5 @@
-Phase 3.4:
-- Add tests for UPGRADE
-- make tests pass
+Phase 3.5:
+- Finish test for UPGRADE
 
 Phase 4:
  - send BIG messages when executing

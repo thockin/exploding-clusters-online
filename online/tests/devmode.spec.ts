@@ -1682,12 +1682,12 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Define a helper to use below
     type dismissFunc = (page: Page) => Promise<void>;
     const almostExplode = async (p1: string, page1: Page, p2: string, page2: Page, p3: string, page3: Page, dismiss: dismissFunc, hide: number) => {
-      // P1 draws a card (It should be EXPLODING CLUSTER)
-      await drawCard(page1);
-
       const p1Overlay = findOverlay(page1);
       const p2Overlay = findOverlay(page2);
       const p3Overlay = findOverlay(page3);
+
+      // P1 draws a card
+      await drawCard(page1);
 
       // Verify P1's overlay
       await expect(p1Overlay).toBeVisible();
@@ -1766,7 +1766,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
       await expect(page1.locator('.modal-title')).toContainText("You're safe, for now");
       await expect(page1.locator('input[type="number"]')).toBeVisible();
 
-      // Insert at top (0)
+      // Re-insert it
       await page1.fill('input[type="number"]', hide.toString());
       await page1.getByRole('button', { name: 'OK', exact: true }).click();
 
@@ -1863,6 +1863,175 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await drawCard(page3);
     await expect(findTurnArea(page2)).toContainText(`It's your turn`);
     await expect(findTurnArea(page3)).toContainText(`your turn is next`);
+
+    // P2 draws and explodes
+    await drawCard(page2)
+
+    // Verify P3 sees "You win!"
+    await expect(page3.locator('.modal-title')).toHaveText("You win!");
+    await expect(page3.locator('.modal-body')).toContainText("You have the last operational cluster");
+    await page3.getByRole('button', { name: 'OK', exact: true }).click();
+
+    // Verify other players' end of game messages
+    await expect(page1.locator('.modal-title')).toHaveText("P3 wins!");
+    await expect(page1.locator('.modal-body')).toContainText("P3 wins, with the last operational cluster");
+    await page1.getByRole('button', { name: 'OK', exact: true }).click();
+
+    await expect(page2.locator('.modal-title')).toHaveText("P3 wins!");
+    await expect(page2.locator('.modal-body')).toContainText("P3 wins, with the last operational cluster");
+    await page2.getByRole('button', { name: 'OK', exact: true }).click();
+  });
+
+  test('Drawing UPGRADE CLUSTER', async ({ browser }) => {
+    test.setTimeout(60000);
+
+    // Define a helper to use below
+    const almostExplode = async (page: Page, hide: number) => {
+      const overlay = findOverlay(page1);
+
+      // Draw a card
+      await drawCard(page1);
+
+      // Verify overlay
+      await expect(overlay).toBeVisible();
+
+      // Dismiss overlay
+      await page1.keyboard.press('Escape');
+      await expect(overlay).toBeHidden();
+
+      // Discard pile should show EXPLODING CLUSTER
+      const pile = findDiscardPile(page1);
+      await expect(pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.ExplodingCluster);
+
+      // Verify we can play DEBUG
+      const debug = findHandCardsByClass(page1, CardClass.Debug);
+      await expect(debug.first()).toBeVisible();
+      await expect(debug.first()).toHaveAttribute('data-playable', 'true');
+
+      // Play DEBUG card
+      await playCard(page1, debug);
+
+      // Verify it was played and messages sent
+      await expect(pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.Debug);
+
+      // Verify the insertion dialog
+      await expect(page1.locator('.modal-title')).toContainText("You're safe, for now");
+      await expect(page1.locator('input[type="number"]')).toBeVisible();
+
+      // Re-insert it
+      await page1.fill('input[type="number"]', hide.toString());
+      await page1.getByRole('button', { name: 'OK', exact: true }).click();
+      await expect(findTurnArea(page3)).toContainText(`your turn is next`);
+    }
+
+
+    // Setup game
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const code = await createGame(page1, 'P1');
+
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page2 = await context2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    const context3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page3 = await context3.newPage();
+    await joinGame(page3, 'P3', code);
+
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+    await page3.waitForURL(/game/);
+
+    // Play begins - we have a fixed deck for DEVMODE, so we need to get past
+    // initial draws
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+
+    // P1 draws, explodes, and debugs, puts card back near the bottom
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
+    await almostExplode(page1, 20);
+
+    // More safe draws
+    await drawCard(page2);
+    await drawCard(page3);
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+
+    // Give P1 another DEBUG card to test multiple DEBUGs
+    const debugBtn = page1.locator(Buttons.DEV_GIVE_DEBUG_CARD);
+    await expect(debugBtn).toBeVisible();
+    await expect(debugBtn).toBeEnabled();
+    await debugBtn.click();
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
+
+    // P1 draws, explodes, and debugs, puts card back near the bottom
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
+    await almostExplode(page1, 20);
+
+    const p1Overlay = findOverlay(page1);
+    const p2Overlay = findOverlay(page2);
+    const p3Overlay = findOverlay(page3);
+
+    // P2 gets UPGRADE CLUSTER
+    await drawCard(page2);
+
+    // Verify overlays
+    await expect(p1Overlay).toBeVisible();
+    await expect(p2Overlay).toBeHidden();
+    await expect(p3Overlay).toBeVisible();
+
+    // Discard pile should show UPGRADE CLUSTER
+    const p1Pile = findDiscardPile(page1);
+    const p2Pile = findDiscardPile(page2);
+    const p3Pile = findDiscardPile(page3);
+    await expect(p1Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+    await expect(p2Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+    await expect(p3Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+
+    // Verify the insertion dialog
+    await expect(page2.locator('.modal-title')).toContainText("back into the deck");
+    await expect(page2.locator('input[type="number"]')).toBeVisible();
+
+    // Re-insert it
+    await page2.fill('input[type="number"]', "2");
+    await page2.getByRole('button', { name: 'OK', exact: true }).click();
+
+    // Safe draws
+    await drawCard(page3);
+    await drawCard(page1);
+
+    // P2 gets UPGRADE CLUSTER
+    await page2.waitForTimeout(30000);
+    await expect(findDrawPile(page2).locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+    await drawCard(page2);
+
+    // TODO: handle face-up draw and win
+    return;
+
+
+    // Verify P2 is out
+    await expect(findLogArea(page1)).toContainText(`P2's cluster has upgraded out of existence`);
+    await expect(findLogArea(page2)).toContainText(`P2's cluster has upgraded out of existence`);
+    await expect(findLogArea(page3)).toContainText(`P2's cluster has upgraded out of existence`);
+
+    // Verify turn advance
+    await expect(findTurnArea(page1)).toContainText(`your turn is next`);
+    await expect(findTurnArea(page2)).toContainText(`You are OUT`);
+    await expect(findTurnArea(page3)).toContainText(`It's your turn`);
+
+    // Play continues (we have a fixed deck for DEVMODE)
+    await drawCard(page3);
+    await expect(findTurnArea(page1)).toContainText(`It's your turn`);
+    await expect(findTurnArea(page3)).toContainText(`your turn is next`);
+    await drawCard(page2);
+    await expect(findTurnArea(page1)).toContainText(`your turn is next`);
+    await expect(findTurnArea(page3)).toContainText(`It's your turn`);
 
     // P2 draws and explodes
     await drawCard(page2)

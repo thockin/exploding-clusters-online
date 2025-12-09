@@ -35,6 +35,7 @@ describe('DEVMODE Deck Setup', () => {
       { id: 'DEV_f', name: 'dev6', class: CardClass.Developer, imageUrl: '' }, // 6th Dev
       { id: 'filler_a', name: 'f1', class: CardClass.Debug, imageUrl: '' },
       { id: 'filler_b', name: 'f2', class: CardClass.Debug, imageUrl: '' },
+      { id: 'DEV_g', name: 'dev6', class: CardClass.Developer, imageUrl: '' }, // 7th Dev
     ];
 
     gameManager.setupDevModeDeck(deck);
@@ -58,5 +59,6 @@ describe('DEVMODE Deck Setup', () => {
     expect(deck[expectedIndex--].class).toBe(CardClass.ExplodingCluster);   // 13
     expect(deck[expectedIndex--].class).toBe(CardClass.UpgradeCluster);     // 14
     expect(deck[expectedIndex--].class).toBe(CardClass.Developer);          // 15
+    expect(deck[expectedIndex--].class).toBe(CardClass.Developer);          // 16
   });
 });

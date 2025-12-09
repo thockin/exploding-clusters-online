@@ -1201,6 +1201,7 @@ export default function GameScreen() {
                   <Image
                     src={(drawingAnimation?.active && drawingAnimation.nextCardImageUrl) || gameState?.drawPileImage || "/art/back.png"}
                     alt={`Draw Pile: ${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
+                    data-cardclass={gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'UNKNOWN'}
                     width={getCardSize().width}
                     height={getCardSize().height} />
 

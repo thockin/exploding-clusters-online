@@ -831,6 +831,7 @@ export class GameManager {
       CardClass.ExplodingCluster,   // 13th pop (if a second one exists)
       CardClass.UpgradeCluster,     // 14th pop (if available)
       CardClass.Developer,          // 15th pop
+      CardClass.Developer,          // 16th pop
     ];
 
     const cardsToAdd: Card[] = [];
