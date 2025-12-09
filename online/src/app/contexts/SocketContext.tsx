@@ -263,7 +263,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       if (data) {
         setGameEndData(data);
       }
-      setGameState(null);
+      // setGameState(null); // Keep game state visible
     });
 
     socketIo.on('error', (message: string) => {

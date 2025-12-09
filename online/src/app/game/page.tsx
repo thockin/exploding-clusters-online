@@ -781,40 +781,6 @@ export default function GameScreen() {
   };
   const onDragUpdate = () => console.debug('onDragUpdate');
 
-  if (gameEndData) {
-    return (
-      <Container className="d-flex align-items-center justify-content-center" style={{ height: '100vh' }}>
-        <Modal show={true} onHide={handleGameEndConfirm} backdrop="static" keyboard={false} centered>
-          <Modal.Header>
-            <Modal.Title>
-              {
-                gameEndData.winner === playerName
-                  ? "You win!"
-                  : `${gameEndData.winner} wins!`
-              }
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <p>
-              {
-                gameEndData.winner === playerName
-                  ? (gameEndData.winType === WinType.Explosion
-                    ? "You have the last operational cluster."
-                    : (gameEndData.winType === WinType.Explosion
-                      ? "Winning by attrition is still winning."
-                      : `Unknown win condition: ${gameEndData.winType}.`))
-                  : `${gameEndData.winner} wins, with the last operational cluster.`
-              }
-            </p>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="primary" onClick={handleGameEndConfirm} autoFocus>OK</Button>
-          </Modal.Footer>
-        </Modal>
-      </Container>
-    );
-  }
-
   if (!gameState || !socket) {
     return <div>Loading game...</div>;
   }
@@ -1451,6 +1417,34 @@ export default function GameScreen() {
           </Modal.Body>
           <Modal.Footer>
             <Button variant="primary" onClick={handleInsertConfirm}>OK</Button>
+          </Modal.Footer>
+        </Modal>
+
+        <Modal show={!!gameEndData} onHide={handleGameEndConfirm} backdrop="static" keyboard={false} centered>
+          <Modal.Header>
+            <Modal.Title>
+              {
+                gameEndData?.winner === playerName
+                  ? "You win!"
+                  : `${gameEndData?.winner} wins!`
+              }
+            </Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>
+              {
+                gameEndData?.winner === playerName
+                  ? (gameEndData?.winType === WinType.Explosion
+                    ? "You have the last operational cluster."
+                    : (gameEndData?.winType === WinType.Attrition
+                      ? "Winning by attrition is still winning."
+                      : `Unknown win condition: ${gameEndData?.winType}.`))
+                  : `${gameEndData?.winner} wins, with the last operational cluster.`
+              }
+            </p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={handleGameEndConfirm} autoFocus>OK</Button>
           </Modal.Footer>
         </Modal>
       </Container>
