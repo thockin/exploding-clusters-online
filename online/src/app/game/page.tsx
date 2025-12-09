@@ -41,6 +41,7 @@ export default function GameScreen() {
   const [hostPromotionMessage, setHostPromotionMessage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
+  const isDrawingRef = useRef(false);
   const clickStartPosRef = useRef({ x: 0, y: 0 });
   const dragStartNonceRef = useRef<string>('');
   const isShiftKeyPressed = useRef(false);
@@ -465,6 +466,8 @@ export default function GameScreen() {
   const handleDrawClick = useCallback(() => {
     if (!socket || !gameState) return;
 
+    if (isDrawingRef.current) return;
+
     const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
     if (currentPlayerId !== playerId) {
       console.log("Cannot draw: not your turn");
@@ -475,6 +478,9 @@ export default function GameScreen() {
       console.log("Cannot draw: not in action phase");
       return;
     }
+
+    isDrawingRef.current = true;
+    setTimeout(() => { isDrawingRef.current = false; }, 1000);
 
     socket.emit(SocketEvent.DrawCard, gameCode);
   }, [socket, gameState, playerId, gameCode]);
