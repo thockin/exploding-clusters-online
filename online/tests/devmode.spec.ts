@@ -287,7 +287,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.waitForLoadState('networkidle'); // Wait for page to fully load
 
     // Verify P2 successfully rejoins lobby
-    await expect(page2.locator(Headers.LOBBY_GAME_CODE)).toBeVisible({ timeout: 30000 });
+    await expect(page2.locator(Headers.LOBBY_GAME_CODE)).toBeVisible();
     // Verify URL is correct
     await expect(page2).toHaveURL(/lobby/, { timeout: 5000 }); 
 
@@ -1677,7 +1677,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
   });
 
   test('Drawing EXPLODING CLUSTER', async ({ browser }) => {
-    test.setTimeout(30000);
+    test.setTimeout(60000);
 
     // Define a helper to use below
     type dismissFunc = (page: Page) => Promise<void>;

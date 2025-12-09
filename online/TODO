@@ -1,11 +1,12 @@
-make tests pass
-Add tests for UPGRADE
 Phase 3.4:
+- stashed
 - don't message errors when animation is running
   - clicking after dismiss but before timer messages an error
 - insert card animation
 - server logs
 - messages
+- Add tests for UPGRADE
+- make tests pass
 
 Phase 4:
  - send BIG messages when executing

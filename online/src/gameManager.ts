@@ -811,8 +811,8 @@ export class GameManager {
     callback({ success: true });
   }
 
-  // Helper to force specific cards to the top of the deck for DEVMODE
-  // Sequence (popped last to first): EXPLODING_CLUSTER, SHUFFLE, NAK, FAVOR, SEE_THE_FUTURE, SKIP, ATTACK
+  // Helper to force specific cards to the top of the deck for DEVMODE.  This
+  // allows predictable testing of card effects.
   public setupDevModeDeck(deck: Card[]) {
     // The desired sequence of cards to be drawn (popped), in order:
     const sequence: CardClass[] = [
@@ -825,10 +825,12 @@ export class GameManager {
       CardClass.ExplodingCluster,   // 7th pop (1st instance)
       CardClass.Developer,          // 8th pop
       CardClass.Developer,          // 9th pop
-      CardClass.UpgradeCluster,     // 10th pop (if available)
+      CardClass.Developer,          // 10th pop
       CardClass.Developer,          // 11th pop
       CardClass.Developer,          // 12th pop
-      CardClass.ExplodingCluster    // 13th pop (if a second one exists)
+      CardClass.ExplodingCluster,   // 13th pop (if a second one exists)
+      CardClass.UpgradeCluster,     // 14th pop (if available)
+      CardClass.Developer,          // 15th pop
     ];
 
     const cardsToAdd: Card[] = [];

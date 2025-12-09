@@ -497,17 +497,13 @@ export default function GameScreen() {
       setTimeout(() => {
         if (data.card) {
           setOverlayCard(data.card);
-          
-          let dismissDelay = 3000;
-          if (data.card.class === CardClass.ExplodingCluster || data.card.class === CardClass.UpgradeCluster) {
-             dismissDelay = 4000;
-          }
 
+          let dismissDelay = data.duration;
           setTimeout(() => {
             setOverlayCard(null);
           }, dismissDelay);
         }
-      }, Math.max(0, data.duration - 666));
+      }, Math.max(250, data.duration - 666));
 
       // Clear animation after duration
       setTimeout(() => {
