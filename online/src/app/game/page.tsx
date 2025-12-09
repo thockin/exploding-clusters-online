@@ -44,7 +44,7 @@ export default function GameScreen() {
   const clickStartPosRef = useRef({ x: 0, y: 0 });
   const dragStartNonceRef = useRef<string>('');
   const isShiftKeyPressed = useRef(false);
-  const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: Card, playerId?: string, duration?: number } | null>(null);
+  const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: Card, playerId?: string, duration?: number, nextCardImageUrl?: string, currentPileImageUrl?: string } | null>(null);
   const [replayModal, setReplayModal] = useState<{ show: boolean, reason: string, cardId?: string, cardIds?: string[] } | null>(null);
   const [insertionModal, setInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
   const [insertionIndex, setInsertionIndex] = useState<string | number>(0);
@@ -482,9 +482,10 @@ export default function GameScreen() {
   useEffect(() => {
     if (!socket) return;
 
-    const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: Card, duration: number }) => {
+    const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: Card, duration: number, nextCardImageUrl?: string }) => {
       console.debug(SocketEvent.DrawCardAnimation, data);
-      setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId, duration: data.duration });
+      const currentPileImageUrl = gameStateRef.current?.drawPileImage || "/art/back.png";
+      setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId, duration: data.duration, nextCardImageUrl: data.nextCardImageUrl, currentPileImageUrl });
 
       // Clear animation after duration
       setTimeout(() => {
@@ -1198,22 +1199,32 @@ export default function GameScreen() {
             >
               {/* Draw Pile */}
               <div className="d-flex flex-column align-items-center">
-                <div
-                  className="draw-pile position-relative"
+                <div 
+                  className="draw-pile position-relative" 
                   data-areaname="draw-pile"
-                  style={{
-                    width: getCardSize().width,
+                  style={{ 
+                    width: getCardSize().width, 
                     height: getCardSize().height,
                     cursor: 'pointer',
-                    borderRadius: '5px'
+                    borderRadius: '5px' 
                   }}
                   onClick={handleDrawClick}
                 >
                   <Image
-                    src={gameState?.drawPileImage || "/art/back.png"}
+                    src={(drawingAnimation?.active && drawingAnimation.nextCardImageUrl) || gameState?.drawPileImage || "/art/back.png"}
                     alt={`Draw Pile: ${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
                     width={getCardSize().width}
                     height={getCardSize().height} />
+
+                  {(drawingAnimation?.active) && (
+                    <div className="static-card-vanish" style={{ animationDuration: `${drawingAnimation.duration}ms` }}>
+                       <Image
+                         src={drawingAnimation.currentPileImageUrl || "/art/back.png"}
+                         alt={`Draw Pile: next card'}`}
+                         width={getCardSize().width}
+                         height={getCardSize().height} />
+                    </div>
+                  )}
 
                   {(drawingAnimation?.active && !drawingAnimation.card) && (
                     <div className="hand-animation" style={{animation: `drawCard ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 4}s ease-in-out forwards` }}>

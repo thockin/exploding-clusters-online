@@ -1088,12 +1088,17 @@ export class GameManager {
       // Empirical - not too fast, not too slow
       const animDuration = config.goFast ? 500 : 3000;
 
+      // Determine next card image (for animation background)
+      const nextCard = game.drawPile.length > 0 ? game.drawPile[game.drawPile.length - 1] : undefined;
+      const nextCardImageUrl = (nextCard && nextCard.isFaceUp) ? nextCard.imageUrl : "/art/back.png";
+
       // Start animation phase
       // Current player sees the card
       this.emitToSocket(socket.id, SocketEvent.DrawCardAnimation, {
         drawingPlayerId: player.id,
         card: card, // They see the card
-        duration: animDuration
+        duration: animDuration,
+        nextCardImageUrl
       });
 
       // Others see "someone drew" (no card info)
@@ -1101,7 +1106,8 @@ export class GameManager {
         if (p.id !== player.id && p.socketId) {
           this.emitToSocket(p.socketId, SocketEvent.DrawCardAnimation, {
             drawingPlayerId: player.id,
-            duration: animDuration
+            duration: animDuration,
+            nextCardImageUrl
           });
         }
       }
@@ -1109,7 +1115,8 @@ export class GameManager {
       for (const s of game.spectators) {
         this.emitToSocket(s.socketId, SocketEvent.DrawCardAnimation, {
           drawingPlayerId: player.id,
-          duration: animDuration
+          duration: animDuration,
+          nextCardImageUrl
         });
       }
 

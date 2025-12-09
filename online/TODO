@@ -1,9 +1,10 @@
 Phase 3.4:
-- draw-card animation
-  - reveal next card (pass to animation)
+- default button on reinsert dialogs (only button!)
+- double-click on draw immediately dismisses - maybe require 500ms or 1s?
 - out-of-range value on reinsert -> messages, should be red modal
 - don't message errors when animation is running
 - insert card animation
+- hand animation for drawing player, too.
 - server logs
 - messages
 - test cases
