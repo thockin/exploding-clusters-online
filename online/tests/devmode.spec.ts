@@ -2067,4 +2067,73 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page2.locator('.modal-body')).toContainText("P3 wins, with the last operational cluster");
     await page2.getByRole('button', { name: 'OK', exact: true }).click();
   });
+
+  test('Card Action: NAK', async ({ browser }) => {
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+
+    // Create game
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    // Verify initial hands
+    const p1Shuffle = findHandCardsByClass(page1, CardClass.Shuffle).first();
+    const p1Nak = findHandCardsByClass(page1, CardClass.Nak).first();
+    const p2Nak = findHandCardsByClass(page2, CardClass.Nak).first();
+    const p2ShuffleNow = findHandCardsByClass(page2, CardClass.ShuffleNow).first();
+
+    await expect(p1Shuffle).toBeVisible();
+    await expect(p1Nak).toBeVisible();
+    await expect(p2Nak).toBeVisible();
+    await expect(p2ShuffleNow).toBeVisible();
+
+    // 1. P1 plays SHUFFLE
+    await playCard(page1, p1Shuffle);
+    await expect(findLogArea(page1)).toContainText('P1 played SHUFFLE');
+    await expect(findLogArea(page2)).toContainText('P1 played SHUFFLE');
+
+    // Verify reaction timer
+    await expect(findTimerArea(page1)).toContainText('Waiting for other players');
+
+    // 2. P2 plays NAK (negating SHUFFLE)
+    await playCard(page2, p2Nak);
+    await expect(findLogArea(page1)).toContainText('P2 played NAK');
+
+    // 3. P1 plays NAK (negating P2's NAK)
+    await playCard(page1, p1Nak);
+    await expect(findLogArea(page1)).toContainText('P1 played NAK');
+
+    // 4. P2 plays SHUFFLE_NOW (Reaction to P1's NAK)
+    await playCard(page2, p2ShuffleNow);
+    await expect(findLogArea(page1)).toContainText('P2 played SHUFFLE_NOW');
+
+    // 5. P1 gets another NAK (via DEVMODE button or hand)
+    // P1 started with 2 NAKs. We used one. One remains.
+    const p1Nak2 = findHandCardsByClass(page1, CardClass.Nak).first();
+    await expect(p1Nak2).toBeVisible();
+
+    // 5. P1 plays NAK (negating SHUFFLE_NOW)
+    await playCard(page1, p1Nak2);
+    await expect(findLogArea(page1)).toContainText('P1 played NAK');
+
+    // Wait for timer to expire
+    await expect(findTimerArea(page1)).not.toContainText('Waiting for other players', { timeout: 15000 });
+
+    // Verify Execution Logs (LIFO)
+    // 1. NAK(P1) negates SHUFFLE_NOW(P2)
+    await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing NAK played by "P1"');
+    await expect(findLogArea(page1)).toContainText("P1 NAKed P2's SHUFFLE_NOW");
+
+    // 2. NAK(P1) negates NAK(P2)
+    await expect(findLogArea(page1)).toContainText('DEV: op[1]: Executing NAK played by "P1"');
+    await expect(findLogArea(page1)).toContainText("P1 NAKed P2's NAK");
+
+    // 3. SHUFFLE(P1) executes
+    await expect(findLogArea(page1)).toContainText('DEV: op[2]: Executing SHUFFLE played by "P1"');
+  });
 });

@@ -1769,7 +1769,41 @@ Implement drawing an UPGRADE CLUSTER card face up, causing a player to be out.
 
 #### Phase 4: Cards
 
-Implement the card actions.
+##### Phase 4.1: NAK
+
+Implement the card action for NAK.
+
+##### Phase 4.2: SHUFFLE
+
+Implement the card action for SHUFFLE.
+
+##### Phase 4.3: SHUFFLE NOW
+
+Implement the card action for SHUFFLE NOW.
+
+##### Phase 4.4: SEE THE FUTURE
+
+Implement the card action for SEE THE FUTURE.
+
+##### Phase 4.5: FAVOR
+
+Implement the card action for FAVOR.
+
+##### Phase 4.6: DEVELOPER
+
+Implement the card action for DEVELOPER.
+
+##### Phase 4.6: ATTACK
+
+Implement the card action for ATTACK.
+
+##### Phase 4.7: SKIP
+
+Implement the card action for SKIP.
+
+#### Phase 5: Everything else
+
+Implement the "watch game" logic.
 
 #### Phase 5: Everything else
 

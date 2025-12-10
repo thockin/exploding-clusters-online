@@ -485,6 +485,7 @@ export class GameManager {
 
     // Pop and execute all operations with timeout protection
     const OPERATION_TIMEOUT_MS = 5000; // 5 second timeout per operation
+    let i: number = 0;
     while (game.pendingOperations.length > 0) {
       // Check game state again before each operation (refresh from map to avoid type narrowing issues)
       const currentGame = this.games.get(game.code);
@@ -495,8 +496,11 @@ export class GameManager {
 
       const op = game.pendingOperations.pop();
       if (op) {
+        this.log(game, `executing operation for ${op.cardClass} played by "${op.playerName}"`);
         try {
-          this.log(game, `executing operation for ${op.cardClass} played by "${op.playerName}"`);
+          if (game.devMode) {
+            this.emitToGame(game.code, SocketEvent.GameMessage, { message: `DEV: op[${i}]: Executing ${op.cardClass} played by "${op.playerName}".` });
+          }
           // Wrap operation in timeout promise
           const timeoutPromise = new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Operation timeout')), OPERATION_TIMEOUT_MS);
@@ -505,6 +509,8 @@ export class GameManager {
         } catch (e) {
           this.log(game, `error executing pending operation: ${e}`);
           // Continue with next operation even if one fails
+        } finally {
+          i++;
         }
       }
     }
@@ -1467,27 +1473,39 @@ export class GameManager {
       const [card] = player.hand.splice(cardIndex, 1);
       game.discardPile.push(card);
 
+      this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
       // Special handling for DEBUG card
       if (card.class === CardClass.Debug) {
-         this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
          this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name}'s cluster almost exploded, but they debugged it!` });
          this.updateGameNonce(game, player.name);
          return;
+      } else if (card.class === CardClass.Nak) {
+         game.pendingOperations.push({
+           cardClass: card.class,
+           playerName: player.name,
+           action: async (_g: Game) => {
+             const negatedOp = _g.pendingOperations.pop(); // Pop the item below
+             if (negatedOp) {
+               this.log(_g, `NAK by player "${player.name}" negated operation ${negatedOp.cardClass} by ${negatedOp.playerName}`);
+               this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} NAKed ${negatedOp.playerName}'s ${negatedOp.cardClass}.` });
+             }
+           }
+         });
+      } else {
+         // Push a do-nothing operation
+         game.pendingOperations.push({
+           cardClass: card.class,
+           playerName: player.name,
+           action: async (_g: Game) => {
+             // Sleep for 3 seconds (or less if GO_FAST)
+             const duration = config.goFast ? 500 : 3000;
+             if (this.verbose) {
+               this.log(_g, `executing do-nothing operation for card ${card.class} (sleeping ${duration}ms)`);
+             }
+             await new Promise(resolve => setTimeout(resolve, duration));
+           }
+         });
       }
-
-      // Push a do-nothing operation
-      game.pendingOperations.push({
-        cardClass: card.class,
-        playerName: player.name,
-        action: async (_g: Game) => {
-          // Sleep for 3 seconds (or less if GO_FAST)
-          const duration = config.goFast ? 500 : 3000;
-          if (this.verbose) {
-            this.log(_g, `executing do-nothing operation for card ${card.class} (sleeping ${duration}ms)`);
-          }
-          await new Promise(resolve => setTimeout(resolve, duration));
-        }
-      });
 
       this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
       this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.class}.` });
@@ -1619,12 +1637,13 @@ export class GameManager {
       game.pendingOperations.push({
         cardClass: proto.class,
         playerName: player.name,
-        action: async (g: Game) => {
-          // Sleep for 3 seconds
+        action: async (_g: Game) => {
+          // Sleep for 3 seconds (or less if GO_FAST)
+          const duration = config.goFast ? 500 : 3000;
           if (this.verbose) {
-            this.log(g, `executing do-nothing operation for combo (sleeping 3s)`);
+            this.log(_g, `executing do-nothing operation for card ${proto.class} (sleeping ${duration}ms)`);
           }
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          await new Promise(resolve => setTimeout(resolve, duration));
         }
       });
 
