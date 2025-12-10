@@ -722,8 +722,8 @@ export class GameManager {
     let deck = [...fullDeck];
     const explodingClusters = deck.filter(c => c.class === CardClass.ExplodingCluster);
     const upgradeClusters = deck.filter(c => c.class === CardClass.UpgradeCluster);
-    // "The full deck is comprised of... 6 DEBUG cards".
     const debugCards = deck.filter(c => c.class === CardClass.Debug);
+
     // Remove them all first
     deck = deck.filter(c => c.class !== CardClass.Debug && c.class !== CardClass.ExplodingCluster && c.class !== CardClass.UpgradeCluster);
 
@@ -736,9 +736,7 @@ export class GameManager {
     }
 
     // Put remaining DEBUG cards back (max 2 or whatever is left)
-    // Design doc says: "Put 2 DEBUG cards back into the deck, or 1 DEBUG card if that is all that is left. Any extra DEBUG cards are removed from the game."
     const debugsToReturn = Math.min(debugCards.length, 2);
-
     for (let i = 0; i < debugsToReturn; i++) {
       deck.push(debugCards.pop()!);
     }
@@ -770,16 +768,17 @@ export class GameManager {
     game.removedPile.push(...explodingClusters);
 
     // Insert Upgrade Clusters
+    // 2 players = 0 UPGRADE CLUSTER
+    // 3-4 players = 1 UPGRADE CLUSTER
+    // 5 players = 2 UPGRADE CLUSTER
     const numPlayers = game.players.length;
-    // "If there are 3 or 4 players put 1 "UPGRADE CLUSTER" card into the deck. If there are 5 players, put 2 "UPGRADE CLUSTER" cards in."
-    // What about 2 players? Implied 0?
     let upgradeCount = 0;
     if (numPlayers >= 3 && numPlayers <= 4) upgradeCount = 1;
     else if (numPlayers === 5) upgradeCount = 2;
 
-    // DEVMODE: Always ensure at least one UPGRADE CLUSTER card is in the deck
+    // DEVMODE: Always ensure at least two UPGRADE CLUSTER cards in the deck
     if (game.devMode && upgradeClusters.length > 0) { // Check if we actually have upgrade cards to add
-      upgradeCount = Math.max(upgradeCount, 1);
+      upgradeCount = Math.max(upgradeCount, 2);
     }
 
     for (let i = 0; i < upgradeCount; i++) {
@@ -832,6 +831,7 @@ export class GameManager {
       CardClass.UpgradeCluster,     // 14th pop (if available)
       CardClass.Developer,          // 15th pop
       CardClass.Developer,          // 16th pop
+      CardClass.UpgradeCluster,     // 17th pop (if available)
     ];
 
     const cardsToAdd: Card[] = [];
@@ -1195,11 +1195,39 @@ export class GameManager {
               this.updateGameNonce(currentGame, currentPlayer.name);
             }
           } else if (card!.class === CardClass.UpgradeCluster) {
-            currentGame.turnPhase = TurnPhase.Upgrading; // Changed to Upgrading
-            currentGame.discardPile.push(card!); // Put on discard pile
-            this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew an UPGRADE CLUSTER!` });
-            // Player stays in turn to re-insert. No advanceTurn.
-            this.updateGameNonce(currentGame, currentPlayer.name);
+            if (card!.isFaceUp) {
+                // Face-up UPGRADE CLUSTER: Immediate Elimination
+                this.log(currentGame, `player "${currentPlayer.name}" drew face-up UPGRADE CLUSTER and is OUT`);
+                this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name}'s cluster was upgraded out of existence, they are out of the game.` });
+
+                // Remove player hand
+                const hand = currentPlayer.hand;
+                currentGame.removedPile.push(...hand);
+                currentPlayer.hand = [];
+                currentPlayer.isOut = true;
+
+                // Move UPGRADE CLUSTER to discard pile
+                currentGame.discardPile.push(card!);
+
+                currentGame.turnPhase = TurnPhase.Action; // Reset phase
+
+                // Determine winner
+                const activePlayersAfter = currentGame.players.filter(p => !p.isOut && !p.isDisconnected && p.id !== currentPlayer.id);
+                if (activePlayersAfter.length === 1) {
+                    this.handleWin(currentGame, activePlayersAfter[0], WinType.Explosion);
+                } else if (activePlayersAfter.length === 0) {
+                    this.endGame(currentGame.code, "Nobody", WinType.Explosion);
+                } else {
+                    this.advanceTurn(currentGame);
+                    this.updateGameNonce(currentGame, currentPlayer.name);
+                }
+            } else {
+                // Face-down UPGRADE CLUSTER: Upgrading Phase
+                currentGame.turnPhase = TurnPhase.Upgrading;
+                currentGame.discardPile.push(card!);
+                this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew an UPGRADE CLUSTER!` });
+                this.updateGameNonce(currentGame, currentPlayer.name);
+            }
           } else {
             // Regular card
             this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} drew a card.` });

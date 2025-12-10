@@ -1978,7 +1978,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const p2Overlay = findOverlay(page2);
     const p3Overlay = findOverlay(page3);
 
-    // P2 gets UPGRADE CLUSTER
+    const p1Pile = findDiscardPile(page1);
+    const p2Pile = findDiscardPile(page2);
+    const p3Pile = findDiscardPile(page3);
+
+    // P2 gets UPGRADE CLUSTER face-down
     await drawCard(page2);
 
     // Verify overlays
@@ -1987,9 +1991,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p3Overlay).toBeVisible();
 
     // Discard pile should show UPGRADE CLUSTER
-    const p1Pile = findDiscardPile(page1);
-    const p2Pile = findDiscardPile(page2);
-    const p3Pile = findDiscardPile(page3);
     await expect(p1Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
     await expect(p2Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
     await expect(p3Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
@@ -2006,35 +2007,51 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await drawCard(page3);
     await drawCard(page1);
 
-    // P2 gets UPGRADE CLUSTER
-    await page2.waitForTimeout(30000);
+    // P2 gets UPGRADE CLUSTER face-up
+    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
     await expect(findDrawPile(page2).locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
     await drawCard(page2);
 
-    // TODO: handle face-up draw and win
-    return;
-
-
     // Verify P2 is out
-    await expect(findLogArea(page1)).toContainText(`P2's cluster has upgraded out of existence`);
-    await expect(findLogArea(page2)).toContainText(`P2's cluster has upgraded out of existence`);
-    await expect(findLogArea(page3)).toContainText(`P2's cluster has upgraded out of existence`);
+    await expect(findLogArea(page1)).toContainText(`P2's cluster was upgraded out of existence`);
+    await expect(findLogArea(page2)).toContainText(`P2's cluster was upgraded out of existence`);
+    await expect(findLogArea(page3)).toContainText(`P2's cluster was upgraded out of existence`);
+
+    // Discard pile should show UPGRADE CLUSTER
+    await expect(p1Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+    await expect(p2Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+    await expect(p3Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
 
     // Verify turn advance
     await expect(findTurnArea(page1)).toContainText(`your turn is next`);
     await expect(findTurnArea(page2)).toContainText(`You are OUT`);
     await expect(findTurnArea(page3)).toContainText(`It's your turn`);
 
-    // Play continues (we have a fixed deck for DEVMODE)
+    // P3 gets UPGRADE CLUSTER face-down
     await drawCard(page3);
-    await expect(findTurnArea(page1)).toContainText(`It's your turn`);
-    await expect(findTurnArea(page3)).toContainText(`your turn is next`);
-    await drawCard(page2);
-    await expect(findTurnArea(page1)).toContainText(`your turn is next`);
-    await expect(findTurnArea(page3)).toContainText(`It's your turn`);
 
-    // P2 draws and explodes
-    await drawCard(page2)
+    // Verify overlays
+    await expect(p1Overlay).toBeVisible();
+    await expect(p2Overlay).toBeVisible();
+    await expect(p3Overlay).toBeHidden();
+
+    // Discard pile should show UPGRADE CLUSTER
+    await expect(p1Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+    await expect(p2Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+    await expect(p3Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+
+    // Verify the insertion dialog
+    await expect(page3.locator('.modal-title')).toContainText("back into the deck");
+    await expect(page3.locator('input[type="number"]')).toBeVisible();
+
+    // Re-insert it
+    await page3.fill('input[type="number"]', "0");
+    await page3.getByRole('button', { name: 'OK', exact: true }).click();
+
+    // P1 gets UPGRADE CLUSTER face-up
+    await expect(findTurnArea(page1)).toContainText(`It's your turn`);
+    await expect(findDrawPile(page1).locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+    await drawCard(page1);
 
     // Verify P3 sees "You win!"
     await expect(page3.locator('.modal-title')).toHaveText("You win!");

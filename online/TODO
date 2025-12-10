@@ -1,6 +1,3 @@
-Phase 3.5:
-- Finish test for UPGRADE
-
 Phase 4:
  - send BIG messages when executing
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
