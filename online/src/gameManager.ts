@@ -45,6 +45,7 @@ interface Game {
   nonce: string; // For reconnection logic
   lastActorName?: string; // Name of the player who caused the last nonce update
   timer: NodeJS.Timeout | null;
+  seeTheFutureResolver?: () => void;
   devMode: boolean;
 }
 
@@ -1441,7 +1442,6 @@ export class GameManager {
     // Prevent concurrent card plays from the same player (race condition protection)
     if (player!.isPlaying) {
       this.log(game, `player "${player.name}" tried to play a card while another play is in progress`);
-      //FIXME: client should prevent this
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current play to complete." });
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
       return;
@@ -1499,6 +1499,42 @@ export class GameManager {
              _g.drawPile = shuffleDeck(_g.drawPile, this.prng.random.bind(this.prng));
              this.log(_g, "The deck was shuffled");
              this.emitToGame(_g.code, SocketEvent.GameMessage, { message: "The deck was shuffled." });
+           }
+         });
+      } else if (card.class === CardClass.SeeTheFuture) {
+         game.pendingOperations.push({
+           cardClass: card.class,
+           playerName: player.name,
+           action: async (_g: Game) => {
+             // Retrieve top 3 cards without removing them
+             const top3Cards = _g.drawPile.slice(Math.max(0, _g.drawPile.length - 3)).reverse();
+             const duration = config.goFast ? 2000 : 10000;
+
+             // Send to player who played card
+             this.emitToSocket(player.socketId, SocketEvent.SeeTheFutureData, { cards: top3Cards, timeout: duration });
+             this.log(_g, `player "${player.name}" saw the future`);
+             this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} saw the future.` });
+
+             // Set phase to SeeingTheFuture and block other players
+             _g.turnPhase = TurnPhase.SeeingTheFuture;
+             this.updateGameNonce(_g, player.name); // Notify clients of phase change
+
+             // Wait for player to dismiss overlay or timeout
+             await new Promise<void>(resolve => {
+               _g.seeTheFutureResolver = resolve;
+               _g.timer = setTimeout(() => {
+                 this.log(_g, `SeeTheFuture timer expired for player "${player.name}"`);
+                 if (_g.seeTheFutureResolver) {
+                   _g.seeTheFutureResolver(); // Resolve the promise to continue game flow
+                   _g.seeTheFutureResolver = undefined;
+                 }
+                 _g.timer = null;
+               }, duration);
+             });
+
+             // After resolution, reset phase
+             _g.turnPhase = TurnPhase.Action; // Reset phase
+             this.updateGameNonce(_g, player.name); // Notify clients of phase change
            }
          });
       } else {
@@ -1964,6 +2000,30 @@ export class GameManager {
 
     this.advanceTurn(game);
     this.updateGameNonce(game, player.name);
+  }
+
+  private dismissSeeTheFuture(socket: Socket, gameCode: string) {
+    const game = this.games.get(gameCode);
+    if (!game) return;
+
+    const player = game.players.find(p => p.socketId === socket.id);
+    if (!player) return; // Only player who played card can dismiss
+
+    // Only allow dismissal if in SeeingTheFuture phase and it's their turn
+    if (game.turnPhase !== TurnPhase.SeeingTheFuture || !this.isPlayerTurn(game, player)) {
+        this.log(game, `player "${player.name}" tried to dismiss SeeTheFuture out of phase/turn`);
+        return;
+    }
+
+    if (game.seeTheFutureResolver) {
+        this.log(game, `player "${player.name}" manually dismissed SeeTheFuture`);
+        game.seeTheFutureResolver(); // Resolve the promise
+        game.seeTheFutureResolver = undefined;
+    }
+    if (game.timer) { // Clear the timeout if it's still running
+        clearTimeout(game.timer);
+        game.timer = null;
+    }
   }
 
   private insertExplodingCard(socket: Socket, gameCode: string, index: number, nonce: string) {

@@ -50,6 +50,7 @@ export default function GameScreen() {
   const [insertionModal, setInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
   const [insertionIndex, setInsertionIndex] = useState<string | number>(0);
   const [upgradeInsertionModal, setUpgradeInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
+  const [seeTheFutureCards, setSeeTheFutureCards] = useState<Card[] | null>(null); // Added
 
   // Ensure isClient is true after first render
   useEffect(() => {
@@ -135,64 +136,86 @@ export default function GameScreen() {
     const onDeckData = ({ deck }: { deck: Card[] }) => setDeckOverlay(deck);
     const onRemovedData = ({ removedPile }: { removedPile: Card[] }) => setRemovedOverlay(removedPile);
     const onPlayerExploding = ({ card }: { card: Card }) => setExplodingCard(card);
-    const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
-      setReplayModal({ show: true, ...data });
-    };
-    const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
-      if (phase === TurnPhase.Reaction) {
-        setCountdown(duration);
-        if (countdownIntervalRef.current) {
-          clearInterval(countdownIntervalRef.current);
-        }
-        countdownIntervalRef.current = setInterval(() => {
-          setCountdown(prev => {
-            if (prev <= 1) {
-              clearInterval(countdownIntervalRef.current!);
-              return 0;
+        const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
+          setReplayModal({ show: true, ...data });
+        };
+    
+            const onSeeTheFutureData = (data: { cards: Card[], timeout?: number }) => {
+              setSeeTheFutureCards(data.cards);
+              const duration = data.timeout || (gameStateRef.current?.devMode ? 2000 : 10000);
+              setTimeout(() => {            setSeeTheFutureCards(null);
+            if (socket && gameCode) {
+                socket.emit(SocketEvent.DismissSeeTheFuture, gameCode); // Auto-dismiss triggers server dismiss
             }
-            return prev - 1;
-          });
-        }, 1000);
-      } else if (phase === TurnPhase.Action) {
-        setCountdown(0);
-        if (countdownIntervalRef.current) {
-          clearInterval(countdownIntervalRef.current);
-          countdownIntervalRef.current = null;
+          }, duration);
+        };
+    
+        const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
+          if (phase === TurnPhase.Reaction) {
+            setCountdown(duration);
+            if (countdownIntervalRef.current) {
+              clearInterval(countdownIntervalRef.current);
+            }
+            countdownIntervalRef.current = setInterval(() => {
+              setCountdown(prev => {
+                if (prev <= 1) {
+                  clearInterval(countdownIntervalRef.current!);
+                  return 0;
+                }
+                return prev - 1;
+              });
+            }, 1000);
+          } else if (phase === TurnPhase.Action) {
+            setCountdown(0);
+            if (countdownIntervalRef.current) {
+              clearInterval(countdownIntervalRef.current);
+              countdownIntervalRef.current = null;
+            }
+          }
+        };
+    
+        console.debug('Registering Socket event listeners.');
+        socket.on(SocketEvent.DeckData, onDeckData);
+        socket.on(SocketEvent.RemovedData, onRemovedData);
+        socket.on(SocketEvent.PlayerExploding, onPlayerExploding);
+        socket.on(SocketEvent.PlayError, onPlayError);
+        socket.on(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
+        socket.on(SocketEvent.TimerUpdate, onTimerUpdate);
+    
+        return () => {
+          socket.off(SocketEvent.DeckData, onDeckData);
+          socket.off(SocketEvent.RemovedData, onRemovedData);
+          socket.off(SocketEvent.PlayerExploding, onPlayerExploding);
+          socket.off(SocketEvent.PlayError, onPlayError);
+          socket.off(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
+          socket.off(SocketEvent.TimerUpdate, onTimerUpdate);
+          if (countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+          }
+        };
+      }, [socket, gameCode]);
+    
+      // handleDismissSeeTheFuture function
+      const handleDismissSeeTheFuture = useCallback(() => {
+        if (socket && gameCode) {
+          socket.emit(SocketEvent.DismissSeeTheFuture, gameCode);
+          setSeeTheFutureCards(null);
         }
-      }
-    };
-
-    console.debug('Registering Socket event listeners.');
-    socket.on(SocketEvent.DeckData, onDeckData);
-    socket.on(SocketEvent.RemovedData, onRemovedData);
-    socket.on(SocketEvent.PlayerExploding, onPlayerExploding);
-    socket.on(SocketEvent.PlayError, onPlayError);
-    socket.on(SocketEvent.TimerUpdate, onTimerUpdate);
-
-    return () => {
-      socket.off(SocketEvent.DeckData, onDeckData);
-      socket.off(SocketEvent.RemovedData, onRemovedData);
-      socket.off(SocketEvent.PlayerExploding, onPlayerExploding);
-      socket.off(SocketEvent.PlayError, onPlayError);
-      socket.off(SocketEvent.TimerUpdate, onTimerUpdate);
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
-    };
-  }, [socket]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOverlayCard(null);
-        setDeckOverlay(null);
-        setRemovedOverlay(null);
-        setDrawingAnimation(null); // Clear drawing animation on Escape
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+      }, [socket, gameCode]);
+    
+      useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+            setOverlayCard(null);
+            setDeckOverlay(null);
+            setRemovedOverlay(null);
+            setDrawingAnimation(null); // Clear drawing animation on Escape
+            setSeeTheFutureCards(null); // Clear See The Future overlay on Escape
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, []);
 
   useEffect(() => {
     if (messageAreaRef.current) {
@@ -282,9 +305,12 @@ export default function GameScreen() {
         return false;
       case TurnPhase.Exploding:
         // Handled above (DEBUG only)
-        return false;
+        return { allowed: false, reason: "You must play a DEBUG card!" };
+      case TurnPhase.SeeingTheFuture:
+        // Block all players from playing cards while one player is seeing the future
+        return { allowed: false, reason: `${gameState.players.find(p => p.id === gameState.turnOrder[gameState.currentTurnIndex])?.name} is seeing the future.` };
       default:
-        return false; // Executing, etc.
+        return { allowed: false, reason: `BUG: Can't play cards in phase ${gameState.turnPhase}.` };
     }
   }, [gameState, playerId, myHand, playerName]);
 
@@ -1458,6 +1484,29 @@ export default function GameScreen() {
                 return isNaN(val) || val < 0 || val > max;
               })()}
             >OK</Button>
+          </Modal.Footer>
+        </Modal>
+
+        <Modal show={!!seeTheFutureCards} onHide={handleDismissSeeTheFuture} backdrop="static" keyboard={false} centered fullscreen={true}>
+          <Modal.Header>
+            <Modal.Title>See The Future</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <div className="d-flex flex-wrap justify-content-center" style={{ gap: '20px' }}>
+              {seeTheFutureCards?.map((card, index) => (
+                <Image
+                  key={index}
+                  src={card.imageUrl}
+                  alt={card.name}
+                  width={getEnlargedCardSize().width * 0.5}
+                  height={getEnlargedCardSize().height * 0.5}
+                  style={{ minWidth: getCardSize().width, maxWidth: '40vw', height: 'auto', objectFit: 'contain' }}
+                />
+              ))}
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={handleDismissSeeTheFuture} autoFocus>Done</Button>
           </Modal.Footer>
         </Modal>
 

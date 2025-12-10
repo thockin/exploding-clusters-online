@@ -1330,9 +1330,10 @@ SHUFFLE NOW cards are the same action as SHUFFLE cards, but may be played by
 any player during any action or reaction period.
 
 Playing a SEE THE FUTURE card shows the current player the top 3 cards from the
-draw-pile in a large overlay, with a "Done" button.  When the player clicks
-"done", the overlay is closed, but the cards remain in their places in the
-deck. A message is sent to all players that "{player} saw the future".
+draw-pile in a large overlay, with a "Done" button. When the player clicks
+"done", or after 10 seconds (whichever happens first), the overlay is closed,
+but the cards remain in their places in the deck. A message is sent to all
+players that "{player} saw the future".
 
 Playing a FAVOR card pops up a dialog asking the current player to choose one
 of the other remaining players, called the victim.  The player may not choose a

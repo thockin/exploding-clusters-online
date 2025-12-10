@@ -34,6 +34,7 @@ export enum TurnPhase {
   Executing = 'EXECUTING',
   Exploding = 'EXPLODING',
   Upgrading = 'UPGRADING',
+  SeeingTheFuture = 'SEEING_THE_FUTURE',
 }
 
 export enum SocketEvent {
@@ -54,6 +55,7 @@ export enum SocketEvent {
   InsertExplodingCard = 'insertExplodingCard',
   InsertUpgradeCard = 'insertUpgradeCard',
   LeaveGame = 'leaveGame',
+  DismissSeeTheFuture = 'dismissSeeTheFuture',
 
   // server -> client
   GameUpdate = 'gameUpdate',
@@ -67,6 +69,7 @@ export enum SocketEvent {
   RemovedData = 'removedData',
   PlayerExploding = 'playerExploding',
   DrawCardAnimation = 'drawCardAnimation',
+  SeeTheFutureData = 'seeTheFutureData',
   TimerUpdate = 'timerUpdate',
   PlayError = 'playError',
 }
