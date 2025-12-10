@@ -13,16 +13,13 @@ tests
 Later:
 * Hand animation is ugly
   - need configurable skin colors?
-* Animate reinsert
+* Re-insert card animation
+* Shuffle animation
 * Scale cards up in size as they get closer to discard pile (drag)
-* Visual glitch when playing a single developer card (should be unplayable)
 * Reduce card spacing in hand or even overlap them?
 * copyrights on art and code
 * Capitalization and grammar/style in all buttons and labels
  - Modal dialog for "beat you to it"
-* Nonce changes when players join/leave causing a play-nonce error
-* shuffle animation
 * colors for reaction timer
 * Send card classes to logs as `s/_/ /g`
-* Nonce updsates in `finally` blocks
-* Re-insert card animation?
+* Nonce updates in `finally` blocks

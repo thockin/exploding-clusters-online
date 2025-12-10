@@ -1491,6 +1491,16 @@ export class GameManager {
              }
            }
          });
+      } else if (card.class === CardClass.Shuffle || card.class === CardClass.ShuffleNow) {
+         game.pendingOperations.push({
+           cardClass: card.class,
+           playerName: player.name,
+           action: async (_g: Game) => {
+             _g.drawPile = shuffleDeck(_g.drawPile, this.prng.random.bind(this.prng));
+             this.log(_g, "The deck was shuffled");
+             this.emitToGame(_g.code, SocketEvent.GameMessage, { message: "The deck was shuffled." });
+           }
+         });
       } else {
          // Push a do-nothing operation
          game.pendingOperations.push({

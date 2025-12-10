@@ -1773,23 +1773,21 @@ Implement drawing an UPGRADE CLUSTER card face up, causing a player to be out.
 
 Implement the card action for NAK.
 
-##### Phase 4.2: SHUFFLE
+##### Phase 4.2: SHUFFLE and SHUFFLE NOW.
 
 Implement the card action for SHUFFLE.
 
-##### Phase 4.3: SHUFFLE NOW
-
 Implement the card action for SHUFFLE NOW.
 
-##### Phase 4.4: SEE THE FUTURE
+##### Phase 4.3: SEE THE FUTURE
 
 Implement the card action for SEE THE FUTURE.
 
-##### Phase 4.5: FAVOR
+##### Phase 4.4: FAVOR
 
 Implement the card action for FAVOR.
 
-##### Phase 4.6: DEVELOPER
+##### Phase 4.5: DEVELOPER
 
 Implement the card action for DEVELOPER.
 
