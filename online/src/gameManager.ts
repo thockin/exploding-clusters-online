@@ -46,6 +46,7 @@ interface Game {
   lastActorName?: string; // Name of the player who caused the last nonce update
   timer: NodeJS.Timeout | null;
   seeTheFutureResolver?: () => void;
+  favorResolver?: (cardId: string) => void;
   devMode: boolean;
 }
 
@@ -123,8 +124,8 @@ export class GameManager {
         this.reorderHand(socket, gameCode, newHand);
       });
 
-      socket.on(SocketEvent.PlayCard, (data: { gameCode: string; cardId: string; nonce?: string }) => {
-        this.playCard(socket, data.gameCode, data.cardId, data.nonce);
+      socket.on(SocketEvent.PlayCard, (data: { gameCode: string; cardId: string; nonce?: string; victimId?: string }) => {
+        this.playCard(socket, data.gameCode, data.cardId, data.nonce, data.victimId);
       });
 
       socket.on(SocketEvent.PlayCombo, (data: { gameCode: string; cardIds: string[]; nonce?: string }) => {
@@ -139,8 +140,12 @@ export class GameManager {
         this.insertExplodingCard(socket, payload.gameCode, payload.index, payload.nonce);
       });
 
-      socket.on(SocketEvent.InsertUpgradeCard, (payload: { gameCode: string, index: number, nonce: string }) => {
-        this.insertUpgradeCard(socket, payload.gameCode, payload.index, payload.nonce);
+      socket.on(SocketEvent.DismissSeeTheFuture, (gameCode: string) => {
+        this.dismissSeeTheFuture(socket, gameCode);
+      });
+
+      socket.on(SocketEvent.ResolveFavorCard, (data: { gameCode: string; cardId: string }) => {
+        this.resolveFavorCard(socket, data.gameCode, data.cardId);
       });
 
       // Handle voluntary leave
@@ -485,7 +490,7 @@ export class GameManager {
     this.updateGameNonce(game); // Notify clients of phase change
 
     // Pop and execute all operations with timeout protection
-    const OPERATION_TIMEOUT_MS = 5000; // 5 second timeout per operation
+    const OPERATION_TIMEOUT_MS = 20000; // 20 second timeout per operation
     let i: number = 0;
     while (game.pendingOperations.length > 0) {
       // Check game state again before each operation (refresh from map to avoid type narrowing issues)
@@ -1400,7 +1405,7 @@ export class GameManager {
     return game.turnOrder[game.currentTurnIndex] === player.id;
   }
 
-  private playCard(socket: Socket, gameCode: string, cardId: string, nonce?: string) {
+  private playCard(socket: Socket, gameCode: string, cardId: string, nonce?: string, victimId?: string) {
     const game = this.games.get(gameCode);
     if (!game) {
       this.log(null, `playCard failed: game ${gameCode} not found`);
@@ -1474,6 +1479,8 @@ export class GameManager {
       game.discardPile.push(card);
 
       this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
+      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.class}.` });
+
       // Special handling for DEBUG card
       if (card.class === CardClass.Debug) {
          this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name}'s cluster almost exploded, but they debugged it!` });
@@ -1499,6 +1506,83 @@ export class GameManager {
              _g.drawPile = shuffleDeck(_g.drawPile, this.prng.random.bind(this.prng));
              this.log(_g, "The deck was shuffled");
              this.emitToGame(_g.code, SocketEvent.GameMessage, { message: "The deck was shuffled." });
+           }
+         });
+      } else if (card.class === CardClass.Favor) {
+         // Validate victim
+         const victim = victimId ? game.players.find(p => p.id === victimId) : undefined;
+         if (!victim || victim.isOut || victim.id === player.id || victim.hand.length === 0) {
+             this.log(game, `player "${player.name}" tried to play FAVOR with invalid victim`);
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid victim for FAVOR." });
+             // Revert play
+             game.discardPile.pop();
+             player.hand.push(card);
+             this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+             return;
+         }
+
+         this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} asked ${victim.name} for a favor.` });
+
+         game.pendingOperations.push({
+           cardClass: card.class,
+           playerName: player.name,
+           action: async (_g: Game) => {
+             // Re-fetch victim
+             const currentVictim = _g.players.find(p => p.id === victimId);
+             if (!currentVictim || currentVictim.isOut || currentVictim.hand.length === 0) {
+                 this.log(_g, `FAVOR failed: victim "${currentVictim?.name}" unavailable`);
+                 this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} asked ${currentVictim?.name || 'someone'} for a favor, but they have no cards left, sorry!` });
+                 return;
+             }
+
+             _g.turnPhase = TurnPhase.ChoosingFavorCard;
+             this.updateGameNonce(_g, player.name);
+
+             this.emitToSocket(currentVictim.socketId, SocketEvent.ChooseFavorCard, {});
+
+             const cardId = await Promise.race([
+                 new Promise<string>(resolve => {
+                     _g.favorResolver = resolve;
+                 }),
+                 new Promise<string>(resolve => {
+                     setTimeout(() => {
+                         // Pick random card if timeout
+                         const v = _g.players.find(p => p.id === victimId);
+                         if (v && v.hand.length > 0) {
+                             const randIdx = Math.floor(this.prng.random() * v.hand.length);
+                             resolve(v.hand[randIdx].id);
+                         } else {
+                             resolve("");
+                         }
+                     }, 15000);
+                 })
+             ]);
+             _g.favorResolver = undefined;
+
+             // Re-fetch victim to ensure we have the latest player object/socket
+             const freshVictim = _g.players.find(p => p.id === victimId);
+             if (!freshVictim) {
+                 this.log(_g, "FAVOR failed: victim not found after resolution");
+                 return;
+             }
+
+             const stolenCardIndex = freshVictim.hand.findIndex(c => c.id === cardId);
+             if (stolenCardIndex !== -1) {
+                 const [stolenCard] = freshVictim.hand.splice(stolenCardIndex, 1);
+                 // Use ID to find fresh player object
+                 const requester = _g.players.find(p => p.id === player.id);
+                 if (requester) {
+                    requester.hand.push(stolenCard);
+                    this.emitToSocket(requester.socketId, SocketEvent.FavorOutcome, { card: stolenCard });
+                    this.emitToSocket(requester.socketId, SocketEvent.HandUpdate, { hand: requester.hand });
+                 }
+                 this.emitToSocket(freshVictim.socketId, SocketEvent.HandUpdate, { hand: freshVictim.hand });
+                 this.log(_g, `player "${player.name}" received "${stolenCard.class}" from "${freshVictim.name}"`);
+                 this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${freshVictim.name} gave ${player.name} a card.` });
+             }
+
+             _g.turnPhase = TurnPhase.Action;
+             this.updateGameNonce(_g, player.name);
            }
          });
       } else if (card.class === CardClass.SeeTheFuture) {
@@ -1552,9 +1636,6 @@ export class GameManager {
            }
          });
       }
-
-      this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
-      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.class}.` });
 
       // Trigger Timer
       this.startReactionTimer(game, player.id);
@@ -2023,6 +2104,26 @@ export class GameManager {
     if (game.timer) { // Clear the timeout if it's still running
         clearTimeout(game.timer);
         game.timer = null;
+    }
+  }
+
+  private resolveFavorCard(socket: Socket, gameCode: string, cardId: string) {
+    const game = this.games.get(gameCode);
+    if (!game) return;
+
+    if (game.turnPhase !== TurnPhase.ChoosingFavorCard) return;
+
+    const player = game.players.find(p => p.socketId === socket.id);
+    if (!player) return;
+
+    // Validate ownership
+    if (!player.hand.some(c => c.id === cardId)) {
+        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card." });
+        return;
+    }
+
+    if (game.favorResolver) {
+        game.favorResolver(cardId);
     }
   }
 

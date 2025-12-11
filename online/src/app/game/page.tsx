@@ -51,6 +51,12 @@ export default function GameScreen() {
   const [insertionIndex, setInsertionIndex] = useState<string | number>(0);
   const [upgradeInsertionModal, setUpgradeInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
   const [seeTheFutureCards, setSeeTheFutureCards] = useState<Card[] | null>(null); // Added
+  const [favorVictimModalOpen, setFavorVictimModalOpen] = useState(false);
+  const [favorVictimSelection, setFavorVictimSelection] = useState<string | null>(null);
+  const [favorCardChoiceModalOpen, setFavorCardChoiceModalOpen] = useState(false);
+  const [favorOutcomeCard, setFavorOutcomeCard] = useState<Card | null>(null);
+  const [favorSelectedCardId, setFavorSelectedCardId] = useState<string | null>(null); // For victim selecting card to give
+  const [favorCountdown, setFavorCountdown] = useState(15);
 
   // Ensure isClient is true after first render
   useEffect(() => {
@@ -71,6 +77,23 @@ export default function GameScreen() {
       window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
+
+  useEffect(() => {
+    if (favorCardChoiceModalOpen) {
+      setFavorCountdown(15);
+      const interval = setInterval(() => {
+        setFavorCountdown(prev => {
+            if (prev <= 1) {
+                clearInterval(interval);
+                setFavorCardChoiceModalOpen(false);
+                return 0;
+            }
+            return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [favorCardChoiceModalOpen]);
 
   const gameStateRef = useRef(gameState);
 
@@ -139,62 +162,78 @@ export default function GameScreen() {
         const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
           setReplayModal({ show: true, ...data });
         };
-    
-            const onSeeTheFutureData = (data: { cards: Card[], timeout?: number }) => {
-              setSeeTheFutureCards(data.cards);
-              const duration = data.timeout || (gameStateRef.current?.devMode ? 2000 : 10000);
-              setTimeout(() => {            setSeeTheFutureCards(null);
-            if (socket && gameCode) {
-                socket.emit(SocketEvent.DismissSeeTheFuture, gameCode); // Auto-dismiss triggers server dismiss
+  
+    const onSeeTheFutureData = (data: { cards: Card[], timeout?: number }) => {
+      setSeeTheFutureCards(data.cards);
+      const duration = data.timeout || (gameStateRef.current?.devMode ? 2000 : 10000);
+      setTimeout(() => {
+        setSeeTheFutureCards(null);
+        if (socket && gameCode) {
+          socket.emit(SocketEvent.DismissSeeTheFuture, gameCode); // Auto-dismiss triggers server dismiss
+        }
+      }, duration);
+    };
+
+    const onChooseFavorCard = () => {
+      setFavorCardChoiceModalOpen(true);
+    };
+
+    const onFavorOutcome = (data: { card: Card }) => {
+      setFavorOutcomeCard(data.card);
+      setTimeout(() => {
+        setFavorOutcomeCard(null);
+      }, 3000);
+    };
+
+    const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
+      if (phase === TurnPhase.Reaction) {
+        setCountdown(duration);
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+        }
+        countdownIntervalRef.current = setInterval(() => {
+          setCountdown(prev => {
+            if (prev <= 1) {
+              clearInterval(countdownIntervalRef.current!);
+              return 0;
             }
-          }, duration);
-        };
-    
-        const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
-          if (phase === TurnPhase.Reaction) {
-            setCountdown(duration);
-            if (countdownIntervalRef.current) {
-              clearInterval(countdownIntervalRef.current);
-            }
-            countdownIntervalRef.current = setInterval(() => {
-              setCountdown(prev => {
-                if (prev <= 1) {
-                  clearInterval(countdownIntervalRef.current!);
-                  return 0;
-                }
-                return prev - 1;
-              });
-            }, 1000);
-          } else if (phase === TurnPhase.Action) {
-            setCountdown(0);
-            if (countdownIntervalRef.current) {
-              clearInterval(countdownIntervalRef.current);
-              countdownIntervalRef.current = null;
-            }
-          }
-        };
-    
-        console.debug('Registering Socket event listeners.');
-        socket.on(SocketEvent.DeckData, onDeckData);
-        socket.on(SocketEvent.RemovedData, onRemovedData);
-        socket.on(SocketEvent.PlayerExploding, onPlayerExploding);
-        socket.on(SocketEvent.PlayError, onPlayError);
-        socket.on(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
-        socket.on(SocketEvent.TimerUpdate, onTimerUpdate);
-    
-        return () => {
-          socket.off(SocketEvent.DeckData, onDeckData);
-          socket.off(SocketEvent.RemovedData, onRemovedData);
-          socket.off(SocketEvent.PlayerExploding, onPlayerExploding);
-          socket.off(SocketEvent.PlayError, onPlayError);
-          socket.off(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
-          socket.off(SocketEvent.TimerUpdate, onTimerUpdate);
-          if (countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-          }
-        };
-      }, [socket, gameCode]);
-    
+            return prev - 1;
+          });
+        }, 1000);
+      } else if (phase === TurnPhase.Action) {
+        setCountdown(0);
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+      }
+    };
+
+    console.debug('Registering Socket event listeners.');
+    socket.on(SocketEvent.DeckData, onDeckData);
+    socket.on(SocketEvent.RemovedData, onRemovedData);
+    socket.on(SocketEvent.PlayerExploding, onPlayerExploding);
+    socket.on(SocketEvent.PlayError, onPlayError);
+    socket.on(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
+    socket.on(SocketEvent.ChooseFavorCard, onChooseFavorCard);
+    socket.on(SocketEvent.FavorOutcome, onFavorOutcome);
+    socket.on(SocketEvent.TimerUpdate, onTimerUpdate);
+
+    return () => {
+      socket.off(SocketEvent.DeckData, onDeckData);
+      socket.off(SocketEvent.RemovedData, onRemovedData);
+      socket.off(SocketEvent.PlayerExploding, onPlayerExploding);
+      socket.off(SocketEvent.PlayError, onPlayError);
+      socket.off(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
+      socket.off(SocketEvent.ChooseFavorCard, onChooseFavorCard);
+      socket.off(SocketEvent.FavorOutcome, onFavorOutcome);
+      socket.off(SocketEvent.TimerUpdate, onTimerUpdate);
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+    };
+  }, [socket, gameCode]);
+  
       // handleDismissSeeTheFuture function
       const handleDismissSeeTheFuture = useCallback(() => {
         if (socket && gameCode) {
@@ -202,7 +241,7 @@ export default function GameScreen() {
           setSeeTheFutureCards(null);
         }
       }, [socket, gameCode]);
-    
+  
       useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
           if (event.key === 'Escape') {
@@ -309,6 +348,8 @@ export default function GameScreen() {
       case TurnPhase.SeeingTheFuture:
         // Block all players from playing cards while one player is seeing the future
         return { allowed: false, reason: `${gameState.players.find(p => p.id === gameState.turnOrder[gameState.currentTurnIndex])?.name} is seeing the future.` };
+      case TurnPhase.ChoosingFavorCard:
+        return { allowed: false, reason: "Waiting for a favor to be granted." };
       default:
         return { allowed: false, reason: `BUG: Can't play cards in phase ${gameState.turnPhase}.` };
     }
@@ -713,6 +754,12 @@ export default function GameScreen() {
 
       // Now handle the actual play
       if (cardsToPlay.length > 0) {
+        // Intercept FAVOR play
+        if (cardsToPlay.length === 1 && cardsToPlay[0].class === CardClass.Favor) {
+            setFavorVictimModalOpen(true);
+            return;
+        }
+
         // --- Client-side Play Validation ---
         // Use centralized isCardPlayable logic for consistency
         const isAllowed = cardsToPlay.every(c => isCardPlayable(c));
@@ -1213,7 +1260,7 @@ export default function GameScreen() {
             >
               {/* Draw Pile */}
               <div className="d-flex flex-column align-items-center">
-                <div 
+                <div
                   className="draw-pile position-relative" 
                   data-areaname="draw-pile"
                   style={{ 
@@ -1509,6 +1556,82 @@ export default function GameScreen() {
             <Button variant="primary" onClick={handleDismissSeeTheFuture} autoFocus>Done</Button>
           </Modal.Footer>
         </Modal>
+
+        <Modal show={favorVictimModalOpen} onHide={() => setFavorVictimModalOpen(false)} backdrop="static" keyboard={false} centered>
+          <Modal.Header>
+            <Modal.Title>Ask for a Favor</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>Choose a player to ask for a favor:</p>
+            <div className="list-group">
+              {gameState?.players.filter(p => p.id !== playerId && !p.isOut && p.cards > 0).map(p => (
+                <button
+                  key={p.id}
+                  className={`list-group-item list-group-item-action ${favorVictimSelection === p.id ? 'active' : ''}`}
+                  onClick={() => setFavorVictimSelection(p.id)}
+                >
+                  {p.name} ({p.cards} cards)
+                </button>
+              ))}
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setFavorVictimModalOpen(false)}>Cancel</Button>
+            <Button variant="primary" disabled={!favorVictimSelection} onClick={() => {
+                const favorCard = myHand.find(c => c.class === CardClass.Favor);
+                if (favorCard && gameCode) {
+                    socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: favorCard.id, nonce: gameState?.nonce, victimId: favorVictimSelection });
+                    setFavorVictimModalOpen(false);
+                    setFavorVictimSelection(null);
+                    setSelectedCards([]);
+                }
+            }}>Ask Favor</Button>
+          </Modal.Footer>
+        </Modal>
+
+        <Modal show={favorCardChoiceModalOpen} onHide={() => {}} backdrop="static" keyboard={false} centered>
+          <Modal.Header>
+            <Modal.Title>Grant a Favor ({favorCountdown}s)</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>Someone asked you for a favor! Choose a card to give them:</p>
+            <div className="d-flex flex-wrap justify-content-center" style={{ gap: '10px' }}>
+              {myHand.map((card, index) => (
+                <div 
+                  key={index} 
+                  onClick={() => setFavorSelectedCardId(card.id)}
+                  style={{ 
+                    border: favorSelectedCardId === card.id ? '3px solid blue' : '1px solid gray',
+                    borderRadius: '5px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Image src={card.imageUrl} alt={card.name} width={80} height={112} />
+                </div>
+              ))}
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" disabled={!favorSelectedCardId} onClick={() => {
+              if (gameCode && favorSelectedCardId) {
+                socket?.emit(SocketEvent.ResolveFavorCard, { gameCode, cardId: favorSelectedCardId });
+                setFavorCardChoiceModalOpen(false);
+                setFavorSelectedCardId(null);
+              }
+            }}>Give Card</Button>
+          </Modal.Footer>
+        </Modal>
+
+        {favorOutcomeCard && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 2000,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white'
+          }}>
+            <h2>You received:</h2>
+            <Image src={favorOutcomeCard.imageUrl} alt={favorOutcomeCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
+          </div>
+        )}
 
         <Modal show={!!gameEndData} onHide={handleGameEndConfirm} backdrop="static" keyboard={false} centered>
           <Modal.Header>

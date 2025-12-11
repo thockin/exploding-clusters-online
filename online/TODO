@@ -1,4 +1,5 @@
 Phase 4:
+ - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
  - send BIG messages when executing
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
 

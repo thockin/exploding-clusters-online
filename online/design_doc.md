@@ -1321,10 +1321,11 @@ DEBUG cards have already been detailed.
 
 Playing a NAK card pops 1 extra item off the operations stack, if possible,
 and discards it.  If the stack was empty this card does nothing.  Playing a NAK
-after a NAK negates the first NAK.
+after a NAK negates the first NAK (which is not a special case, just the normal
+stack logic).
 
-Playing a SHUFFLE card shuffles the draw-pile and send a message to all players
-that "The deck was shuffled".
+Playing a SHUFFLE card shuffles the draw-pile and send a log message to all
+players that "The deck was shuffled".
 
 SHUFFLE NOW cards are the same action as SHUFFLE cards, but may be played by
 any player during any action or reaction period.
@@ -1336,11 +1337,21 @@ but the cards remain in their places in the deck. A message is sent to all
 players that "{player} saw the future".
 
 Playing a FAVOR card pops up a dialog asking the current player to choose one
-of the other remaining players, called the victim.  The player may not choose a
-victim with 0 cards in their hand.  The victim gets a message saying "{player}
-asked you for a favor" and to all other players saying "{player} asked {victim}
-for a favor". Victim must choose a card to give to the current player, which is
-moved from victim's hand to the current player's hand.
+of the other remaining players, called the victim.  The list should not show
+themselves and should show the card count of each player they can ask for the
+favor.  Players with 0 cards in their hand must not be selectable. After the
+current player chooses a victim and hits OK, the victim gets a dialog saying
+"{player} asked you for a favor - choose a card to give them". All other
+players get a log message saying "{player} asked {victim} for a favor".
+Victim's dialog shows their hand, and they must choose a card to give to the
+current player, and hit OK.  A message is sent to the server and that card is
+moved from victim's hand to the current player's hand. The OK button must be
+disabled until the victim selects a card.  The server must reject any attempts
+to give a card not in the victim's hand, or to give a card when there is not a
+pending FAVOR request.  The original (current) player finally gets an overlay
+for 3 seconds saying "{victim} gave you a {card-class} card.".  After 3
+seconds, or when the player hits escape or clicks somewhere, the overlay is
+closed.  It is still the current player's turn.
 
 DEVELOPER cards must be played in pairs.  Playing a DEVELOPER pair pops up a
 dialog asking the current player to choose one of the other remaining players,
