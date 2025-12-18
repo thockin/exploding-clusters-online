@@ -58,7 +58,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         try {
           const { gameCode: sCode, playerName: sName, nonce: sNonce, playerId: sId, isSpectator: sIsSpectator } = JSON.parse(stored);
           if (sCode) {
-            
+
             // Check if explicit spectator flag OR legacy "Spectator" name
             if (sIsSpectator || sName === 'Spectator') {
               // Restore spectator session
@@ -214,6 +214,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     socketIo.on(SocketEvent.GameUpdate, (data: GameUpdatePayload) => {
+      console.debug(`received event: ${SocketEvent.GameUpdate}`);
       setGameState(() => {
         // We can just use data directly as it matches the interface
         return data;
@@ -223,14 +224,17 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     socketIo.on(SocketEvent.GameMessage, (data: { message: string }) => {
+      console.debug(`received event: ${SocketEvent.GameMessage}`);
       setGameMessages(prev => [...prev, data.message]);
     });
 
     socketIo.on(SocketEvent.HandUpdate, (data: { hand: Card[] }) => {
+      console.debug(`received event: ${SocketEvent.HandUpdate}`);
       setMyHand(data.hand);
     });
 
     socketIo.on(SocketEvent.PlayerJoined, (data: { playerId: string; playerName: string }) => {
+      console.debug(`received event: ${SocketEvent.PlayerJoined}`);
       setGameState(prev => {
         if (!prev) return null;
         if (prev.players.some(p => p.id === data.playerId)) {
@@ -242,6 +246,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     socketIo.on(SocketEvent.PlayerDisconnected, (data: { playerId: string }) => {
+      console.debug(`received event: ${SocketEvent.PlayerDisconnected}`);
       setGameState(prev => {
         if (!prev) return null;
         const newPlayers = prev.players.map(p => 
@@ -252,6 +257,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     socketIo.on(SocketEvent.GameStarted, () => {
+      console.debug(`received event: ${SocketEvent.GameStarted}`);
       setGameState(prev => ({
         ...(prev as GameUpdatePayload),
         state: GameState.Started,
@@ -259,6 +265,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     socketIo.on(SocketEvent.GameEnded, (data?: { winner: string; winType: string }) => {
+      console.debug(`received event: ${SocketEvent.GameEnded}`);
       console.log('Game ended.', data);
       if (data) {
         setGameEndData(data);

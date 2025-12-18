@@ -345,9 +345,9 @@ export default function GameScreen() {
     // Phase checks
     switch (gameState.turnPhase) {
       case TurnPhase.Action:
+        // NAK is only playable in Reaction, unless DEVMODE
+        if (card.class === CardClass.Nak && isMyTurn) return gameState.devMode;
         // Action Phase: Can play if it's my turn OR it's a NOW card
-        // NAK is explicit exception (only playable in Reaction)
-        if (card.class === CardClass.Nak) return false;
         if (isMyTurn) return true;
         if (isNowCard) return true;
         return false;
@@ -365,8 +365,9 @@ export default function GameScreen() {
         // Block all players from playing cards while one player is seeing the future
         return { allowed: false, reason: `${gameState.players.find(p => p.id === gameState.turnOrder[gameState.currentTurnIndex])?.name} is seeing the future.` };
       case TurnPhase.ChoosingFavorCard:
-      case TurnPhase.ChoosingDeveloperCard:
         return { allowed: false, reason: "Waiting for a favor to be granted." };
+      case TurnPhase.ChoosingDeveloperCard:
+        return { allowed: false, reason: "Waiting for a card to be stolen." };
       default:
         return { allowed: false, reason: `BUG: Can't play cards in phase ${gameState.turnPhase}.` };
     }
@@ -783,36 +784,11 @@ export default function GameScreen() {
              return;
         }
 
-        // --- Client-side Play Validation ---
         // Use centralized isCardPlayable logic for consistency
         const isAllowed = cardsToPlay.every(c => isCardPlayable(c));
 
         if (!isAllowed) {
           console.log(`Play blocked client-side: isCardPlayable returned false`);
-          return;
-        }
-        // -----------------------------------
-
-        // Rejection Logic: Single DEVELOPER card
-        if (cardsToPlay.length === 1 && cardsToPlay[0].class === CardClass.Developer) {
-          console.log('Cannot play a single DEVELOPER card');
-          // "Return it to the player's hand".
-          // Do NOT emit. Do NOT setMyHand. DnD will snap back.
-          // Do NOT clear selection (newSelectedCards is set, user sees what they tried to play).
-          // TODO: Display message to user? The design doc says "Return it... with a message".
-          // We need a way to show local message?
-          // Current gameMessages come from server.
-          // We can manually append to gameMessages?
-          // But gameMessages is state from server.
-          // We can't easily inject local messages without refactoring SocketContext.
-          // But we can alert? No.
-          // We can assume server won't send message if we don't emit.
-          // Wait, "Return it to the player's hand with a message".
-          // If we don't play it, server doesn't know.
-          // We should show a toast or something?
-          // For now, console log is all we have locally unless we add local message state.
-          // BUT, checking `SocketContext`: `gameMessages` is `string[]`. `setGameMessages` is not exposed.
-          // Maybe we should ignore the "message" part for now or implement local toast later.
           return;
         }
 

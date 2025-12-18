@@ -1374,25 +1374,48 @@ export class GameManager {
   private canPlayCard(game: Game, player: Player, card: Card): { allowed: boolean; reason?: string } {
     const isMyTurn = this.isPlayerTurn(game, player);
     const isNowCard = !!card.now;
+    const isReactionToMe = (game.lastActorName && player.name === game.lastActorName)
 
-    // DEBUG cards restriction
+    // Regardless of whose turn it is, some rules apply
+    if (game.turnPhase === TurnPhase.Reaction) {
+      // You can't react to yourself
+      if (isReactionToMe) {
+        return { allowed: false, reason: "You must wait for reactions." };
+      }
+      // You can only play certain cards
+      if (isNowCard || card.class === CardClass.Nak) {
+        return { allowed: true }
+      }
+      return { allowed: false, reason: 'Only "NOW" or NAK cards can be played as a reaction.' };
+    }
+
+    // Depending on whose turn it is we want different errors
+    if (!isMyTurn) {
+      if (game.turnPhase === TurnPhase.Action) {
+          if (isNowCard) return { allowed: true };
+          return { allowed: false, reason: "It's not your turn!" };
+      }
+      return { allowed: false, reason: "You can't play cards right now (${game.turnPhase})." };
+    }
+
+    // It's my turn.
+
     if (card.class === CardClass.Debug && game.turnPhase !== TurnPhase.Exploding) {
       return { allowed: false, reason: "DEBUG cards can only be played during an explosion." };
     }
 
     switch (game.turnPhase) {
       case TurnPhase.Action:
-        if (card.class === CardClass.Nak) return { allowed: false, reason: "NAK can only be played during a reaction." };
-        if (isMyTurn) return { allowed: true };
-        if (isNowCard) return { allowed: true };
-        return { allowed: false, reason: "It's not your turn!" };
-
-      case TurnPhase.Reaction:
-        if (game.lastActorName && player.name === game.lastActorName) {
-          return { allowed: false, reason: "You must wait for reactions." };
+        if (card.class === CardClass.Nak && !game.devMode) {
+          return { allowed: false, reason: "NAK can only be played as a reaction." };
         }
-        if (isNowCard || card.class === CardClass.Nak) return { allowed: true };
-        return { allowed: false, reason: "You can only play 'NOW' or NAK cards during a reaction." };
+        if (card.class === CardClass.Developer) {
+          return { allowed: false, reason: "DEVELOPER cards can only be played as combos." };
+        }
+        return { allowed: true };
+
+      // case TurnPhase.Reaction:
+      //   This is handled above
 
       case TurnPhase.Exploding:
         if (card.class === CardClass.Debug) return { allowed: true };
@@ -1400,10 +1423,8 @@ export class GameManager {
 
       case TurnPhase.Executing:
         return { allowed: false, reason: "You can't play cards while the previous play is in progress." };
-
-      default:
-        return { allowed: false, reason: "BUG: Can't play cards in phase ${game.turnPhase}." };
     }
+    return { allowed: false, reason: "You can't play cards right now (${game.turnPhase})." };
   }
 
   private isPlayerTurn(game: Game, player: Player): boolean {

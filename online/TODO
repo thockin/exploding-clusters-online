@@ -28,3 +28,11 @@ Later:
 * colors for reaction timer
 * Send card classes to logs as `s/_/ /g`
 * Nonce updates in `finally` blocks
+* Better messages for NAK (e.g. "P2 NAK'ed the SHUFFLE")
+* Put a GameMessage into HandUpdate, too
+* Fix dump LLM comments like "Maybe we should" and "design doc says..." and "phase X"
+
+Bugs:
+* if non-current player plays NAK out of turn (8 cards->7), they get a
+  handUpdate to revert (to 8), but sometimes set hand AGAIN to 7. Hard to
+  repro, no other event received?
