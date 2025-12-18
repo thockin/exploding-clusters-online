@@ -40,3 +40,7 @@ export const Locators = {
   MODAL_SHOW: '.modal.show',
   LOBBY_PLAYER_LIST: '[data-testid="lobby-player-list"]',
 };
+
+export const CSS = {
+  CARD_SELECTED_BOX: 'rgb(0, 0, 255) 0px 0px 0px 3px',
+};

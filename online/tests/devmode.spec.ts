@@ -1,5 +1,5 @@
 import { test, expect, Page, Locator } from '@playwright/test';
-import { Buttons, Inputs, Headers, Locators } from './constants';
+import { Buttons, Inputs, Headers, Locators, CSS } from './constants';
 import { CardClass, TurnPhase } from '../src/api';
 
 // Helper to create game
@@ -60,7 +60,7 @@ async function playCard(page: Page, card: Locator) {
   await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
-  await expect(card).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+  await expect(card).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
   await page.mouse.up();
 }
 
@@ -88,8 +88,7 @@ function findHandCardsByClass(page: Page, cardClass: CardClass): Locator {
 
 // Helper to find all cards in the hand area.  Can return multiple cards.
 function findAllHandCards(page: Page): Locator {
-  const hand = page.locator(`div[data-areaname="hand"]`);
-  return hand.locator(`div[data-cardclass]`);
+  return findHand(page).locator(`div[data-cardclass]`);
 }
 
 // Helper to find the draw pile.
@@ -134,7 +133,7 @@ function findOverlay(page: Page): Locator {
 
 test.describe('UI Tests with DEVMODE=1', () => {
 
-  test('Happy Path: 2 Players + Observer', async ({ browser }) => {
+  test('Game screen loads: 2 players + observer', async ({ browser }) => {
     const p1 = await browser.newContext();
     const p2 = await browser.newContext();
     const obs = await browser.newContext();
@@ -184,7 +183,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page1.locator(Headers.YOUR_HAND)).toBeVisible();
   });
 
-  test('Game Full Rejection', async ({ browser }) => {
+  test('Fail to join: game is full', async ({ browser }) => {
     const p1 = await browser.newContext();
     const page1 = await p1.newPage();
     // P1 creates a game
@@ -213,7 +212,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page6.locator(Locators.MODAL_SHOW + ' .alert-danger')).toContainText('Sorry, that game is full');
   });
 
-  test('Duplicate Name Rejection', async ({ browser }) => {
+  test('Fail to join: duplicate name', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     // Create game as 'Alice'
@@ -232,7 +231,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page2.locator(Locators.MODAL_SHOW + ' .alert-danger')).toContainText('name is already taken');
   });
 
-  test('Join Non-Existent Game', async ({ browser }) => {
+  test('Fail to join: unknown game code', async ({ browser }) => {
     const page = await browser.newPage();
     // Attempt to join invalid code 'YYYYY'
     await page.goto('/');
@@ -245,7 +244,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page.locator(Locators.MODAL_SHOW + ' .alert-danger')).toContainText('does not exist');
   });
 
-  test('Watch Non-Existent Game', async ({ browser }) => {
+  test('Fail to observe: unknown game coee', async ({ browser }) => {
     const page = await browser.newPage();
     // Attempt to watch invalid code 'YYYYY'
     await page.goto('/');
@@ -256,7 +255,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page.locator(Locators.MODAL_SHOW + ' .alert-danger')).toContainText('does not exist');
   });
 
-  test('Reconnect to Lobby', async ({ browser }) => {
+  test('Lobby: disconnect, reconnect', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     // Host creates game
@@ -295,7 +294,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page1.locator('text=Leaver')).toBeVisible({ timeout: 10000 });
   });
 
-  test('Reconnect Fails after Nonce Change', async ({ browser }) => {
+  test('Lobby: disconnect, reconnect fails after nonce change', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     // Host creates game
@@ -329,7 +328,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page2.locator(Locators.MODAL_SHOW + ' .modal-body')).toContainText('Rejoining', { timeout: 5000 });
   });
 
-  test('Game owner Reassignment', async ({ browser }) => {
+  test('Lobby: game owner reassignment', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     // 'Owner' creates game
@@ -387,7 +386,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page1.locator(Buttons.START_GAME)).not.toBeVisible();
   });
 
-  test('Initial UI', async ({ browser }) => {
+  test('Game page: initial UI', async ({ browser }) => {
     // Setup 3 players
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
@@ -440,16 +439,14 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p3TurnArea).toContainText(`It's P1's turn`);
   });
 
-  test('Card Wrapping', async ({ browser }) => {
+  test('Hand: card wrapping', async ({ browser }) => {
+    // Create game
     // Set viewport to constrain hand width to approx 7 cards to force wrapping
-    const context = await browser.newContext({ viewport: { width: 850, height: 800 } });
-    const page = await context.newPage();
-
-    // Create game P1
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 800 } });
+    const page = await ctx1.newPage();
     const code = await createGame(page, 'P1');
     const ctx2 = await browser.newContext();
     const page2 = await ctx2.newPage();
-    // Join P2
     await joinGame(page2, 'P2', code);
 
     // Start Game
@@ -457,7 +454,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page.waitForURL(/game/);
 
     // Wait for hand to render and verify initial count (8)
-    const handArea = page.locator(Headers.YOUR_HAND).locator('xpath=..');
+    const handArea = findHand(page);
     await expect(handArea.locator('img')).toHaveCount(8);
 
     // Check rows: 8 cards should wrap to 2 rows of 4
@@ -531,7 +528,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
   });
 
-  test('Abandoned Turn', async ({ browser }) => {
+  test('Players leave game', async ({ browser }) => {
     // Setup 3 players
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
@@ -548,23 +545,29 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Start Game
     await page1.click(Buttons.START_GAME);
     await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+    await page3.waitForURL(/game/);
 
-    // Verify P1 starts (In DEVMODE)
+    // Verify P1 starts
     await expect(page1.locator('.list-group-item:has-text("P1")')).toHaveClass(/bg-success-subtle/);
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+    await expect(findTurnArea(page2)).toContainText("It's P1's turn, your turn is next");
+    await expect(findTurnArea(page3)).toContainText("It's P1's turn");
 
-    // Current player disconnects
+    // P1 (current) disconnects
     await page1.goto('about:blank');
 
     // Verify disconnected player disappears from list
     await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+    await expect(page3.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
 
     // Verify "abandoned turn" message
     await expect(page2.locator(`text=P1 has abandoned their turn`)).toBeVisible();
+    await expect(page3.locator(`text=P1 has abandoned their turn`)).toBeVisible();
 
-    // Verify turn passes to next player (Green background check)
-    await expect(page2.locator(`.list-group-item:has-text("P2")`)).toHaveClass(/bg-success-subtle/);
-    const turnArea = findTurnArea(page2);
-    await expect(turnArea).toContainText("It's your turn");
+    // Verify turn passes to next player
+    await expect(findTurnArea(page2)).toContainText("It's your turn");
+    await expect(findTurnArea(page3)).toContainText("It's P2's turn, your turn is next");
 
     // Reconnect attempt by disconnected player
     await page1.goBack();
@@ -576,34 +579,20 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify player does NOT reappear in list
     await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
-  });
+    await expect(page3.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
 
-  test('Attrition Win', async ({ browser }) => {
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
-    const code = await createGame(page1, 'Winner');
-
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'Loser', code);
-
-    // Start Game
-    await page1.click(Buttons.START_GAME);
-    await expect(page1).toHaveURL(/game/);
-
-    // Loser Leaves Game voluntarily
+    // P2 leaves game voluntarily
     await page2.click(Buttons.LEAVE_GAME);
     // Confirm modal
     await page2.locator(Locators.MODAL_SHOW + ' .modal-footer button.btn-danger').click({ force: true });
 
     // Winner should see Win Dialog
-    await expect(page1.locator(Locators.MODAL_SHOW + ' .modal-title')).toHaveText(/.*You win!/, { timeout: 10000 });
-    await page1.click(Buttons.OK);
-    // Winner redirected to landing page
-    await expect(page1).toHaveURL('/'); 
+    await expect(page3.locator(Locators.MODAL_SHOW + ' .modal-title')).toHaveText(/.*You win!/, { timeout: 10000 });
+    await page3.click(Buttons.OK);
+    await expect(page3).toHaveURL('/'); 
   });
 
-  test('Card Overlay Escape', async ({ browser }) => {
+  test('Hand: dismiss inspect-card overlay', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
@@ -611,28 +600,37 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/); // Ensure page is on game screen
-    await page1.waitForLoadState('networkidle'); // Wait for content to load
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
 
     // Wait for hand to be visible and have cards
-    // Locate the hand container directly by its droppableId, which is applied via provided.droppableProps
-    await page1.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 }); // Wait for the "Your Hand" heading
-    await page1.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 }); // Wait for the "Your Hand" heading
-    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..'); // Select the parent Row
-    await expect(handArea).toBeVisible({ timeout: 15000 });
+    const handArea = findHand(page1)
+    await expect(handArea).toBeVisible();
+    await expect(findAllHandCards(page1)).toHaveCount(8);
     const cardImg = handArea.locator('img').first();
-    await expect(handArea.locator('img')).toHaveCount(8, { timeout: 10000 }); // Expect 8 cards after start
+
+    // Double-click first card to open overlay
     await cardImg.dblclick({ force: true });
 
     // Check for overlay (z-index 1000)
     await expect(findOverlay(page1)).toBeVisible();
 
-    // Escape
+    // Press <escape> to dismiss
     await page1.keyboard.press('Escape');
+    await expect(findOverlay(page1)).not.toBeVisible();
+
+    // Double-click first card to open overlay again
+    await cardImg.dblclick({ force: true });
+
+    // Check for overlay (z-index 1000)
+    await expect(findOverlay(page1)).toBeVisible();
+
+    // Click the overlay to dismiss
+    await findOverlay(page1).click();
     await expect(findOverlay(page1)).not.toBeVisible();
   });
 
-  test('DEVMODE DEBUG Button limit', async ({ browser }) => {
+  test('DEVMODE: DEBUG Button limit', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'Dev');
@@ -640,6 +638,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
 
     const debugBtn = page1.locator(Buttons.DEV_GIVE_DEBUG_CARD);
     await expect(debugBtn).toBeVisible();
@@ -647,6 +646,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Click until disabled (consuming all debug cards)
     for (let i=0; i<10; i++) {
+      await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1 + i);
       if (await debugBtn.isDisabled()) break;
       await debugBtn.click();
       await page1.waitForTimeout(200); 
@@ -655,7 +655,42 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(debugBtn).toBeDisabled();
   });
 
-  test('DEVMODE Show Deck Overlay Escape', async ({ browser }) => {
+  test('DEVMODE: put card back', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+
+    // Verify initial hand count (8)
+    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+
+    // Get initial deck count from UI text (e.g. "(30 cards)")
+    const deckCountText = await page1.locator(Locators.DRAW_PILE_COUNT).textContent();
+    const initialDeckCount = parseInt(deckCountText?.replace(/\D/g, '') || '0', 10);
+
+    const putBackBtn = page1.locator(Buttons.DEV_PUT_CARD_BACK);
+    await expect(putBackBtn).toBeVisible();
+    await expect(putBackBtn).toBeEnabled();
+
+    // Click until disabled, verify hand count decreased and deck count
+    // increased
+    for (let i=0; i<10; i++) {
+      await expect(findAllHandCards(page1)).toHaveCount(8 - i);
+      await expect(page1.locator(Locators.DRAW_PILE_COUNT)).toHaveText(`(${initialDeckCount + i} cards)`);
+      if (await putBackBtn.isDisabled()) break;
+      await putBackBtn.click();
+      await page1.waitForTimeout(200); 
+    }
+    await expect(handArea.locator('img')).toHaveCount(0);
+    await expect(page1.locator(Locators.DRAW_PILE_COUNT)).toHaveText(`(${initialDeckCount + 8} cards)`);
+  });
+
+  test('DEVMODE: dismiss show-deck overlay', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
@@ -667,16 +702,25 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Click "Show the deck" button
     await page1.click(Buttons.DEV_SHOW_DECK);
 
-    // Verify overlay appears
-    const overlay = page1.locator(Locators.DRAW_PILE_TEXT);
-    await expect(overlay).toBeVisible();
+    // Check for overlay
+    await expect(findOverlay(page1).first()).toBeVisible();
 
-    // Press Escape to close
+    // Press <escape> to dismiss
     await page1.keyboard.press('Escape');
-    await expect(overlay).not.toBeVisible();
+    await expect(findOverlay(page1).first()).not.toBeVisible();
+
+    // Click "Show the deck" button again
+    await page1.click(Buttons.DEV_SHOW_DECK);
+
+    // Check for overlay (z-index 1000)
+    await expect(findOverlay(page1).first()).toBeVisible();
+
+    // Click the overlay to dismiss
+    await findOverlay(page1).first().click();
+    await expect(findOverlay(page1).first()).not.toBeVisible();
   });
 
-  test('DEVMODE Show Removed Overlay Escape', async ({ browser }) => {
+  test('DEVMODE: dismiss show-removed overlay', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
@@ -688,16 +732,117 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Click "Show removed cards" button
     await page1.click(Buttons.DEV_SHOW_REMOVED); 
 
-    // Verify overlay appears
-    const overlay = page1.locator(Locators.REMOVED_PILE_TEXT);
-    await expect(overlay).toBeVisible();
+    // Check for overlay
+    await expect(findOverlay(page1).first()).toBeVisible();
 
-    // Press Escape to close
+    // Press <escape> to dismiss
     await page1.keyboard.press('Escape');
-    await expect(overlay).not.toBeVisible();
+    await expect(findOverlay(page1).first()).not.toBeVisible();
+
+    // Click "Show removed cards" button again
+    await page1.click(Buttons.DEV_SHOW_REMOVED); 
+
+    // Check for overlay (z-index 1000)
+    await expect(findOverlay(page1).first()).toBeVisible();
+
+    // Click the overlay to dismiss
+    await findOverlay(page1).first().click();
+    await expect(findOverlay(page1).first()).not.toBeVisible();
   });
 
-  test('Reorder Cards in Hand', async ({ browser }) => {
+  test('Hand: card selection. deselection', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    const code = await createGame(page, 'FocusTest');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page.click(Buttons.START_GAME);
+    await page.waitForURL(/game/);
+
+    // Wait for hand to populate
+    await expect(findAllHandCards(page)).toHaveCount(8);
+
+    // Find pair of DEVELOPER cards (in the fixed deck)
+    const devCards = findHandCardsByClass(page, CardClass.Developer);
+    const count = await devCards.count();
+    expect(count).toEqual(3);
+
+    let firstPairIndex = -1;
+    let secondPairIndex = -1;
+
+    for (let i = 0; i < count; i++) {
+      const src = await devCards.nth(i).locator("img").getAttribute('src');
+      for (let j = i + 1; j < count; j++) {
+        const src2 = await devCards.nth(j).locator("img").getAttribute('src');
+        if (src === src2) {
+          firstPairIndex = i;
+          secondPairIndex = j;
+          break;
+        }
+      }
+      if (firstPairIndex !== -1) break;
+    }
+
+    expect(firstPairIndex).not.toBe(-1);
+    expect(secondPairIndex).not.toBe(-1);
+    const pair1 = devCards.nth(firstPairIndex);
+    const pair2 = devCards.nth(secondPairIndex);
+
+    // Find another playable card
+    const other = findHandCardsByClass(page, CardClass.Shuffle);
+
+    // Select first
+    await pair1.click();
+    await expect(pair1).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(pair2).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(other).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+
+    // Shift-click second
+    await page.keyboard.down('Shift');
+    await pair2.click();
+    await page.keyboard.up('Shift');
+
+    // Verify selection style
+    await expect(pair1).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(pair2).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(other).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+
+    // Press shift again to check focus ring remains (regression)
+    await page.keyboard.down('Shift');
+    const parent = pair2.locator('xpath=..');
+    await expect(parent).toHaveCSS('outline-style', 'none');
+    await page.keyboard.up('Shift');
+    await expect(parent).toHaveCSS('outline-style', 'none');
+    await expect(pair1).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(pair2).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(other).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+
+    // Shift-click other, does nothing
+    await page.keyboard.down('Shift');
+    await other.click();
+    await page.keyboard.up('Shift');
+    await expect(pair1).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(pair2).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(other).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+
+    // Click other deselects the pair
+    await other.click();
+    await page.waitForTimeout(10000);
+    await expect(pair1).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(pair2).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(other).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+
+    // Click text "Your Hand" (empty space/container header) to deselect
+    await page.click(Headers.YOUR_HAND);
+
+    // Verify all cards are deselected
+    await expect(pair1).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(pair2).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(other).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+  });
+
+  test('Hand: reorder cards', async ({ browser }) => {
     // Set viewport to force 2 rows
     const viewport = { width: 850, height: 800 };
     const context = await browser.newContext({ viewport });
@@ -718,14 +863,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.waitForURL(/game/);
     await page3.waitForURL(/game/);
 
-    await page1.waitForLoadState('networkidle');
-    await page2.waitForLoadState('networkidle');
-
     // Use a player who is NOT current turn to perform reorder
-    await page2.waitForSelector(Headers.YOUR_HAND, { timeout: 15000 });
-    const handArea = page2.locator(Headers.YOUR_HAND).locator('xpath=..');
+    const handArea = findHand(page2)
     await expect(handArea).toBeVisible({ timeout: 15000 });
-    await expect(handArea.locator('img')).toHaveCount(8, { timeout: 10000 });
+    await expect(findAllHandCards(page2)).toHaveCount(8);
 
     const rows = handArea.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
     await expect(rows).toHaveCount(2);
@@ -773,6 +914,171 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.mouse.move(currentCard1Box!.x + currentCard1Box!.width / 2, currentCard1Box!.y + currentCard1Box!.height / 2, { steps: 20 });
     await page2.mouse.up();
     await page2.waitForTimeout(1000);
+  });
+
+  test('Hand: multi-card reorder', async ({ browser }) => {
+    const viewport = { width: 1200, height: 800 }; 
+    const ctx1 = await browser.newContext({ viewport });
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+
+    const ctx2 = await browser.newContext({ viewport });
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    const handArea = findHand(page1);
+    await expect(handArea).toBeVisible();
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+
+    const devCards = findHandCardsByClass(page1, CardClass.Developer);
+    await expect(devCards).toHaveCount(3);
+
+    let firstPairIndex = -1;
+    let secondPairIndex = -1;
+    let pairSrc = '';
+
+    for (let i = 0; i < 8; i++) {
+      const src = await devCards.nth(i).locator("img").getAttribute('src');
+      for (let j = i + 1; j < 8; j++) {
+        const src2 = await devCards.nth(j).locator("img").getAttribute('src');
+        if (src === src2) {
+          firstPairIndex = i;
+          secondPairIndex = j;
+          pairSrc = src || '';
+          break;
+        }
+      }
+      if (firstPairIndex !== -1) break;
+    }
+
+    expect(firstPairIndex).not.toBe(-1);
+    expect(pairSrc).not.toBe("");
+    const card1 = devCards.nth(firstPairIndex);
+    const card2 = devCards.nth(secondPairIndex);
+
+    // Select first card
+    await card1.click();
+    await expect(card1).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+
+    // Shift-click second card to multi-select
+    await page1.keyboard.down('Shift');
+    await card2.click();
+    await page1.keyboard.up('Shift');
+
+    // Verify both are selected
+    await expect(card1).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(card2).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+
+    // Drag the first selected card to end of hand (moves both)
+    const lastCard = handArea.locator('img').last();
+    const srcBox = await card1.boundingBox();
+    const dstBox = await lastCard.boundingBox(); 
+
+    if (!srcBox || !dstBox) throw new Error('Missing bounding box');
+
+    await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+    await page1.mouse.down();
+    await page1.waitForTimeout(500);
+    await page1.mouse.move(dstBox.x + dstBox.width, dstBox.y + dstBox.height / 2, { steps: 60 }); 
+    await page1.waitForTimeout(500);
+    await page1.mouse.up();
+    await page1.waitForTimeout(500);
+
+    // Verify the identical cards are now at the end of the hand
+    const newLast = findAllHandCards(page1).last().locator("img");
+    const newNextLast = findAllHandCards(page1).nth(-2).locator("img");
+    expect(await newLast.getAttribute('src')).toBe(pairSrc);
+    expect(await newNextLast.getAttribute('src')).toBe(pairSrc);
+
+    // Verify selection persists
+    await expect(newLast.locator('xpath=..')).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await expect(newNextLast.locator('xpath=..')).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+  });
+
+  // TODO: Run this in non-devmode
+  test('Hand: Verify initial state', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+
+    // Verify initial card counts are 8 for both
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+
+    // Verify each player has at least 1 DEBUG card
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
+    await expect(findHandCardsByClass(page2, CardClass.Debug)).toHaveCount(1);
+  });
+
+  test('Game page: layout stability', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    const code = await createGame(page, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    await page.click(Buttons.START_GAME);
+    await page.waitForURL(/game/);
+
+    // Wait for initial layout
+    await page.waitForSelector(Locators.DRAW_PILE_COUNT);
+
+    // Locators for areas
+    // The green table area (Col md=9)
+    const tableArea = page.locator('div[style*="background-color: rgb(34, 139, 34)"]'); 
+    // The fixed height message container
+    const messageArea = findLogArea(page).locator('xpath=..'); 
+    // The hand container (bg-light, fixed height)
+    const handArea = page.locator(Headers.YOUR_HAND).locator('xpath=..'); 
+
+    await expect(tableArea).toBeVisible();
+    await expect(messageArea).toBeVisible();
+    await expect(handArea).toBeVisible();
+
+    // Get initial bounding boxes
+    const initialTableBox = await tableArea.boundingBox();
+    const initialMessageBox = await messageArea.boundingBox();
+    const initialHandBox = await handArea.boundingBox();
+
+    if (!initialTableBox || !initialMessageBox || !initialHandBox) {
+        throw new Error("Could not get initial bounding boxes");
+    }
+
+    // Add 20 cards to force scrolling and potential layout shift
+    for (let i = 0; i < 20; i++) {
+      await page.click(Buttons.DEV_GIVE_SAFE_CARD);
+    }
+
+    // Wait a bit for any layout settling
+    await page.waitForTimeout(500);
+
+    // Get new bounding boxes
+    const finalTableBox = await tableArea.boundingBox();
+    const finalMessageBox = await messageArea.boundingBox();
+    const finalHandBox = await handArea.boundingBox();
+
+    if (!finalTableBox || !finalMessageBox || !finalHandBox) {
+        throw new Error("Could not get final bounding boxes");
+    }
+
+    // Assert dimensions haven't changed
+    expect(finalTableBox.height).toBeCloseTo(initialTableBox.height, 1);
+    expect(finalTableBox.width).toBeCloseTo(initialTableBox.width, 1);
+
+    expect(finalMessageBox.height).toBeCloseTo(initialMessageBox.height, 1);
+    expect(finalMessageBox.y).toBeCloseTo(initialMessageBox.y, 1);
+
+    // Hand container HEIGHT should not change (it is 35vh fixed)
+    expect(finalHandBox.height).toBeCloseTo(initialHandBox.height, 1);
   });
 
   test('Play Single Non-DEVELOPER Card', async ({ browser }) => {
@@ -842,7 +1148,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // 1. Click to Select FAVOR
     await favorCard.click();
     // Verify selection visual (blue border)
-    await expect(favorCard.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+    await expect(favorCard.locator('xpath=..')).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
 
     // 2. Drag SHUFFLE to discard (implicitly deselects FAVOR and plays SHUFFLE)
     const srcBox = await shuffleCard.boundingBox();
@@ -860,207 +1166,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // 4. Verify FAVOR is still there and DESELECTED
     await expect(favorCard).toBeVisible();
-    await expect(favorCard.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
+    await expect(favorCard.locator('xpath=..')).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
 
     // 5. Verify message
     await expect(messageArea).toContainText(`P1 played SHUFFLE`);
-  });
-
-  test('Click Empty Space Deselects', async ({ browser }) => {
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
-    const code = await createGame(page1, 'P1');
-
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-    await expect(page1.locator('text=P2')).toBeVisible();
-
-    await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page1.waitForLoadState('networkidle');
-
-    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
-
-    // Select a card
-    const card = handArea.locator('img').nth(6);
-    await expect(card).toBeVisible();
-    await card.click();
-    await expect(card.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-
-    // Click text "Your Hand" (empty space/container header) to deselect
-    await page1.click(Headers.YOUR_HAND);
-
-    // Verify card is deselected
-    await expect(card.locator('xpath=..')).not.toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-  });
-
-  test('Verify Hand Counts and DEBUG Card', async ({ browser }) => {
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
-    const code = await createGame(page1, 'P1');
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-    await page1.click(Buttons.START_GAME);
-
-    await page1.waitForSelector(Headers.YOUR_HAND, { timeout: 10000 });
-    await page2.waitForSelector(Headers.YOUR_HAND, { timeout: 10000 });
-
-    // Verify initial card counts are 8 for both
-    const p1HandCount = await page1.locator(Headers.YOUR_HAND).locator('xpath=..').locator('img').count();
-    const p2HandCount = await page2.locator(Headers.YOUR_HAND).locator('xpath=..').locator('img').count();
-
-    expect(p1HandCount).toBe(8);
-    expect(p2HandCount).toBe(8);
-
-    // Verify each player has at least 1 DEBUG card
-    const p1DebugCount = await page1.locator(Headers.YOUR_HAND).locator('xpath=..').locator('img[alt^="DEBUG:"]').count();
-    const p2DebugCount = await page2.locator(Headers.YOUR_HAND).locator('xpath=..').locator('img[alt^="DEBUG:"]').count();
-
-    expect(p1DebugCount).toBeGreaterThanOrEqual(1);
-    expect(p2DebugCount).toBeGreaterThanOrEqual(1);
-  });
-
-  test('Multi-Card Reorder', async ({ browser }) => {
-    const viewport = { width: 1200, height: 800 }; 
-    const ctx1 = await browser.newContext({ viewport });
-    const page1 = await ctx1.newPage();
-    const code = await createGame(page1, 'P1');
-
-    const ctx2 = await browser.newContext({ viewport });
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-
-    await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page1.waitForLoadState('networkidle');
-
-    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
-    await expect(handArea.locator('img')).toHaveCount(8);
-
-    const devCards = handArea.locator('img[alt^="DEVELOPER:"]');
-    const count = await devCards.count();
-    expect(count).toBeGreaterThanOrEqual(3);
-
-    let firstPairIndex = -1;
-    let secondPairIndex = -1;
-    let pairSrc = '';
-
-    for (let i = 0; i < count; i++) {
-      const src = await devCards.nth(i).getAttribute('src');
-      for (let j = i + 1; j < count; j++) {
-        const src2 = await devCards.nth(j).getAttribute('src');
-        if (src === src2) {
-          firstPairIndex = i;
-          secondPairIndex = j;
-          pairSrc = src || '';
-          break;
-        }
-      }
-      if (firstPairIndex !== -1) break;
-    }
-
-    expect(firstPairIndex).not.toBe(-1);
-    const card1 = devCards.nth(firstPairIndex);
-    const card2 = devCards.nth(secondPairIndex);
-
-    // Select first card
-    await card1.click();
-    await expect(card1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-
-    // Shift-click second card to multi-select
-    await page1.keyboard.down('Shift');
-    await card2.click();
-    await page1.keyboard.up('Shift');
-
-    // Verify both are selected
-    await expect(card1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-    await expect(card2.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-
-    // Drag the first selected card to end of hand (moves both)
-    const lastCard = handArea.locator('img').last();
-    const srcBox = await card1.boundingBox();
-    const dstBox = await lastCard.boundingBox(); 
-
-    if (!srcBox || !dstBox) throw new Error('Missing bounding box');
-
-    await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
-    await page1.mouse.down();
-    await page1.waitForTimeout(500);
-    await page1.mouse.move(dstBox.x + dstBox.width, dstBox.y + dstBox.height / 2, { steps: 60 }); 
-    await page1.waitForTimeout(500);
-    await page1.mouse.up();
-
-    await page1.waitForTimeout(500);
-
-    // Verify the identical cards are now at the end of the hand
-    const newLast = handArea.locator('img').last();
-    const newSecondLast = handArea.locator('img').nth(-2);
-
-    expect(await newLast.getAttribute('src')).toBe(pairSrc);
-    expect(await newSecondLast.getAttribute('src')).toBe(pairSrc);
-
-    // Verify selection persists
-    await expect(newLast.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-    await expect(newSecondLast.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-  });
-
-  test('Card Selection Focus Ring', async ({ browser }) => {
-    const ctx = await browser.newContext();
-    const page = await ctx.newPage();
-    const code = await createGame(page, 'FocusTest');
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-    await page.click(Buttons.START_GAME);
-    await page.waitForURL(/game/);
-
-    // Wait for hand to populate
-    await expect(findAllHandCards(page)).toHaveCount(8);
-
-    // Find pair of DEVELOPER cards (in the fixed deck)
-    const devCards = findHand(page).locator('img[alt^="DEVELOPER:"]');
-    const count = await devCards.count();
-    expect(count).toBeGreaterThanOrEqual(3);
-
-    let firstPairIndex = -1;
-    let secondPairIndex = -1;
-
-    for (let i = 0; i < count; i++) {
-      const src = await devCards.nth(i).getAttribute('src');
-      for (let j = i + 1; j < count; j++) {
-        const src2 = await devCards.nth(j).getAttribute('src');
-        if (src === src2) {
-          firstPairIndex = i;
-          secondPairIndex = j;
-          break;
-        }
-      }
-      if (firstPairIndex !== -1) break;
-    }
-
-    expect(firstPairIndex).not.toBe(-1);
-    const card1 = devCards.nth(firstPairIndex);
-    const card2 = devCards.nth(secondPairIndex);
-
-    // Select first
-    await card1.click();
-    await expect(card1.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-
-    // Shift-click second
-    await page.keyboard.down('Shift');
-    await card2.click();
-    await page.keyboard.up('Shift');
-
-    // Verify selection style
-    await expect(card2.locator('xpath=..')).toHaveCSS('box-shadow', 'rgb(0, 0, 255) 0px 0px 0px 3px');
-
-    // Press Shift again to check focus ring suppression (outline style)
-    await page.keyboard.down('Shift');
-    const card2Wrapper = card2.locator('xpath=..');
-    await expect(card2Wrapper).toHaveCSS('outline-style', 'none');
-    await page.keyboard.up('Shift');
   });
 
   test('Draw Card', async ({ browser }) => {
@@ -1173,164 +1282,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify discard pile has image
     await expect(findDiscardPile(page1).locator('img')).toBeVisible();
     await expect(findDiscardPile(page2).locator('img')).toBeVisible();
-  });
-
-  test('Put Card Back', async ({ browser }) => {
-    // Setup context
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    // P1 Creates Game
-    const code = await createGame(page, 'P1');
-
-    // P2 Joins
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-
-    // Start Game
-    await page.click(Buttons.START_GAME);
-    await page.waitForURL(/game/);
-
-    // Verify initial hand count (8)
-    const handArea = page.locator(Headers.YOUR_HAND).locator('xpath=..');
-    await expect(handArea.locator('img')).toHaveCount(8);
-
-    // Get initial deck count from UI text (e.g. "(30 cards)")
-    const deckCountText = await page.locator(Locators.DRAW_PILE_COUNT).textContent();
-    const initialDeckCount = parseInt(deckCountText?.replace(/\D/g, '') || '0', 10);
-
-    // Click "Put a card back" button
-    await page.click(Buttons.DEV_PUT_CARD_BACK);
-
-    // Verify hand count decreased to 7
-    await expect(handArea.locator('img')).toHaveCount(7);
-
-    // Verify deck count increased by 1
-    await expect(page.locator(Locators.DRAW_PILE_COUNT)).toHaveText(`(${initialDeckCount + 1} cards)`);
-  });
-
-  test('Layout Stability', async ({ browser }) => {
-    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-    const page = await context.newPage();
-    const code = await createGame(page, 'P1');
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-
-    await page.click(Buttons.START_GAME);
-    await page.waitForURL(/game/);
-
-    // Wait for initial layout
-    await page.waitForSelector(Locators.DRAW_PILE_COUNT);
-
-    // Locators for areas
-    // The green table area (Col md=9)
-    const tableArea = page.locator('div[style*="background-color: rgb(34, 139, 34)"]'); 
-    // The fixed height message container
-    const messageArea = findLogArea(page).locator('xpath=..'); 
-    // The hand container (bg-light, fixed height)
-    const handArea = page.locator(Headers.YOUR_HAND).locator('xpath=..'); 
-
-    await expect(tableArea).toBeVisible();
-    await expect(messageArea).toBeVisible();
-    await expect(handArea).toBeVisible();
-
-    // Get initial bounding boxes
-    const initialTableBox = await tableArea.boundingBox();
-    const initialMessageBox = await messageArea.boundingBox();
-    const initialHandBox = await handArea.boundingBox();
-
-    if (!initialTableBox || !initialMessageBox || !initialHandBox) {
-        throw new Error("Could not get initial bounding boxes");
-    }
-
-    // Add 20 cards to force scrolling and potential layout shift
-    for (let i = 0; i < 20; i++) {
-      await page.click(Buttons.DEV_GIVE_SAFE_CARD);
-    }
-
-    // Wait a bit for any layout settling
-    await page.waitForTimeout(500);
-
-    // Get new bounding boxes
-    const finalTableBox = await tableArea.boundingBox();
-    const finalMessageBox = await messageArea.boundingBox();
-    const finalHandBox = await handArea.boundingBox();
-
-    if (!finalTableBox || !finalMessageBox || !finalHandBox) {
-        throw new Error("Could not get final bounding boxes");
-    }
-
-    // Assert dimensions haven't changed
-    expect(finalTableBox.height).toBeCloseTo(initialTableBox.height, 1);
-    expect(finalTableBox.width).toBeCloseTo(initialTableBox.width, 1);
-
-    expect(finalMessageBox.height).toBeCloseTo(initialMessageBox.height, 1);
-    expect(finalMessageBox.y).toBeCloseTo(initialMessageBox.y, 1);
-
-    // Hand container HEIGHT should not change (it is 35vh fixed)
-    expect(finalHandBox.height).toBeCloseTo(initialHandBox.height, 1);
-  });
-
-  test('Message Log Cleared Between Games', async ({ browser }) => {
-    // P1 Creates Game 1
-    const context = await browser.newContext();
-    const page = await context.newPage();
-    const code1 = await createGame(page, 'P1');
-
-    // P2 Joins Game 1
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code1);
-
-    // Start Game 1
-    await page.click(Buttons.START_GAME);
-    await page.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-
-    // P1 plays a card to generate a log
-    // Draw until we have something playable? Or just use DEV_GIVE_SAFE_CARD if hand empty?
-    // Start game gives 7 cards. Should have something.
-    // Let's just use "Give me a safe card" to generate a "P1 put back..." or "P1 drew..." message if we used draw?
-    // Or just "P1 joined" is already in the log.
-    // Let's ensure a SPECIFIC unique message is there.
-    // "P1 played ATTACK" (if we can).
-    // Or simpler: P1 draws a card.
-    drawCard(page);
-    // Wait for log
-    await expect(findLogArea(page)).toContainText('P1 drew a card');
-    await expect(findLogArea(page2)).toContainText('P1 drew a card');
-
-    // P1 Leaves Game
-    await page.click(Buttons.LEAVE_GAME);
-    // Confirm Leave
-    await page.click(Buttons.LEAVE_GAME_CONFIRM);
-    await page.waitForURL('/');
-
-    // P2 sees win/end?
-    // "game ended due to insufficient players"
-    // P2 acknowledges
-    await expect(page2.locator(Locators.MODAL_SHOW)).toContainText(/win/i);
-    await page2.click(Buttons.MODAL_OK);
-    await page2.waitForURL('/');
-
-    // P1 Creates Game 2
-    const code2 = await createGame(page, 'P1');
-    expect(code2).not.toEqual(code1);
-
-    // P2 Joins Game 2
-    await joinGame(page2, 'P2', code2);
-
-    // Start Game 2 to see the logs
-    await page.click(Buttons.START_GAME);
-    await page.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-
-    // Verify logs are clean.
-    // Game 1 had "P1 drew a card".
-    // Game 2 should be empty initially.
-    await expect(findLogArea(page)).toHaveText('');
-    await expect(findLogArea(page2)).toHaveText('');
   });
 
   test('Simultaneous NAKs', async ({ browser }) => {
@@ -1850,7 +1801,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
       await expect(findTurnArea(page3)).toContainText(`your turn is next`);
     }
 
-
     // Setup game
     const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const page1 = await context1.newPage();
@@ -2185,5 +2135,66 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findAllHandCards(page2)).toHaveCount(7); // 8 - 1
     await expect(findAllHandCards(page3)).toHaveCount(0);
     await expect(findAllHandCards(page4)).toHaveCount(8);
+  });
+
+  test('Message log: cleared between games', async ({ browser }) => {
+    // P1 Creates Game 1
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    const code1 = await createGame(page, 'P1');
+
+    // P2 Joins Game 1
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code1);
+
+    // Start Game 1
+    await page.click(Buttons.START_GAME);
+    await page.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    // P1 plays a card to generate a log
+    // Draw until we have something playable? Or just use DEV_GIVE_SAFE_CARD if hand empty?
+    // Start game gives 7 cards. Should have something.
+    // Let's just use "Give me a safe card" to generate a "P1 put back..." or "P1 drew..." message if we used draw?
+    // Or just "P1 joined" is already in the log.
+    // Let's ensure a SPECIFIC unique message is there.
+    // "P1 played ATTACK" (if we can).
+    // Or simpler: P1 draws a card.
+    drawCard(page);
+    // Wait for log
+    await expect(findLogArea(page)).toContainText('P1 drew a card');
+    await expect(findLogArea(page2)).toContainText('P1 drew a card');
+
+    // P1 Leaves Game
+    await page.click(Buttons.LEAVE_GAME);
+    // Confirm Leave
+    await page.click(Buttons.LEAVE_GAME_CONFIRM);
+    await page.waitForURL('/');
+
+    // P2 sees win/end?
+    // "game ended due to insufficient players"
+    // P2 acknowledges
+    await expect(page2.locator(Locators.MODAL_SHOW)).toContainText(/win/i);
+    await page2.click(Buttons.MODAL_OK);
+    await page2.waitForURL('/');
+
+    // P1 Creates Game 2
+    const code2 = await createGame(page, 'P1');
+    expect(code2).not.toEqual(code1);
+
+    // P2 Joins Game 2
+    await joinGame(page2, 'P2', code2);
+
+    // Start Game 2 to see the logs
+    await page.click(Buttons.START_GAME);
+    await page.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    // Verify logs are clean.
+    // Game 1 had "P1 drew a card".
+    // Game 2 should be empty initially.
+    await expect(findLogArea(page)).toHaveText('');
+    await expect(findLogArea(page2)).toHaveText('');
   });
 });

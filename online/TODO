@@ -3,6 +3,8 @@ Phase 4:
  - send BIG messages when executing
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
  - Don't do the "choose player" dialog if only 2 players
+ - upgrade next.js to 24
+ - allow NAK during action, use in tests
 
 tests
  - more helpers
