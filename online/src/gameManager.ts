@@ -47,6 +47,7 @@ interface Game {
   timer: NodeJS.Timeout | null;
   seeTheFutureResolver?: () => void;
   favorResolver?: (cardId: string) => void;
+  developerResolver?: (index: number) => void;
   devMode: boolean;
 }
 
@@ -128,8 +129,8 @@ export class GameManager {
         this.playCard(socket, data.gameCode, data.cardId, data.nonce, data.victimId);
       });
 
-      socket.on(SocketEvent.PlayCombo, (data: { gameCode: string; cardIds: string[]; nonce?: string }) => {
-        this.playCombo(socket, data.gameCode, data.cardIds, data.nonce);
+      socket.on(SocketEvent.PlayCombo, (data: { gameCode: string; cardIds: string[]; nonce?: string; victimId?: string }) => {
+        this.playCombo(socket, data.gameCode, data.cardIds, data.nonce, data.victimId);
       });
 
       socket.on(SocketEvent.DrawCard, (gameCode: string) => {
@@ -146,6 +147,10 @@ export class GameManager {
 
       socket.on(SocketEvent.ResolveFavorCard, (data: { gameCode: string; cardId: string }) => {
         this.resolveFavorCard(socket, data.gameCode, data.cardId);
+      });
+
+      socket.on(SocketEvent.ResolveDeveloperCard, (data: { gameCode: string; index: number }) => {
+        this.resolveDeveloperCard(socket, data.gameCode, data.index);
       });
 
       // Handle voluntary leave
@@ -1647,7 +1652,7 @@ export class GameManager {
     }
   }
 
-  private playCombo(socket: Socket, gameCode: string, cardIds: string[], nonce?: string) {
+  private playCombo(socket: Socket, gameCode: string, cardIds: string[], nonce?: string, victimId?: string) {
     const game = this.games.get(gameCode);
     if (!game) {
       this.log(null, `playCombo failed: game ${gameCode} not found`);
@@ -1760,22 +1765,98 @@ export class GameManager {
       // Add to discard pile
       game.discardPile.push(...cardsInHand);
 
-      // Push a do-nothing operation
-      game.pendingOperations.push({
-        cardClass: proto.class,
-        playerName: player.name,
-        action: async (_g: Game) => {
-          // Sleep for 3 seconds (or less if GO_FAST)
-          const duration = config.goFast ? 500 : 3000;
-          if (this.verbose) {
-            this.log(_g, `executing do-nothing operation for card ${proto.class} (sleeping ${duration}ms)`);
+      if (proto.class === CardClass.Developer) {
+          // Validate victim
+          const victim = victimId ? game.players.find(p => p.id === victimId) : undefined;
+          if (!victim || victim.isOut || victim.id === player.id || victim.hand.length === 0) {
+             this.log(game, `player "${player.name}" tried to play DEV combo with invalid victim`);
+             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid victim for Developer combo." });
+             // Revert play
+             for (let i = 0; i < cardsInHand.length; i++) game.discardPile.pop();
+             player.hand.push(...cardsInHand);
+             this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
+             return;
           }
-          await new Promise(resolve => setTimeout(resolve, duration));
-        }
-      });
 
-      this.log(game, `player "${player.name}" played 2x combo "${proto.class}: ${proto.name}"`);
-      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${proto.class}.` });
+          this.log(game, `player "${player.name}" played 2x combo "${proto.class}: ${proto.name}" targeting "${victim.name}"`);
+          this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} wants to steal a card from ${victim.name}.` });
+
+          game.pendingOperations.push({
+            cardClass: proto.class,
+            playerName: player.name,
+            action: async (_g: Game) => {
+                // Re-fetch victim
+                const currentVictim = _g.players.find(p => p.id === victimId);
+                if (!currentVictim || currentVictim.isOut || currentVictim.hand.length === 0) {
+                    this.log(_g, `DEV combo failed: victim unavailable or empty hand`);
+                    this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} tried to steal from ${currentVictim?.name || 'someone'}, but they have no cards left!` });
+                    return;
+                }
+
+                _g.turnPhase = TurnPhase.ChoosingDeveloperCard;
+                this.updateGameNonce(_g, player.name);
+
+                // Ask requester to choose index
+                this.emitToSocket(player.socketId, SocketEvent.ChooseDeveloperCard, { victimId: currentVictim.id, handCount: currentVictim.hand.length });
+
+                // Wait for response (index)
+                const timeoutMs = 15000;
+                let timeoutHandle: NodeJS.Timeout;
+                const chosenIndex = await Promise.race([
+                    new Promise<number>(resolve => { _g.developerResolver = resolve; }),
+                    new Promise<number>(resolve => {
+                        timeoutHandle = setTimeout(() => {
+                            const v = _g.players.find(p => p.id === victimId);
+                            if (v) resolve(Math.floor(this.prng.random() * v.hand.length));
+                            else resolve(-1);
+                        }, timeoutMs);
+                    })
+                ]);
+                clearTimeout(timeoutHandle!);
+                _g.developerResolver = undefined;
+
+                // Re-fetch victim
+                const freshVictim = _g.players.find(p => p.id === victimId);
+                if (!freshVictim || chosenIndex < 0 || chosenIndex >= freshVictim.hand.length) {
+                    this.log(_g, "DEV combo failed: invalid index or victim lost");
+                    return;
+                }
+
+                const [stolenCard] = freshVictim.hand.splice(chosenIndex, 1);
+
+                // Requester
+                const requester = _g.players.find(p => p.id === player.id);
+                if (requester) {
+                    requester.hand.push(stolenCard);
+                    this.emitToSocket(requester.socketId, SocketEvent.HandUpdate, { hand: requester.hand });
+                }
+                this.emitToSocket(freshVictim.socketId, SocketEvent.DeveloperStolen, { card: stolenCard });
+                this.emitToSocket(freshVictim.socketId, SocketEvent.HandUpdate, { hand: freshVictim.hand });
+
+                this.log(_g, `player "${player.name}" stole "${stolenCard.class}" from "${freshVictim.name}"`);
+                this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} stole a card from ${freshVictim.name}.` });
+
+                _g.turnPhase = TurnPhase.Action;
+                this.updateGameNonce(_g, player.name);
+            }
+          });
+      } else {
+          // Push a do-nothing operation
+          game.pendingOperations.push({
+            cardClass: proto.class,
+            playerName: player.name,
+            action: async (_g: Game) => {
+              // Sleep for 3 seconds (or less if GO_FAST)
+              const duration = config.goFast ? 500 : 3000;
+              if (this.verbose) {
+                this.log(_g, `executing do-nothing operation for card ${proto.class} (sleeping ${duration}ms)`);
+              }
+              await new Promise(resolve => setTimeout(resolve, duration));
+            }
+          });
+          this.log(game, `player "${player.name}" played 2x combo "${proto.class}: ${proto.name}"`);
+          this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${proto.class}.` });
+      }
 
       // Start Timer
       this.startReactionTimer(game, player.id);
@@ -2124,6 +2205,20 @@ export class GameManager {
 
     if (game.favorResolver) {
         game.favorResolver(cardId);
+    }
+  }
+
+  private resolveDeveloperCard(socket: Socket, gameCode: string, index: number) {
+    const game = this.games.get(gameCode);
+    if (!game) return;
+
+    if (game.turnPhase !== TurnPhase.ChoosingDeveloperCard) return;
+
+    const player = game.players.find(p => p.socketId === socket.id);
+    if (!player || !this.isPlayerTurn(game, player)) return;
+
+    if (game.developerResolver) {
+        game.developerResolver(index);
     }
   }
 

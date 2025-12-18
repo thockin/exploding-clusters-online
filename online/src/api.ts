@@ -36,6 +36,7 @@ export enum TurnPhase {
   Upgrading = 'UPGRADING',
   SeeingTheFuture = 'SEEING_THE_FUTURE',
   ChoosingFavorCard = 'CHOOSING_FAVOR_CARD',
+  ChoosingDeveloperCard = 'CHOOSING_DEVELOPER_CARD',
 }
 
 export enum SocketEvent {
@@ -58,6 +59,7 @@ export enum SocketEvent {
   LeaveGame = 'leaveGame',
   DismissSeeTheFuture = 'dismissSeeTheFuture',
   ResolveFavorCard = 'resolveFavorCard',
+  ResolveDeveloperCard = 'resolveDeveloperCard',
 
   // server -> client
   GameUpdate = 'gameUpdate',
@@ -74,6 +76,8 @@ export enum SocketEvent {
   SeeTheFutureData = 'seeTheFutureData',
   ChooseFavorCard = 'chooseFavorCard',
   FavorOutcome = 'favorOutcome',
+  ChooseDeveloperCard = 'chooseDeveloperCard',
+  DeveloperStolen = 'developerStolen',
   TimerUpdate = 'timerUpdate',
   PlayError = 'playError',
 }

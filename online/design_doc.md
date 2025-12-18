@@ -1353,15 +1353,16 @@ for 3 seconds saying "{victim} gave you a {card-class} card.".  After 3
 seconds, or when the player hits escape or clicks somewhere, the overlay is
 closed.  It is still the current player's turn.
 
-DEVELOPER cards must be played in pairs.  Playing a DEVELOPER pair pops up a
-dialog asking the current player to choose one of the other remaining players,
-called the victim.  The player may not choose a victim with 0 cards. in their
-hand.  The player is then asked to choose a card from 0 to N-1 (where N is the
-number of cards in the victim's hand). The victim gets a message saying
-"{player} stole a card from you" and to all other players saying "{player}
-stole a card from {victim}".  The card in the victim's hand at the chosen
-position flashes 3 times and then disappears.  It is moved to the current
-player's hand.
+DEVELOPER cards must be played in pairs (called a combo).  Playing a DEVELOPER
+combo pops up a dialog asking the current player to choose one of the other
+remaining players, called the victim.  The player may not choose a victim with
+0 cards. in their hand.  Once the reaction timer expires, if the combo is
+executed, the current player is asked to choose a card from 0 to N-1 (where N
+is the number of cards in the victim's hand). The victim gets a 3 second
+overlay showing the stolen card, with a message saying "{player} stole your
+{card class} card". All players get a log message saying "{player} stole a card
+from {victim}".  The card is moved from the victim's hand to the current
+player's hand on the server and UIs are updated.
 
 Playing an ATTACK card ends the current player's turn immediately, without
 drawing a card, and forces the next player to take 2 turns in a row.  A message

@@ -57,6 +57,9 @@ export default function GameScreen() {
   const [favorOutcomeCard, setFavorOutcomeCard] = useState<Card | null>(null);
   const [favorSelectedCardId, setFavorSelectedCardId] = useState<string | null>(null); // For victim selecting card to give
   const [favorCountdown, setFavorCountdown] = useState(15);
+  const [developerVictimModalOpen, setDeveloperVictimModalOpen] = useState(false);
+  const [developerCardChoiceCount, setDeveloperCardChoiceCount] = useState<number | null>(null);
+  const [developerStolenCard, setDeveloperStolenCard] = useState<Card | null>(null);
 
   // Ensure isClient is true after first render
   useEffect(() => {
@@ -185,6 +188,15 @@ export default function GameScreen() {
       }, 3000);
     };
 
+    const onChooseDeveloperCard = (data: { victimId: string, handCount: number }) => {
+        setDeveloperCardChoiceCount(data.handCount);
+    };
+
+    const onDeveloperStolen = (data: { card: Card }) => {
+        setDeveloperStolenCard(data.card);
+        setTimeout(() => setDeveloperStolenCard(null), 3000);
+    };
+
     const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
       if (phase === TurnPhase.Reaction) {
         setCountdown(duration);
@@ -217,6 +229,8 @@ export default function GameScreen() {
     socket.on(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
     socket.on(SocketEvent.ChooseFavorCard, onChooseFavorCard);
     socket.on(SocketEvent.FavorOutcome, onFavorOutcome);
+    socket.on(SocketEvent.ChooseDeveloperCard, onChooseDeveloperCard);
+    socket.on(SocketEvent.DeveloperStolen, onDeveloperStolen);
     socket.on(SocketEvent.TimerUpdate, onTimerUpdate);
 
     return () => {
@@ -227,6 +241,8 @@ export default function GameScreen() {
       socket.off(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
       socket.off(SocketEvent.ChooseFavorCard, onChooseFavorCard);
       socket.off(SocketEvent.FavorOutcome, onFavorOutcome);
+      socket.off(SocketEvent.ChooseDeveloperCard, onChooseDeveloperCard);
+      socket.off(SocketEvent.DeveloperStolen, onDeveloperStolen);
       socket.off(SocketEvent.TimerUpdate, onTimerUpdate);
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
@@ -349,6 +365,7 @@ export default function GameScreen() {
         // Block all players from playing cards while one player is seeing the future
         return { allowed: false, reason: `${gameState.players.find(p => p.id === gameState.turnOrder[gameState.currentTurnIndex])?.name} is seeing the future.` };
       case TurnPhase.ChoosingFavorCard:
+      case TurnPhase.ChoosingDeveloperCard:
         return { allowed: false, reason: "Waiting for a favor to be granted." };
       default:
         return { allowed: false, reason: `BUG: Can't play cards in phase ${gameState.turnPhase}.` };
@@ -758,6 +775,12 @@ export default function GameScreen() {
         if (cardsToPlay.length === 1 && cardsToPlay[0].class === CardClass.Favor) {
             setFavorVictimModalOpen(true);
             return;
+        }
+
+        // Intercept DEVELOPER combo
+        if (cardsToPlay.length === 2 && cardsToPlay[0].class === CardClass.Developer && cardsToPlay[1].class === CardClass.Developer) {
+             setDeveloperVictimModalOpen(true);
+             return;
         }
 
         // --- Client-side Play Validation ---
@@ -1630,6 +1653,77 @@ export default function GameScreen() {
           }}>
             <h2>You received:</h2>
             <Image src={favorOutcomeCard.imageUrl} alt={favorOutcomeCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
+          </div>
+        )}
+
+        <Modal show={developerVictimModalOpen} onHide={() => setDeveloperVictimModalOpen(false)} backdrop="static" keyboard={false} centered>
+          <Modal.Header>
+            <Modal.Title>Steal a Card</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>Choose a player to steal from:</p>
+            <div className="list-group">
+              {gameState?.players.filter(p => p.id !== playerId && !p.isOut && p.cards > 0).map(p => (
+                <button
+                  key={p.id}
+                  className={`list-group-item list-group-item-action ${favorVictimSelection === p.id ? 'active' : ''}`}
+                  onClick={() => setFavorVictimSelection(p.id)}
+                >
+                  {p.name} ({p.cards} cards)
+                </button>
+              ))}
+            </div>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setDeveloperVictimModalOpen(false)}>Cancel</Button>
+            <Button variant="primary" disabled={!favorVictimSelection} onClick={() => {
+                if (selectedCards.length === 2 && gameCode && favorVictimSelection) {
+                    socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: selectedCards.map(c => c.id), nonce: gameState?.nonce, victimId: favorVictimSelection });
+                    setDeveloperVictimModalOpen(false);
+                    setFavorVictimSelection(null);
+                    setSelectedCards([]);
+                }
+            }}>Steal Card</Button>
+          </Modal.Footer>
+        </Modal>
+
+        <Modal show={developerCardChoiceCount !== null} onHide={() => {}} backdrop="static" keyboard={false} centered>
+          <Modal.Header>
+            <Modal.Title>Choose a Card to Steal</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>Pick a card from the victim&apos;s hand:</p>
+            <div className="d-flex flex-wrap justify-content-center" style={{ gap: '10px' }}>
+              {Array.from({ length: developerCardChoiceCount || 0 }).map((_, index) => (
+                <div 
+                    key={index} 
+                    onClick={() => {
+                        if (gameCode) {
+                            socket?.emit(SocketEvent.ResolveDeveloperCard, { gameCode, index });
+                            setDeveloperCardChoiceCount(null);
+                        }
+                    }}
+                    style={{ 
+                        border: '1px solid gray',
+                        borderRadius: '5px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    <Image src="/art/back.png" alt="Card Back" width={80} height={112} />
+                </div>
+              ))}
+            </div>
+          </Modal.Body>
+        </Modal>
+
+        {developerStolenCard && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 2000,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white'
+          }}>
+            <h2>{gameState?.lastActorName} stole your:</h2>
+            <Image src={developerStolenCard.imageUrl} alt={developerStolenCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
         )}
 
