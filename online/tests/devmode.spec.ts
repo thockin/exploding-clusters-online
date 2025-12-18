@@ -842,6 +842,42 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(other).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
   });
 
+  test('Hand: drag unselected card', async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page1 = await ctx.newPage();
+    const code = await createGame(page1, 'FocusTest');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+
+    // Wait for hand to populate
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+
+    // Locate two different cards (FAVOR and SHUFFLE)
+    const favorCard = findHandCardsByClass(page1, CardClass.Favor);
+    const shuffleCard = findHandCardsByClass(page1, CardClass.Shuffle);
+    await expect(favorCard).toBeVisible();
+    await expect(shuffleCard).toBeVisible();
+
+    // Click to select FAVOR
+    await favorCard.click();
+    await expect(favorCard).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+
+    // Drag SHUFFLE
+    const srcBox = await shuffleCard.boundingBox();
+
+    await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
+    await page1.mouse.down();
+    await page1.mouse.move(srcBox.x + srcBox.width * 2, srcBox.y + srcBox.height / 2);
+
+    // Verify selection
+    await expect(favorCard).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+    await page1.keyboard.press('Escape'); // cancel drag
+    await expect(shuffleCard).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
+  });
+
   test('Hand: reorder cards', async ({ browser }) => {
     // Set viewport to force 2 rows
     const viewport = { width: 850, height: 800 };
@@ -1021,24 +1057,24 @@ test.describe('UI Tests with DEVMODE=1', () => {
   test('Game page: layout stability', async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     const page = await context.newPage();
-    const code = await createGame(page, 'P1');
+    const code = await createGame(page1, 'P1');
     const ctx2 = await browser.newContext();
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
 
-    await page.click(Buttons.START_GAME);
-    await page.waitForURL(/game/);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
 
     // Wait for initial layout
-    await page.waitForSelector(Locators.DRAW_PILE_COUNT);
+    await page1.waitForSelector(Locators.DRAW_PILE_COUNT);
 
     // Locators for areas
     // The green table area (Col md=9)
-    const tableArea = page.locator('div[style*="background-color: rgb(34, 139, 34)"]'); 
+    const tableArea = page1.locator('div[style*="background-color: rgb(34, 139, 34)"]'); 
     // The fixed height message container
-    const messageArea = findLogArea(page).locator('xpath=..'); 
+    const messageArea = findLogArea(page1).locator('xpath=..'); 
     // The hand container (bg-light, fixed height)
-    const handArea = page.locator(Headers.YOUR_HAND).locator('xpath=..'); 
+    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..'); 
 
     await expect(tableArea).toBeVisible();
     await expect(messageArea).toBeVisible();
@@ -1055,11 +1091,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Add 20 cards to force scrolling and potential layout shift
     for (let i = 0; i < 20; i++) {
-      await page.click(Buttons.DEV_GIVE_SAFE_CARD);
+      await page1.click(Buttons.DEV_GIVE_SAFE_CARD);
     }
 
     // Wait a bit for any layout settling
-    await page.waitForTimeout(500);
+    await page1.waitForTimeout(500);
 
     // Get new bounding boxes
     const finalTableBox = await tableArea.boundingBox();
@@ -1081,7 +1117,100 @@ test.describe('UI Tests with DEVMODE=1', () => {
     expect(finalHandBox.height).toBeCloseTo(initialHandBox.height, 1);
   });
 
+  test('Draw: regular card', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    // Ensure it's P1's turn
+    await expect(findTurnArea(page1)).toContainText(`It's your turn`);
+    await expect(findTurnArea(page2)).toContainText(`your turn is next`);
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+
+    // Click draw pile
+    await findDrawPile(page1).click();
+
+    // Verify overlay on P1
+    await expect(findOverlay(page1)).toBeVisible();
+
+    // Verify Animation on P2
+    const animatedHandCard = page2.locator(Locators.HAND_ANIMATION_CARD);
+    await expect(animatedHandCard).toBeVisible();
+    await expect(animatedHandCard).toHaveAttribute('src', /back\.png/);
+
+    // Verify overlay gone
+    await expect(findOverlay(page1)).not.toBeVisible();
+
+    // Verify hand count +1
+    await expect(findAllHandCards(page1)).toHaveCount(9);
+
+    // Verify log message indicating turn advancement
+    await expect(findLogArea(page1)).toContainText(`P1 drew a card`);
+    await expect(findLogArea(page2)).toContainText(`P1 drew a card`);
+
+    // Verify turn passed to P2
+    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
+  });
+
+  test('Draw: dismiss drawn-card overlay', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    // P1 draws a card
+    await findDrawPile(page1).click();
+
+    // Verify overlay appears
+    await expect(findOverlay(page1)).toBeVisible();
+
+    // Click to dismiss (should disappear immediately)
+    await findOverlay(page1).click();
+    await expect(findOverlay(page1)).not.toBeVisible();
+
+    // Verify turn passes to P2
+    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
+
+    // P2 draws a card
+    await findDrawPile(page2).click();
+
+    // Verify overlay appears
+    await expect(findOverlay(page2)).toBeVisible();
+
+    // Press <escape> to dismiss
+    await page2.keyboard.press('Escape');
+    await expect(findOverlay(page2).first()).not.toBeVisible();
+
+    // Verify turn passes to P1
+    await expect(findTurnArea(page1)).toContainText(`It's your turn`);
+
+    // P1 draws a card
+    await findDrawPile(page1).click();
+
+    // Verify overlay appears
+    await expect(findOverlay(page1)).toBeVisible();
+
+    // Do nothing to dismiss (should disappear automatically in time)
+    await expect(findOverlay(page1)).not.toBeVisible();
+  });
+
   test('Play Single Non-DEVELOPER Card', async ({ browser }) => {
+    // TODO: make this use NAK
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
@@ -1120,130 +1249,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(discardPile.locator('img')).toBeVisible();
     // Verify log message
     await expect(messageArea).toContainText(`P1 played `);
-  });
-
-  test('Drag Different Card (Switch Selection)', async ({ browser }) => {
-    const viewport = { width: 1200, height: 800 };
-    const ctx1 = await browser.newContext({ viewport });
-    const page1 = await ctx1.newPage();
-    const code = await createGame(page1, 'P1');
-    const ctx2 = await browser.newContext({ viewport });
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-    await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page1.waitForLoadState('networkidle');
-
-    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
-    const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-    const messageArea = findLogArea(page1);
-
-    // Locate two different cards (FAVOR and SHUFFLE)
-    const favorCard = handArea.locator('img[alt^="FAVOR:"]').first();
-    const shuffleCard = handArea.locator('img[alt^="SHUFFLE:"]').first();
-
-    await expect(favorCard).toBeVisible();
-    await expect(shuffleCard).toBeVisible();
-
-    // 1. Click to Select FAVOR
-    await favorCard.click();
-    // Verify selection visual (blue border)
-    await expect(favorCard.locator('xpath=..')).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
-
-    // 2. Drag SHUFFLE to discard (implicitly deselects FAVOR and plays SHUFFLE)
-    const srcBox = await shuffleCard.boundingBox();
-    const dstBox = await discardPile.boundingBox();
-    if (!srcBox || !dstBox) throw new Error('Missing bounding box');
-
-    await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
-    await page1.mouse.down();
-    await page1.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
-    await page1.mouse.up();
-
-    // 3. Verify SHUFFLE is played (gone)
-    await expect(shuffleCard).not.toBeVisible(); 
-    await expect(handArea.locator('img')).toHaveCount(7);
-
-    // 4. Verify FAVOR is still there and DESELECTED
-    await expect(favorCard).toBeVisible();
-    await expect(favorCard.locator('xpath=..')).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
-
-    // 5. Verify message
-    await expect(messageArea).toContainText(`P1 played SHUFFLE`);
-  });
-
-  test('Draw Card', async ({ browser }) => {
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
-    const code = await createGame(page1, 'P1');
-
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-
-    // Start game
-    await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-
-    // Ensure it's P1's turn
-    await expect(findTurnArea(page1)).toContainText(`It's your turn`);
-    await expect(findTurnArea(page2)).toContainText(`your turn is next`);
-    await expect(findAllHandCards(page1)).toHaveCount(8);
-
-    // Click draw pile
-    await findDrawPile(page1).click();
-
-    // Verify overlay on P1
-    await expect(findOverlay(page1)).toBeVisible();
-
-    // Verify Animation on P2
-    const animatedHandCard = page2.locator(Locators.HAND_ANIMATION_CARD);
-    await expect(animatedHandCard).toBeVisible();
-    await expect(animatedHandCard).toHaveAttribute('src', /back\.png/);
-
-    // Wait for animation to finish (GO_FAST=1s)
-    //await page1.waitForTimeout(1500);
-
-    // Verify overlay gone
-    await expect(findOverlay(page1)).not.toBeVisible();
-
-    // Verify hand count +1
-    await expect(findAllHandCards(page1)).toHaveCount(9);
-
-    // Verify log message indicating turn advancement
-    await expect(findLogArea(page1)).toContainText(`P1 drew a card`);
-    await expect(findLogArea(page2)).toContainText(`P1 drew a card`);
-
-    // Verify turn passed to P2
-    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
-  });
-
-  test('Dismiss Draw Overlay', async ({ browser }) => {
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
-    const code = await createGame(page1, 'P1');
-
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-
-    await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-
-    // P1 draws a card
-    await findDrawPile(page1).click();
-
-    // Verify overlay appears
-    await expect(findOverlay(page1)).toBeVisible();
-
-    // Click to dismiss (should disappear immediately)
-    await findOverlay(page1).click();
-    await expect(findOverlay(page1)).not.toBeVisible();
-
-    // Verify turn eventually passes to P2 (after server timeout)
-    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
   });
 
   test('Play Single Card', async ({ browser }) => {
