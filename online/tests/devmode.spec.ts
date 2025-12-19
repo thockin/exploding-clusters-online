@@ -1,5 +1,4 @@
-import { test, expect, Page, Locator } from '@playwright/test';
-import { Buttons, Inputs, Headers, Locators, CSS } from './constants';
+import { test, expect, Page, Locator } from '@playwright/test'; import { Buttons, Inputs, Headers, Locators, CSS } from './constants';
 import { CardClass, TurnPhase } from '../src/api';
 
 // Helper to create game
@@ -128,7 +127,7 @@ function findTurnArea(page: Page): Locator {
 
 // Helper to find the overlay
 function findOverlay(page: Page): Locator {
-  return page.locator(`div[style*="z-index: 1000"] img`);
+  return page.locator(`div[style*="z-index: 1000"]`);
 }
 
 test.describe('UI Tests with DEVMODE=1', () => {
@@ -1058,7 +1057,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
   test('Game page: layout stability', async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-    const page = await context.newPage();
+    const page1 = await context.newPage();
     const code = await createGame(page1, 'P1');
     const ctx2 = await browser.newContext();
     const page2 = await ctx2.newPage();
@@ -1387,8 +1386,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify UI
     await expect(findAllHandCards(page1)).toHaveCount(7);
     await expect(findAllHandCards(page2)).toHaveCount(8);
-    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE);
-    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Shuffle);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Shuffle);
     await expect(findLogArea(page1)).toContainText('P1 played SHUFFLE');
     await expect(findLogArea(page2)).toContainText('P1 played SHUFFLE');
 
@@ -1457,8 +1456,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify UI
     await expect(findAllHandCards(page2)).toHaveCount(7);
-    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE_NOW);
-    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE_NOW);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.ShuffleNow);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.ShuffleNow);
     await expect(findLogArea(page1)).toContainText('P2 played SHUFFLE_NOW');
     await expect(findLogArea(page2)).toContainText('P2 played SHUFFLE_NOW');
 
@@ -1518,8 +1517,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify UI
     await expect(findAllHandCards(page2)).toHaveCount(7);
-    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE_NOW);
-    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE_NOW);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.ShuffleNow);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.ShuffleNow);
     await expect(findLogArea(page1)).toContainText('P2 played SHUFFLE_NOW');
     await expect(findLogArea(page2)).toContainText('P2 played SHUFFLE_NOW');
 
@@ -1795,8 +1794,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify UI
     await expect(findAllHandCards(page1)).toHaveCount(7);
     await expect(findAllHandCards(page2)).toHaveCount(8);
-    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE);
-    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Shuffle);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Shuffle);
     await expect(findLogArea(page1)).toContainText('P1 played SHUFFLE');
     await expect(findLogArea(page2)).toContainText('P1 played SHUFFLE');
 
@@ -1844,8 +1843,126 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findLogArea(page2)).toContainText("P2 NAKed P1's SHUFFLE");
   });
 
+  test('Play: FAVOR', async ({ browser }) => {
+    // Make pages large to avoid any need to scroll the hand area.
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context4 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+    const page3 = await context3.newPage();
+    const page4 = await context4.newPage();
+
+    // Setup game
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+    await joinGame(page4, 'P4', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+    await page3.waitForURL(/game/);
+    await page4.waitForURL(/game/);
+
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+    const p2TimerArea = findTimerArea(page2);
+    await expect(p2TimerArea).toBeHidden();
+
+    const p1DiscardPile = findDiscardPile(page1);
+    await expect(p1DiscardPile.locator('img')).not.toBeVisible(); 
+    const p2DiscardPile = findDiscardPile(page2);
+    await expect(p2DiscardPile.locator('img')).not.toBeVisible(); 
+
+    // Verify hands
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+    await expect(findAllHandCards(page3)).toHaveCount(8);
+    await expect(findAllHandCards(page4)).toHaveCount(8);
+
+    // Verify P1 has a FAVOR
+    const favorCard = findHandCardsByClass(page1, CardClass.Favor).first();
+    await expect(favorCard).toBeVisible();
+
+    // Make sure P3 has no cards
+    for (let i = 0; i < 8; i++) {
+      await page3.click(Buttons.DEV_PUT_CARD_BACK);
+      await expect(findAllHandCards(page3)).toHaveCount(8-(i+1));
+    }
+    await expect(findAllHandCards(page3)).toHaveCount(0);
+
+    // P1 plays FAVOR
+    await playCard(page1, favorCard);
+
+    // Verify Victim modal appears
+    await expect(page1.locator('.modal-title')).toContainText('Ask for a Favor');
+    // Verify player list: P2 should be present, P3 (empty hand) and P1 (self) should not.
+    const modalBody = page1.locator('.modal-body');
+    await expect(modalBody.locator('.list-group-item', { hasText: 'P2' })).toBeVisible();
+    await expect(modalBody.locator('.list-group-item', { hasText: 'P3' })).not.toBeVisible();
+    await expect(modalBody.locator('.list-group-item', { hasText: 'P1' })).not.toBeVisible();
+
+    // Select P2
+    await page1.click('text=P2 (8 cards)');
+    await page1.click('button:has-text("Ask Favor")');
+
+    // Verify UI
+    await expect(findAllHandCards(page1)).toHaveCount(7);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+    await expect(findAllHandCards(page3)).toHaveCount(0);
+    await expect(findAllHandCards(page4)).toHaveCount(8);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Favor);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Favor);
+    await expect(findLogArea(page1)).toContainText('P1 asked P2 for a favor');
+    await expect(findLogArea(page2)).toContainText('P1 asked P2 for a favor');
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+    await expect(p2TimerArea).toBeVisible();
+    await expect(p2TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p2TimerArea).toContainText('Want to react');
+
+    // Verify that none of P1's cards are playable
+    for (const card of await findAllHandCards(page1).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+
+    // Verify card choice modal on P2
+    await expect(page2.locator('.modal-title')).toContainText('Grant a Favor');
+    await expect(page2.locator('.modal-title')).toContainText('15s'); // Countdown
+    // Verify P2 hand is shown
+    await expect(page2.locator('.modal-body img')).toHaveCount(8); // P2 had 8 cards
+
+    // P2 chooses first card
+    await page2.locator('.modal-body div[style*="cursor: pointer"]').first().click();
+    await page2.click('button:has-text("Give Card")');
+
+    // Verify P1 sees overlay
+    await expect(findOverlay(page1)).toBeVisible();
+    await expect(findOverlay(page1)).toContainText('You received:');
+    await expect(page1.locator('h2')).toContainText('You received:');
+
+    // Verify execution
+    await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing FAVOR played by "P1"');
+    await expect(findLogArea(page2)).toContainText('DEV: op[0]: Executing FAVOR played by "P1"');
+    await expect(findLogArea(page3)).toContainText('DEV: op[0]: Executing FAVOR played by "P1"');
+    await expect(findLogArea(page4)).toContainText('DEV: op[0]: Executing FAVOR played by "P1"');
+    await expect(findLogArea(page1)).toContainText('P2 gave P1 a card.');
+    await expect(findLogArea(page2)).toContainText('P2 gave P1 a card.');
+    await expect(findLogArea(page3)).toContainText('P2 gave P1 a card.');
+    await expect(findLogArea(page4)).toContainText('P2 gave P1 a card.');
+
+    // Verify Counts
+    await expect(findAllHandCards(page1)).toHaveCount(8); // 8 start - 1 played + 1 received
+    await expect(findAllHandCards(page2)).toHaveCount(7); // 8 - 1
+    await expect(findAllHandCards(page3)).toHaveCount(0);
+    await expect(findAllHandCards(page4)).toHaveCount(8);
+  });
+
   // TODO:
-  // Play FAVOR
   // Play DEVELOPER
   // Play SEE THE FUTURE
   // Play SKIP
@@ -1907,6 +2024,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
       await page3.click(Buttons.DEV_PUT_CARD_BACK);
       await expect(findAllHandCards(page3)).toHaveCount(8-(i+1));
     }
+    await expect(findAllHandCards(page3)).toHaveCount(0);
 
     // Select Pair
     await card1.click();
@@ -2368,8 +2486,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
   test('Message log: cleared between games', async ({ browser }) => {
     // P1 Creates Game 1
     const context = await browser.newContext();
-    const page = await context.newPage();
-    const code1 = await createGame(page, 'P1');
+    const page1 = await context.newPage();
+    const code1 = await createGame(page1, 'P1');
 
     // P2 Joins Game 1
     const ctx2 = await browser.newContext();
@@ -2377,8 +2495,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await joinGame(page2, 'P2', code1);
 
     // Start Game 1
-    await page.click(Buttons.START_GAME);
-    await page.waitForURL(/game/);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
     await page2.waitForURL(/game/);
 
     // P1 plays a card to generate a log
@@ -2389,16 +2507,16 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Let's ensure a SPECIFIC unique message is there.
     // "P1 played ATTACK" (if we can).
     // Or simpler: P1 draws a card.
-    drawCard(page);
+    drawCard(page1);
     // Wait for log
-    await expect(findLogArea(page)).toContainText('P1 drew a card');
+    await expect(findLogArea(page1)).toContainText('P1 drew a card');
     await expect(findLogArea(page2)).toContainText('P1 drew a card');
 
     // P1 Leaves Game
-    await page.click(Buttons.LEAVE_GAME);
+    await page1.click(Buttons.LEAVE_GAME);
     // Confirm Leave
-    await page.click(Buttons.LEAVE_GAME_CONFIRM);
-    await page.waitForURL('/');
+    await page1.click(Buttons.LEAVE_GAME_CONFIRM);
+    await page1.waitForURL('/');
 
     // P2 sees win/end?
     // "game ended due to insufficient players"
@@ -2408,21 +2526,21 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.waitForURL('/');
 
     // P1 Creates Game 2
-    const code2 = await createGame(page, 'P1');
+    const code2 = await createGame(page1, 'P1');
     expect(code2).not.toEqual(code1);
 
     // P2 Joins Game 2
     await joinGame(page2, 'P2', code2);
 
     // Start Game 2 to see the logs
-    await page.click(Buttons.START_GAME);
-    await page.waitForURL(/game/);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
     await page2.waitForURL(/game/);
 
     // Verify logs are clean.
     // Game 1 had "P1 drew a card".
     // Game 2 should be empty initially.
-    await expect(findLogArea(page)).toHaveText('');
+    await expect(findLogArea(page1)).toHaveText('');
     await expect(findLogArea(page2)).toHaveText('');
   });
 });
