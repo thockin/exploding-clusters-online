@@ -1052,6 +1052,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify each player has at least 1 DEBUG card
     await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
     await expect(findHandCardsByClass(page2, CardClass.Debug)).toHaveCount(1);
+
+    //TODO: verify playability of each card class
   });
 
   test('Game page: layout stability', async ({ browser }) => {
@@ -1209,46 +1211,142 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findOverlay(page1)).not.toBeVisible();
   });
 
-  test('Play Single Non-DEVELOPER Card', async ({ browser }) => {
-    // TODO: make this use NAK
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
+  // This test proves the basic game play loop - action/reaction/resolution -
+  // works.  It uses NAK because NAK is the simplest card and has no effect
+  // when played as an action.
+  test('Play: NAK action, reaction', async ({ browser }) => {
+    // Make pages large to avoid any need to scroll the hand area.
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+
+    // Setup game
     const code = await createGame(page1, 'P1');
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
     await page1.waitForURL(/game/);
-    await page1.waitForLoadState('networkidle');
+    await page2.waitForURL(/game/);
 
-    const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
-    const discardPile = page1.locator(Locators.DISCARD_PILE_TEXT).locator('xpath=..');
-    const messageArea = findLogArea(page1);
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+    const p2TimerArea = findTimerArea(page2);
+    await expect(p2TimerArea).toBeHidden();
 
-    await expect(handArea.locator('img')).toHaveCount(8);
-    await expect(discardPile.locator('img')).not.toBeVisible(); 
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
 
-    // DEVMODE ensures we have a SHUFFLE card to play
-    const cardToPlayLocator =  handArea.locator('img[alt^="SHUFFLE:"]');
-    await expect(cardToPlayLocator).toBeVisible();
+    const p1DiscardPile = findDiscardPile(page1);
+    await expect(p1DiscardPile.locator('img')).not.toBeVisible(); 
+    const p2DiscardPile = findDiscardPile(page2);
+    await expect(p2DiscardPile.locator('img')).not.toBeVisible(); 
 
-    const srcBox = await cardToPlayLocator.boundingBox();
-    const dstBox = await discardPile.boundingBox();
+    // Verify P1's NAK cards are playable
+    const p1Naks = findHandCardsByClass(page1, CardClass.Nak);
+    await expect(p1Naks).toHaveCount(2);
+    await expect(p1Naks.nth(0)).toHaveAttribute('data-playable', 'true');
+    await expect(p1Naks.nth(1)).toHaveAttribute('data-playable', 'true');
 
-    if (!srcBox || !dstBox) throw new Error('Missing bounding box');
+    // Verify P2's NAK card is not playable
+    const p2Naks = findHandCardsByClass(page2, CardClass.Nak);
+    await expect(p2Naks).toHaveCount(1);
+    await expect(p2Naks.nth(0)).toHaveAttribute('data-playable', 'false');
 
-    // Drag card to discard pile
-    await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
-    await page1.mouse.down();
-    await page1.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
-    await page1.mouse.up();
+    let lastNak = "";
 
-    // Verify card count decreased
-    await expect(handArea.locator('img')).toHaveCount(7);
-    // Verify discard pile has image
-    await expect(discardPile.locator('img')).toBeVisible();
-    // Verify log message
-    await expect(messageArea).toContainText(`P1 played `);
+    // 1. P1 plays NAK, start reaction phase
+    await playCard(page1, p1Naks.nth(1));
+
+    // Verify UI
+    await expect(findAllHandCards(page1)).toHaveCount(7);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.NAK);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.NAK);
+    await expect(findLogArea(page1)).toContainText('P1 played NAK');
+    await expect(findLogArea(page2)).toContainText('P1 played NAK');
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("alt");
+    await expect(p1DiscardPile.locator('img')).not.toHaveAttribute("alt", lastNak);
+    lastNak = await p1DiscardPile.locator('img').getAttribute("alt");
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+    await expect(p2TimerArea).toBeVisible();
+    await expect(p2TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p2TimerArea).toContainText('Want to react');
+
+    // Verify that none of P1's cards are playable
+    for (const card of await findAllHandCards(page1).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+
+    // Verify that P2's NAK is playable
+    await expect(p2Naks.nth(0)).toHaveAttribute('data-playable', 'true');
+
+    // 2. P2 plays NAK, restart reaction phase
+    await playCard(page2, p2Naks.nth(0));
+
+    // Verify UI
+    await expect(findAllHandCards(page1)).toHaveCount(7);
+    await expect(findAllHandCards(page2)).toHaveCount(7);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.NAK);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.NAK);
+    await expect(findLogArea(page1)).toContainText('P2 played NAK');
+    await expect(findLogArea(page2)).toContainText('P2 played NAK');
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("alt");
+    await expect(p1DiscardPile.locator('img')).not.toHaveAttribute("alt", lastNak);
+    lastNak = await p1DiscardPile.locator('img').getAttribute("alt");
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Want to react');
+    await expect(p2TimerArea).toBeVisible();
+    await expect(p2TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p2TimerArea).toContainText('Waiting for other players to react');
+
+    // Verify that none of P2's cards are playable
+    for (const card of await findAllHandCards(page2).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+
+    // Verify that P1's NAK is playable
+    await expect(p1Naks.nth(0)).toHaveAttribute('data-playable', 'true');
+
+    // 3. P1 plays NAK, restart reaction phase
+    await playCard(page1, p1Naks.nth(0));
+
+    // Verify UI
+    await expect(findAllHandCards(page1)).toHaveCount(6);
+    await expect(findAllHandCards(page2)).toHaveCount(7);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.NAK);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.NAK);
+    await expect(findLogArea(page1)).toContainText('P1 played NAK');
+    await expect(findLogArea(page2)).toContainText('P1 played NAK');
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("alt");
+    await expect(p1DiscardPile.locator('img')).not.toHaveAttribute("alt", lastNak);
+    lastNak = await p1DiscardPile.locator('img').getAttribute("alt");
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+    await expect(p2TimerArea).toBeVisible();
+    await expect(p2TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p2TimerArea).toContainText('Want to react');
+
+    // Verify that none of P1's cards are playable
+    for (const card of await findAllHandCards(page1).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+
+    await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing NAK played by "P1"');
+    await expect(findLogArea(page2)).toContainText('DEV: op[0]: Executing NAK played by "P1"');
+    await expect(findLogArea(page1)).toContainText("P1 NAKed P2's NAK");
+    await expect(findLogArea(page2)).toContainText("P1 NAKed P2's NAK");
+    await expect(findLogArea(page1)).toContainText('DEV: op[1]: Executing NAK played by "P1"');
+    await expect(findLogArea(page2)).toContainText('DEV: op[1]: Executing NAK played by "P1"');
   });
 
   test('Play Single Card', async ({ browser }) => {
