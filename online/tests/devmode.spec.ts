@@ -1214,7 +1214,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
   // This test proves the basic game play loop - action/reaction/resolution -
   // works.  It uses NAK because NAK is the simplest card and has no effect
   // when played as an action.
-  test('Play: NAK action, reaction', async ({ browser }) => {
+  test('Play: NAK action, NAK reaction', async ({ browser }) => {
     // Make pages large to avoid any need to scroll the hand area.
     const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -1341,6 +1341,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
         await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
+    // Verify execution
     await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing NAK played by "P1"');
     await expect(findLogArea(page2)).toContainText('DEV: op[0]: Executing NAK played by "P1"');
     await expect(findLogArea(page1)).toContainText("P1 NAKed P2's NAK");
@@ -1349,44 +1350,207 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findLogArea(page2)).toContainText('DEV: op[1]: Executing NAK played by "P1"');
   });
 
-  test('Play Single Card', async ({ browser }) => {
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
+  test('Play: SHUFFLE', async ({ browser }) => {
+    // Make pages large to avoid any need to scroll the hand area.
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+
+    // Setup game
     const code = await createGame(page1, 'P1');
-
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
-
     await page1.click(Buttons.START_GAME);
     await page1.waitForURL(/game/);
     await page2.waitForURL(/game/);
 
-    // Find a SHUFFLE card to play (P1 has one).
-    const card = findHandCardsByClass(page1, CardClass.Shuffle).first();
-    await expect(card).toBeVisible();
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+    const p2TimerArea = findTimerArea(page2);
+    await expect(p2TimerArea).toBeHidden();
 
-    // Verify card count
     await expect(findAllHandCards(page1)).toHaveCount(8);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
 
-    // Play the card
-    await playCard(page1, card);
+    const p1DiscardPile = findDiscardPile(page1);
+    await expect(p1DiscardPile.locator('img')).not.toBeVisible(); 
+    const p2DiscardPile = findDiscardPile(page2);
+    await expect(p2DiscardPile.locator('img')).not.toBeVisible(); 
 
-    // Check for timer messages
-    await expect(findTimerArea(page1)).toContainText(`Waiting for other players to react`);
-    await expect(findTimerArea(page2)).toContainText(`Want to react?`);
+    // Find P1's SHUFFLE card
+    const p1Card = findHandCardsByClass(page1, CardClass.Shuffle).first();
+    await expect(p1Card).toBeVisible();
 
-    // Wait for timer to expire (2 seconds in tests)
-    await expect(findTimerArea(page1)).not.toContainText(`Waiting for other players to react`);
+    // P1 plays SHUFFLE, start reaction phase
+    await playCard(page1, p1Card);
 
-    // Verify card count decreased
+    // Verify UI
     await expect(findAllHandCards(page1)).toHaveCount(7);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE);
+    await expect(findLogArea(page1)).toContainText('P1 played SHUFFLE');
+    await expect(findLogArea(page2)).toContainText('P1 played SHUFFLE');
 
-    // Verify discard pile has image
-    await expect(findDiscardPile(page1).locator('img')).toBeVisible();
-    await expect(findDiscardPile(page2).locator('img')).toBeVisible();
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+    await expect(p2TimerArea).toBeVisible();
+    await expect(p2TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p2TimerArea).toContainText('Want to react');
+
+    // Verify that none of P1's cards are playable
+    for (const card of await findAllHandCards(page1).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+
+    // Verify execution
+    await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing NAK played by "P1"');
+    await expect(findLogArea(page2)).toContainText('DEV: op[0]: Executing NAK played by "P1"');
+    await expect(findLogArea(page1)).toContainText("P1 NAKed P2's NAK");
+    await expect(findLogArea(page2)).toContainText("P1 NAKed P2's NAK");
+    await expect(findLogArea(page1)).toContainText('DEV: op[1]: Executing NAK played by "P1"');
+    await expect(findLogArea(page2)).toContainText('DEV: op[1]: Executing NAK played by "P1"');
   });
 
+  test('Play: SHUFFLE_NOW', async ({ browser }) => {
+    // Make pages large to avoid any need to scroll the hand area.
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+
+    // Setup game
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+    const p2TimerArea = findTimerArea(page2);
+    await expect(p2TimerArea).toBeHidden();
+
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+
+    const p1DiscardPile = findDiscardPile(page1);
+    await expect(p1DiscardPile.locator('img')).not.toBeVisible(); 
+    const p2DiscardPile = findDiscardPile(page2);
+    await expect(p2DiscardPile.locator('img')).not.toBeVisible(); 
+
+    // Find P2's SHUFFLE_NOW card
+    const p2Card = findHandCardsByClass(page2, CardClass.ShuffleNow).first();
+    await expect(p2Card).toBeVisible();
+
+    // P1 draws (P2 has the card we want)
+    await drawCard(page1);
+    await expect(findAllHandCards(page1)).toHaveCount(9);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+
+    // Verify turn advance
+    await expect(findTurnArea(page1)).toContainText(`It's P2's turn`);
+    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
+
+    // P2 plays SHUFFLE_NOW, start reaction phase
+    await playCard(page2, p2Card);
+
+    // Verify UI
+    await expect(findAllHandCards(page2)).toHaveCount(7);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE_NOW);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE_NOW);
+    await expect(findLogArea(page1)).toContainText('P2 played SHUFFLE_NOW');
+    await expect(findLogArea(page2)).toContainText('P2 played SHUFFLE_NOW');
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Want to react');
+    await expect(p2TimerArea).toBeVisible();
+    await expect(p2TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p2TimerArea).toContainText('Waiting for other players to react');
+
+    // Verify that none of P2's cards are playable
+    for (const card of await findAllHandCards(page2).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+
+    // Verify execution
+    await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing SHUFFLE_NOW played by "P2"');
+    await expect(findLogArea(page2)).toContainText('DEV: op[0]: Executing SHUFFLE_NOW played by "P2"');
+    await expect(findLogArea(page2)).toContainText("The deck was shuffled");
+  });
+
+  test('Play: SHUFFLE_NOW by non-current player', async ({ browser }) => {
+    // Make pages large to avoid any need to scroll the hand area.
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+
+    // Setup game
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+    const p2TimerArea = findTimerArea(page2);
+    await expect(p2TimerArea).toBeHidden();
+
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+
+    const p1DiscardPile = findDiscardPile(page1);
+    await expect(p1DiscardPile.locator('img')).not.toBeVisible(); 
+    const p2DiscardPile = findDiscardPile(page2);
+    await expect(p2DiscardPile.locator('img')).not.toBeVisible(); 
+
+    // Find P2's SHUFFLE_NOW card
+    const p2Card = findHandCardsByClass(page2, CardClass.ShuffleNow).first();
+    await expect(p2Card).toBeVisible();
+
+    // P2 plays SHUFFLE_NOW, start reaction phase
+    await playCard(page2, p2Card);
+
+    // Verify UI
+    await expect(findAllHandCards(page2)).toHaveCount(7);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE_NOW);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SHUFFLE_NOW);
+    await expect(findLogArea(page1)).toContainText('P2 played SHUFFLE_NOW');
+    await expect(findLogArea(page2)).toContainText('P2 played SHUFFLE_NOW');
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Want to react');
+    await expect(p2TimerArea).toBeVisible();
+    await expect(p2TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p2TimerArea).toContainText('Waiting for other players to react');
+
+    // Verify that none of P2's cards are playable
+    for (const card of await findAllHandCards(page2).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+
+    // Verify execution
+    await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing SHUFFLE_NOW played by "P2"');
+    await expect(findLogArea(page2)).toContainText('DEV: op[0]: Executing SHUFFLE_NOW played by "P2"');
+    await expect(findLogArea(page2)).toContainText("The deck was shuffled");
+  });
+
+  // TODO:
+  // Exhaustive action/reaction?
+  // 2 NAKs
+  // Play FAVOR
+  // Play DEVELOPER
+  // Play SEE THE FUTURE
+  // Play SKIP
+  // Play ATTACK
   test('Simultaneous NAKs', async ({ browser }) => {
     // Make pages large to avoid any need to scroll the hand area.
     const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -1595,63 +1759,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
         await expect(card).toHaveAttribute('data-playable', 'false');
     }
     for (const card of await findAllHandCards(page2).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
-    }
-  });
-
-  test('Non-current player plays NOW first', async ({ browser }) => {
-    // Make pages large to avoid any need to scroll the hand area.
-    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
-    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
-    const page1 = await context1.newPage();
-    const page2 = await context2.newPage();
-
-    // Setup game
-    const code = await createGame(page1, 'P1');
-    await joinGame(page2, 'P2', code);
-    await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-
-    const timerArea = findTimerArea(page1);
-    await expect(timerArea).toBeHidden();
-
-    const p1Nak = findHandCardsByClass(page1, CardClass.Nak).first();
-    await expect(p1Nak).toHaveAttribute('data-playable', 'false');
-
-    const p2ShuffleNow = findHandCardsByClass(page2, CardClass.ShuffleNow).first();
-    await expect(p2ShuffleNow).toHaveAttribute('data-playable', 'true');
-
-    // P2 plays SHUFFLE_NOW, enter reaction phase
-    await playCard(page2, p2ShuffleNow);
-    await expect(findLogArea(page1)).toContainText('P2 played SHUFFLE_NOW');
-
-    // Verify reaction phase
-    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
-    await expect(timerArea).toBeVisible();
-    await expect(page1.getByText('Want to react')).toBeVisible();
-    await expect(page2.getByText('Waiting for other players to react')).toBeVisible();
-
-    // Verify that none of P2's cards are playable
-    for (const card of await findAllHandCards(page2).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
-    }
-
-    // Verify that P1's NAK card is playable
-    await expect(p1Nak).toHaveAttribute('data-playable', 'true');
-
-    // P1 plays NAK, restart reaction phase
-    await playCard(page1, p1Nak);
-    await expect(findLogArea(page2)).toContainText('P1 played NAK');
-
-    // Verify reaction phase
-    await expect(timerArea).toBeVisible();
-    await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
-    await expect(page1.getByText('Waiting for other players to react')).toBeVisible();
-    await expect(page2.getByText('Want to react')).toBeVisible();
-
-    // Verify that none of P1's cards are playable
-    for (const card of await findAllHandCards(page1).all()) {
         await expect(card).toHaveAttribute('data-playable', 'false');
     }
   });
