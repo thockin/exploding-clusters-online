@@ -8,6 +8,7 @@ tests
  - more helpers
  - better locator for all areas
  - remove unused locator consts
+ - Add a prod test with cases which do not need DEVMODE
 
 
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
