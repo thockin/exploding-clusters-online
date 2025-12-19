@@ -1899,9 +1899,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page1.locator('.modal-title')).toContainText('Ask for a Favor');
     // Verify player list: P2 should be present, P3 (empty hand) and P1 (self) should not.
     const modalBody = page1.locator('.modal-body');
+    await expect(modalBody.locator('.list-group-item', { hasText: 'P1' })).not.toBeVisible();
     await expect(modalBody.locator('.list-group-item', { hasText: 'P2' })).toBeVisible();
     await expect(modalBody.locator('.list-group-item', { hasText: 'P3' })).not.toBeVisible();
-    await expect(modalBody.locator('.list-group-item', { hasText: 'P1' })).not.toBeVisible();
+    await expect(modalBody.locator('.list-group-item', { hasText: 'P4' })).toBeVisible();
 
     // Select P2
     await page1.click('text=P2 (8 cards)');
@@ -1962,12 +1963,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findAllHandCards(page4)).toHaveCount(8);
   });
 
-  // TODO:
-  // Play DEVELOPER
-  // Play SEE THE FUTURE
-  // Play SKIP
-  // Play ATTACK
   test('Play DEVELOPER Combo', async ({ browser }) => {
+    // Make pages large to avoid any need to scroll the hand area.
     const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const context3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -1977,7 +1974,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const page3 = await context3.newPage();
     const page4 = await context4.newPage();
 
-    // Create game
+    // Setup game
     const code = await createGame(page1, 'P1');
     await joinGame(page2, 'P2', code);
     await joinGame(page3, 'P3', code);
@@ -1988,13 +1985,23 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page3.waitForURL(/game/);
     await page4.waitForURL(/game/);
 
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+    const p2TimerArea = findTimerArea(page2);
+    await expect(p2TimerArea).toBeHidden();
+
+    const p1DiscardPile = findDiscardPile(page1);
+    await expect(p1DiscardPile.locator('img')).not.toBeVisible(); 
+    const p2DiscardPile = findDiscardPile(page2);
+    await expect(p2DiscardPile.locator('img')).not.toBeVisible(); 
+
     // Verify hands
     await expect(findAllHandCards(page1)).toHaveCount(8);
     await expect(findAllHandCards(page2)).toHaveCount(8);
     await expect(findAllHandCards(page3)).toHaveCount(8);
     await expect(findAllHandCards(page4)).toHaveCount(8);
 
-    // Verify P1 Hand
+    // Verify P1 hand
     const devCards = findHandCardsByClass(page1, CardClass.Developer);
     await expect(devCards).toHaveCount(3);
 
@@ -2045,27 +2052,39 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify Victim Modal appears
     await expect(page1.locator('.modal-title')).toContainText('Steal a Card');
-
-    // Verify player list content: P2 and P4 should be present, P3 (empty hand) and P1 (self) should not
+    // Verify player list: P2 should be present, P3 (empty hand) and P1 (self) should not.
     const modalBody = page1.locator('.modal-body');
-    await expect(modalBody.locator('.list-group-item', { hasText: 'P2' })).toBeVisible();
-    await expect(modalBody.locator('.list-group-item', { hasText: 'P4' })).toBeVisible();
-    await expect(modalBody.locator('.list-group-item', { hasText: 'P3' })).not.toBeVisible();
     await expect(modalBody.locator('.list-group-item', { hasText: 'P1' })).not.toBeVisible();
+    await expect(modalBody.locator('.list-group-item', { hasText: 'P2' })).toBeVisible();
+    await expect(modalBody.locator('.list-group-item', { hasText: 'P3' })).not.toBeVisible();
+    await expect(modalBody.locator('.list-group-item', { hasText: 'P4' })).toBeVisible();
 
     // Select P2
     await page1.click('text=P2 (8 cards)');
-    await page1.click('button:has-text("Steal Card")');
+    await page1.click('button:has-text("Ask Favor")');
 
-    // Verify logs
+    // Verify UI
+    await expect(findAllHandCards(page1)).toHaveCount(6);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+    await expect(findAllHandCards(page3)).toHaveCount(0);
+    await expect(findAllHandCards(page4)).toHaveCount(8);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Developer);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Developer);
     await expect(findLogArea(page1)).toContainText('P1 wants to steal a card from P2');
     await expect(findLogArea(page2)).toContainText('P1 wants to steal a card from P2');
-    await expect(findLogArea(page3)).toContainText('P1 wants to steal a card from P2');
-    await expect(findLogArea(page4)).toContainText('P1 wants to steal a card from P2');
 
-    // Wait for timer
-    await expect(findTimerArea(page1)).toContainText('Waiting for other players');
-    await expect(findTimerArea(page1)).not.toContainText('Waiting for other players', { timeout: 15000 });
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+    await expect(p2TimerArea).toBeVisible();
+    await expect(p2TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p2TimerArea).toContainText('Want to react');
+
+    // Verify that none of P1's cards are playable
+    for (const card of await findAllHandCards(page1).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
 
     // Verify Card Choice Modal on P1
     await expect(page1.locator('.modal-title')).toContainText('Choose a Card to Steal');
@@ -2075,23 +2094,32 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Pick first card
     await page1.locator('.modal-body div[style*="cursor: pointer"]').first().click();
 
-    // Verify Outcome
-    // P2 sees overlay
-    await expect(page2.locator('h2')).toContainText('P1 stole your:');
+    // Verify P2 sees overlay
+    await expect(findOverlay(page2)).toBeVisible();
+    await expect(findOverlay(page2)).toContainText('You received:');
+    await expect(page1.locator('h2')).toContainText('P1 stole your');
 
-    // Verify Log
+    // Verify execution
+    await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing DEVELOPER played by "P1"');
+    await expect(findLogArea(page2)).toContainText('DEV: op[0]: Executing DEVELOPER played by "P1"');
+    await expect(findLogArea(page3)).toContainText('DEV: op[0]: Executing DEVELOPER played by "P1"');
+    await expect(findLogArea(page4)).toContainText('DEV: op[0]: Executing DEVELOPER played by "P1"');
     await expect(findLogArea(page1)).toContainText('P1 stole a card from P2');
     await expect(findLogArea(page2)).toContainText('P1 stole a card from P2');
     await expect(findLogArea(page3)).toContainText('P1 stole a card from P2');
     await expect(findLogArea(page3)).toContainText('P1 stole a card from P2');
 
     // Verify Counts
-    await expect(findAllHandCards(page1)).toHaveCount(7); // 8 - 2 + 1
+    await expect(findAllHandCards(page1)).toHaveCount(7); // 8 start - 2 played + 1 received
     await expect(findAllHandCards(page2)).toHaveCount(7); // 8 - 1
     await expect(findAllHandCards(page3)).toHaveCount(0);
     await expect(findAllHandCards(page4)).toHaveCount(8);
   });
 
+  // TODO:
+  // Play SEE THE FUTURE
+  // Play SKIP
+  // Play ATTACK
   test('Drawing EXPLODING CLUSTER', async ({ browser }) => {
     test.setTimeout(60000);
 
