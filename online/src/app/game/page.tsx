@@ -1543,7 +1543,7 @@ export default function GameScreen() {
                 <Image
                   key={index}
                   src={card.imageUrl}
-                  alt={card.name}
+                  alt={`${card.class}: ${card.name}`}
                   width={getEnlargedCardSize().width * 0.5}
                   height={getEnlargedCardSize().height * 0.5}
                   style={{ minWidth: getCardSize().width, maxWidth: '40vw', height: 'auto', objectFit: 'contain' }}

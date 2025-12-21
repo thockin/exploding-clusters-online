@@ -1,4 +1,6 @@
 Phase 4:
+ - FAVOR has a "give card" button on the final modal, DEVELOPER just clicks the
+   card -- make them the same
  - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
  - send BIG messages when executing
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
@@ -30,6 +32,7 @@ Later:
 * Better messages for NAK (e.g. "P2 NAK'ed the SHUFFLE")
 * Put a GameMessage into HandUpdate, too
 * Fix dump LLM comments like "Maybe we should" and "design doc says..." and "phase X"
+* Make FAVOR and DEVELOPER modals bigger to show bigger card icons
 
 Bugs:
 * if non-current player plays NAK out of turn (8 cards->7), they get a

@@ -1963,7 +1963,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findAllHandCards(page4)).toHaveCount(8);
   });
 
-  test('Play DEVELOPER Combo', async ({ browser }) => {
+  test('Play: DEVELOPER 2x Combo', async ({ browser }) => {
     // Make pages large to avoid any need to scroll the hand area.
     const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -2061,7 +2061,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Select P2
     await page1.click('text=P2 (8 cards)');
-    await page1.click('button:has-text("Ask Favor")');
+    await page1.click('button:has-text("Steal Card")');
 
     // Verify UI
     await expect(findAllHandCards(page1)).toHaveCount(6);
@@ -2116,10 +2116,98 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findAllHandCards(page4)).toHaveCount(8);
   });
 
-  // TODO:
-  // Play SEE THE FUTURE
-  // Play SKIP
-  // Play ATTACK
+  test('Play: SEE_THE_FUTURE', async ({ browser }) => {
+    // Make pages large to avoid any need to scroll the hand area.
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+
+    // Setup game
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await page1.waitForURL(/game/);
+    await page2.waitForURL(/game/);
+
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+    const p2TimerArea = findTimerArea(page2);
+    await expect(p2TimerArea).toBeHidden();
+
+    const p1DiscardPile = findDiscardPile(page1);
+    await expect(p1DiscardPile.locator('img')).not.toBeVisible(); 
+    const p2DiscardPile = findDiscardPile(page2);
+    await expect(p2DiscardPile.locator('img')).not.toBeVisible(); 
+
+    // Verify hands
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+
+    // P2 has the SEE THE FUTURE card
+    await drawCard(page1);
+    await expect(findTurnArea(page1)).toContainText(`your turn is next`);
+    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
+
+    // Show the deck to get top 3 cards
+    await page2.click(Buttons.DEV_SHOW_DECK);
+    const deckOverlay = findOverlay(page2);
+    await expect(deckOverlay).toBeVisible();
+    const deckCards = await deckOverlay.locator('img').all();
+    const top3CardClasses = await Promise.all(deckCards.slice(0, 3).map(async (img) => await img.getAttribute('alt')));
+    await page2.keyboard.press('Escape'); // Dismiss deck view
+
+    // P2 plays SEE THE FUTURE
+    const card = findHandCardsByClass(page2, CardClass.SeeTheFuture);
+    await expect(card).toHaveCount(1);
+    await expect(card).toBeVisible();
+    await playCard(page2, card);
+
+    // Verify UI
+    await expect(findAllHandCards(page1)).toHaveCount(9);
+    await expect(findAllHandCards(page2)).toHaveCount(7);
+    await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SeeTheFuture);
+    await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.SeeTheFuture);
+    await expect(findLogArea(page1)).toContainText('P2 played SEE_THE_FUTURE');
+    await expect(findLogArea(page2)).toContainText('P2 played SEE_THE_FUTURE');
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Want to react');
+    await expect(p2TimerArea).toBeVisible();
+    await expect(p2TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p2TimerArea).toContainText('Waiting for other players to react');
+
+    // Verify that none of P2's cards are playable
+    for (const card of await findAllHandCards(page2).all()) {
+        await expect(card).toHaveAttribute('data-playable', 'false');
+    }
+
+    // Verify P2 sees See The Future modal
+    await expect(page2.locator('.modal-title')).toContainText('See The Future');
+    const seeFutureModal = page2.locator('.modal-body');
+    const cardsInModal = seeFutureModal.locator('img');
+    await expect(cardsInModal).toHaveCount(3);
+
+    // Verify the cards in the modal are the top 3 from the deck
+    const allCardsInModal = await cardsInModal.all();
+    const modalCardAlts = await Promise.all(allCardsInModal.map(async (img) => await img.getAttribute('alt')));
+    expect(modalCardAlts[0]).toContain(top3CardClasses[0]);
+    expect(modalCardAlts[1]).toContain(top3CardClasses[1]);
+    expect(modalCardAlts[2]).toContain(top3CardClasses[2]);
+
+    // Dismiss modal
+    await page2.click('button:has-text("Done")');
+    await expect(page2.locator('.modal-title')).not.toBeVisible(); // Modal is gone
+
+    // Verify execution
+    await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing SEE_THE_FUTURE played by "P2"');
+    await expect(findLogArea(page2)).toContainText('DEV: op[0]: Executing SEE_THE_FUTURE played by "P2"');
+    await expect(findLogArea(page1)).toContainText('P2 saw the future');
+    await expect(findLogArea(page2)).toContainText('P2 saw the future');
+  });
+
   test('Drawing EXPLODING CLUSTER', async ({ browser }) => {
     test.setTimeout(60000);
 
