@@ -33,6 +33,7 @@ Later:
 * Put a GameMessage into HandUpdate, too
 * Fix dump LLM comments like "Maybe we should" and "design doc says..." and "phase X"
 * Make FAVOR and DEVELOPER modals bigger to show bigger card icons
+* Make it more visible when you are being targetted by a favor or steal
 
 Bugs:
 * if non-current player plays NAK out of turn (8 cards->7), they get a

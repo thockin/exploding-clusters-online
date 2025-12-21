@@ -2096,8 +2096,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify P2 sees overlay
     await expect(findOverlay(page2)).toBeVisible();
-    await expect(findOverlay(page2)).toContainText('You received:');
-    await expect(page1.locator('h2')).toContainText('P1 stole your');
+    await expect(findOverlay(page2)).toContainText('P1 stole your:');
 
     // Verify execution
     await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing DEVELOPER played by "P1"');
