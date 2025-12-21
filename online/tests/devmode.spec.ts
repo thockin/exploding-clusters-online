@@ -1411,7 +1411,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findLogArea(page2)).toContainText("The deck was shuffled");
   });
 
-  test('Play: SHUFFLE_NOW', async ({ browser }) => {
+  test('Play: SHUFFLE NOW', async ({ browser }) => {
     // Make pages large to avoid any need to scroll the hand area.
     const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -1481,7 +1481,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findLogArea(page2)).toContainText("The deck was shuffled");
   });
 
-  test('Play: SHUFFLE_NOW by non-current player', async ({ browser }) => {
+  test('Play: SHUFFLE NOW by non-current player', async ({ browser }) => {
     // Make pages large to avoid any need to scroll the hand area.
     const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -2115,7 +2115,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findAllHandCards(page4)).toHaveCount(8);
   });
 
-  test('Play: SEE_THE_FUTURE', async ({ browser }) => {
+  test('Play: SEE THE FUTURE', async ({ browser }) => {
     // Make pages large to avoid any need to scroll the hand area.
     const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -2207,7 +2207,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findLogArea(page2)).toContainText('P2 saw the future');
   });
 
-  test('Drawing EXPLODING CLUSTER', async ({ browser }) => {
+  test('Draw: EXPLODING CLUSTER', async ({ browser }) => {
     test.setTimeout(60000);
 
     // Define a helper to use below
@@ -2286,9 +2286,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
       await expect(p1Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.Debug);
       await expect(p2Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.Debug);
       await expect(p3Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.Debug);
-      await expect(findLogArea(page1)).not.toContainText(`${p1} played DEBUG`);
-      await expect(findLogArea(page2)).not.toContainText(`${p1} played DEBUG`);
-      await expect(findLogArea(page3)).not.toContainText(`${p1} played DEBUG`);
+      await expect(findLogArea(page1)).toContainText(`${p1} played DEBUG`);
+      await expect(findLogArea(page2)).toContainText(`${p1} played DEBUG`);
+      await expect(findLogArea(page3)).toContainText(`${p1} played DEBUG`);
       await expect(findLogArea(page1)).toContainText(`${p1}'s cluster almost exploded`);
       await expect(findLogArea(page2)).toContainText(`${p1}'s cluster almost exploded`);
       await expect(findLogArea(page3)).toContainText(`${p1}'s cluster almost exploded`);
@@ -2413,7 +2413,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.getByRole('button', { name: 'OK', exact: true }).click();
   });
 
-  test('Drawing UPGRADE CLUSTER', async ({ browser }) => {
+  test('Draw: UPGRADE CLUSTER', async ({ browser }) => {
     test.setTimeout(60000);
 
     // Define a helper to use below
