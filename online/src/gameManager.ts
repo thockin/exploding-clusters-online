@@ -2116,6 +2116,15 @@ export class GameManager {
       console.log(prefix + message);
     }
   }
+  private vlog(game: Game | null, message: string) {
+    if (this.verbose) {
+      if (!game || game.devMode) {
+        const timestamp = new Date().toISOString();
+        const prefix = game ? `[${timestamp}] [game ${game.code}] ` : `[${timestamp}] [server] `;
+        console.log(prefix + message);
+      }
+    }
+  }
 
   private advanceTurn(game: Game) {
     let nextIndex = (game.currentTurnIndex + 1) % game.turnOrder.length;
@@ -2139,26 +2148,37 @@ export class GameManager {
 
   private insertUpgradeCard(socket: Socket, gameCode: string, index: number, nonce: string) {
     const game = this.games.get(gameCode);
-    this.log(game || null, `insertUpgradeCard requested by ${socket.id} index=${index} nonce=${nonce}`);
-    if (!game) return;
-
-    if (game.turnPhase !== TurnPhase.Upgrading) {
-        this.log(game, `insertUpgradeCard ignored: wrong phase ${game.turnPhase}`);
-        return;
+    if (!game) {
+      this.log(null, `insertUpgradeCard event from ${socket.id}: no such game ${gameCode}`);
+      return;
     }
 
     const player = game.players.find(p => p.socketId === socket.id);
-    if (!player || !this.isPlayerTurn(game, player)) {
-        this.log(game, `insertUpgradeCard ignored: not player turn (player=${player?.name})`);
-        return;
+    if (!player) {
+      this.log(game, `insertUpgradeCard event from ${socket.id}: no such player`);
+      return;
+    }
+
+    if (!this.isPlayerTurn(game, player)) {
+      this.log(game, `insertUpgradeCard event from player "${player?.name}": not their turn`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
+      return;
+    }
+
+    if (game.turnPhase !== TurnPhase.Upgrading) {
+      this.log(game, `insertUpgradeCard event from player "${player?.name}": wrong phase (${game.turnPhase})`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Turn phase is not ${TurnPhase.Upgrading}" });
+      return;
     }
 
     if (nonce !== game.nonce) {
+      this.log(game, `insertUpgradeCard event from player "${player?.name}": wrong nonce (${nonce})`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game state mismatch." });
       return;
     }
 
     if (index < 0 || index > game.drawPile.length) {
+      this.log(game, `insertUpgradeCard event from player "${player?.name}": invalid insertion index (${index})`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid insertion index." });
       return;
     }
@@ -2256,23 +2276,42 @@ export class GameManager {
 
   private insertExplodingCard(socket: Socket, gameCode: string, index: number, nonce: string) {
     const game = this.games.get(gameCode);
-    if (!game) return;
-
-    if (game.turnPhase !== TurnPhase.Exploding) return;
+    if (!game) {
+      this.log(null, `insertExplodingCard event from ${socket.id}: no such game ${gameCode}`);
+      return;
+    } 
 
     const player = game.players.find(p => p.socketId === socket.id);
-    if (!player || game.turnOrder[game.currentTurnIndex] !== player.id) return;
+    if (!player) {
+      this.log(game, `insertExplodingCard event from ${socket.id}: no such player`);
+      return;
+    }
+
+    if (!this.isPlayerTurn(game, player)) {
+      this.log(game, `insertExplodingCard event from player "${player?.name}": not their turn`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
+      return;
+    }
+
+    if (game.turnPhase !== TurnPhase.Exploding) {
+      this.log(game, `insertExplodingCard event from player "${player?.name}": wrong phase (${game.turnPhase})`);
+      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Turn phase is not ${TurnPhase.Exploding}" });
+      return;
+    }
 
     if (nonce !== game.nonce) {
+      this.log(game, `insertExplodingCard event from player "${player?.name}": wrong nonce (${nonce})`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game state mismatch." });
       return;
     }
 
     if (index < 0 || index > game.drawPile.length) {
+      this.log(game, `insertExplodingCard event from player "${player?.name}": invalid insertion index (${index})`);
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid insertion index." });
       return;
     }
 
+    // Find EXPLODING CLUSTER in discard pile
     let cardIndex = -1;
     for (let i = game.discardPile.length - 1; i >= 0; i--) {
       if (game.discardPile[i].class === CardClass.ExplodingCluster) {

@@ -6,7 +6,6 @@ Phase 4:
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
  - Don't do the "choose player" dialog if only 2 players
  - Too many playable cards after EXPLODING draw - should just be DEBUG
- - Audit server eventhandlers for things like insert upgrade -- prevent abuse
 
 tests
  - more helpers
