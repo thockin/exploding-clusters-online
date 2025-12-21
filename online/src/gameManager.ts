@@ -141,6 +141,10 @@ export class GameManager {
         this.insertExplodingCard(socket, payload.gameCode, payload.index, payload.nonce);
       });
 
+      socket.on(SocketEvent.InsertUpgradeCard, (payload: { gameCode: string, index: number, nonce: string }) => {
+        this.insertUpgradeCard(socket, payload.gameCode, payload.index, payload.nonce);
+      });
+
       socket.on(SocketEvent.DismissSeeTheFuture, (gameCode: string) => {
         this.dismissSeeTheFuture(socket, gameCode);
       });
@@ -2135,12 +2139,19 @@ export class GameManager {
 
   private insertUpgradeCard(socket: Socket, gameCode: string, index: number, nonce: string) {
     const game = this.games.get(gameCode);
+    this.log(game || null, `insertUpgradeCard requested by ${socket.id} index=${index} nonce=${nonce}`);
     if (!game) return;
 
-    if (game.turnPhase !== TurnPhase.Upgrading) return;
+    if (game.turnPhase !== TurnPhase.Upgrading) {
+        this.log(game, `insertUpgradeCard ignored: wrong phase ${game.turnPhase}`);
+        return;
+    }
 
     const player = game.players.find(p => p.socketId === socket.id);
-    if (!player || !this.isPlayerTurn(game, player)) return;
+    if (!player || !this.isPlayerTurn(game, player)) {
+        this.log(game, `insertUpgradeCard ignored: not player turn (player=${player?.name})`);
+        return;
+    }
 
     if (nonce !== game.nonce) {
       this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game state mismatch." });

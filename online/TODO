@@ -5,6 +5,8 @@ Phase 4:
  - send BIG messages when executing
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
  - Don't do the "choose player" dialog if only 2 players
+ - Too many playable cards after EXPLODING draw - should just be DEBUG
+ - Audit server eventhandlers for things like insert upgrade -- prevent abuse
 
 tests
  - more helpers
@@ -33,7 +35,8 @@ Later:
 * Put a GameMessage into HandUpdate, too
 * Fix dump LLM comments like "Maybe we should" and "design doc says..." and "phase X"
 * Make FAVOR and DEVELOPER modals bigger to show bigger card icons
-* Make it more visible when you are being targetted by a favor or steal
+* Make it more visible when yoou are being targetted by a favor or steal
+* Modals vs overlays
 
 Bugs:
 * if non-current player plays NAK out of turn (8 cards->7), they get a
