@@ -360,16 +360,16 @@ export default function GameScreen() {
         return false;
       case TurnPhase.Exploding:
         // Handled above (DEBUG only)
-        return { allowed: false, reason: "You must play a DEBUG card!" };
+        return false;
       case TurnPhase.SeeingTheFuture:
         // Block all players from playing cards while one player is seeing the future
-        return { allowed: false, reason: `${gameState.players.find(p => p.id === gameState.turnOrder[gameState.currentTurnIndex])?.name} is seeing the future.` };
+        return false;
       case TurnPhase.ChoosingFavorCard:
-        return { allowed: false, reason: "Waiting for a favor to be granted." };
+        return false;
       case TurnPhase.ChoosingDeveloperCard:
-        return { allowed: false, reason: "Waiting for a card to be stolen." };
+        return false;
       default:
-        return { allowed: false, reason: `BUG: Can't play cards in phase ${gameState.turnPhase}.` };
+        return false;
     }
   }, [gameState, playerId, myHand, playerName]);
 
