@@ -35,10 +35,7 @@ export default function GameScreen() {
   const [countdown, setCountdown] = useState(0);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // DEVMODE states
-  const [deckOverlay, setDeckOverlay] = useState<Card[] | null>(null);
-  const [removedOverlay, setRemovedOverlay] = useState<Card[] | null>(null); // New: for removed pile overlay
-  const [hostPromotionMessage, setHostPromotionMessage] = useState<string | null>(null);
+  const dialogTimeoutSeconds = 15; // for choice dialogs
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
   const isDrawingRef = useRef(false);
@@ -50,17 +47,23 @@ export default function GameScreen() {
   const [insertionModal, setInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
   const [insertionIndex, setInsertionIndex] = useState<string | number>(0);
   const [upgradeInsertionModal, setUpgradeInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
-  const [seeTheFutureCards, setSeeTheFutureCards] = useState<Card[] | null>(null); // Added
+  const [seeTheFutureCards, setSeeTheFutureCards] = useState<Card[] | null>(null);
   const [favorVictimModalOpen, setFavorVictimModalOpen] = useState(false);
   const [favorVictimSelection, setFavorVictimSelection] = useState<string | null>(null);
   const [favorCardChoiceModalOpen, setFavorCardChoiceModalOpen] = useState(false);
   const [favorOutcomeCard, setFavorOutcomeCard] = useState<Card | null>(null);
-  const [favorCountdown, setFavorCountdown] = useState(15);
+  const [favorCountdown, setFavorCountdown] = useState(dialogTimeoutSeconds);
   const [developerVictimModalOpen, setDeveloperVictimModalOpen] = useState(false);
   const [developerCardChoiceCount, setDeveloperCardChoiceCount] = useState<number | null>(null);
-  const [developerCountdown, setDeveloperCountdown] = useState(15); // Added
+  const [developerCountdown, setDeveloperCountdown] = useState(dialogTimeoutSeconds);
+  const [victimSelectionCountdown, setVictimSelectionCountdown] = useState(dialogTimeoutSeconds);
   const [developerStolenCard, setDeveloperStolenCard] = useState<Card | null>(null);
   const [noVictimModalOpen, setNoVictimModalOpen] = useState(false);
+
+  // DEVMODE states
+  const [deckOverlay, setDeckOverlay] = useState<Card[] | null>(null);
+  const [removedOverlay, setRemovedOverlay] = useState<Card[] | null>(null); // New: for removed pile overlay
+  const [hostPromotionMessage, setHostPromotionMessage] = useState<string | null>(null);
 
   // Ensure isClient is true after first render
   useEffect(() => {
@@ -84,7 +87,7 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (favorCardChoiceModalOpen) {
-      setFavorCountdown(15);
+      setFavorCountdown(dialogTimeoutSeconds);
       const interval = setInterval(() => {
         setFavorCountdown(prev => {
             if (prev <= 1) {
@@ -101,7 +104,7 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (developerCardChoiceCount !== null) {
-      setDeveloperCountdown(15);
+      setDeveloperCountdown(dialogTimeoutSeconds);
       const interval = setInterval(() => {
         setDeveloperCountdown(prev => {
             if (prev <= 1) {
@@ -115,6 +118,24 @@ export default function GameScreen() {
       return () => clearInterval(interval);
     }
   }, [developerCardChoiceCount]);
+
+  useEffect(() => {
+    if (favorVictimModalOpen || developerVictimModalOpen) {
+      setVictimSelectionCountdown(dialogTimeoutSeconds);
+      const interval = setInterval(() => {
+        setVictimSelectionCountdown(prev => {
+            if (prev <= 1) {
+                clearInterval(interval);
+                setFavorVictimModalOpen(false);
+                setDeveloperVictimModalOpen(false);
+                return 0;
+            }
+            return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [favorVictimModalOpen, developerVictimModalOpen]);
 
   const gameStateRef = useRef(gameState);
 
@@ -1640,7 +1661,7 @@ export default function GameScreen() {
           centered
         >
           <Modal.Header>
-            <Modal.Title>Ask for a Favor</Modal.Title>
+            <Modal.Title>Ask for a Favor ({victimSelectionCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <p>Choose a player to ask for a favor:</p>
@@ -1726,7 +1747,7 @@ export default function GameScreen() {
           centered
         >
           <Modal.Header>
-            <Modal.Title>Steal a Card</Modal.Title>
+            <Modal.Title>Steal a Card ({victimSelectionCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <p>Choose a player to steal from:</p>
@@ -1755,7 +1776,14 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
-        <Modal show={developerCardChoiceCount !== null} onHide={() => {}} backdrop="static" keyboard={false} centered>
+        <Modal
+          data-modalname="steal-choose-card"
+          show={developerCardChoiceCount !== null}
+          onHide={() => {}}
+          backdrop="static"
+          keyboard={false}
+          centered
+        >
           <Modal.Header>
             <Modal.Title>Choose a Card to Steal ({developerCountdown}s)</Modal.Title>
           </Modal.Header>

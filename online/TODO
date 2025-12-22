@@ -1,5 +1,4 @@
 Phase 4:
- - timer on combo and choose-victim and ?
  - modal sizes
  - FIXMES in gameManager
  - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
