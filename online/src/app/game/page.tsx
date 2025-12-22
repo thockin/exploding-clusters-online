@@ -32,10 +32,11 @@ export default function GameScreen() {
   const handAreaRef = useRef<HTMLDivElement>(null);
   const [tableAreaSize, setTableAreaSize] = useState({ width: 0, height: 0 });
   const [handAreaWidth, setHandAreaWidth] = useState(0);
-  const [countdown, setCountdown] = useState(0);
+  const [reactionCountdown, setReactionCountdown] = useState(0);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const dialogTimeoutSeconds = 15; // for choice dialogs
+  const choiceTimeoutSeconds = 15; // for choice dialogs
+  const [choiceCountdown, setChoiceCountdown] = useState(choiceTimeoutSeconds);
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
   const isDrawingRef = useRef(false);
@@ -52,11 +53,8 @@ export default function GameScreen() {
   const [favorVictimSelection, setFavorVictimSelection] = useState<string | null>(null);
   const [favorCardChoiceModalOpen, setFavorCardChoiceModalOpen] = useState(false);
   const [favorOutcomeCard, setFavorOutcomeCard] = useState<Card | null>(null);
-  const [favorCountdown, setFavorCountdown] = useState(dialogTimeoutSeconds);
   const [developerVictimModalOpen, setDeveloperVictimModalOpen] = useState(false);
   const [developerCardChoiceCount, setDeveloperCardChoiceCount] = useState<number | null>(null);
-  const [developerCountdown, setDeveloperCountdown] = useState(dialogTimeoutSeconds);
-  const [victimSelectionCountdown, setVictimSelectionCountdown] = useState(dialogTimeoutSeconds);
   const [developerStolenCard, setDeveloperStolenCard] = useState<Card | null>(null);
   const [noVictimModalOpen, setNoVictimModalOpen] = useState(false);
 
@@ -87,9 +85,9 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (favorCardChoiceModalOpen) {
-      setFavorCountdown(dialogTimeoutSeconds);
+      setChoiceCountdown(choiceTimeoutSeconds);
       const interval = setInterval(() => {
-        setFavorCountdown(prev => {
+        setChoiceCountdown(prev => {
             if (prev <= 1) {
                 clearInterval(interval);
                 setFavorCardChoiceModalOpen(false);
@@ -104,9 +102,9 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (developerCardChoiceCount !== null) {
-      setDeveloperCountdown(dialogTimeoutSeconds);
+      setChoiceCountdown(choiceTimeoutSeconds);
       const interval = setInterval(() => {
-        setDeveloperCountdown(prev => {
+        setChoiceCountdown(prev => {
             if (prev <= 1) {
                 clearInterval(interval);
                 setDeveloperCardChoiceCount(null);
@@ -121,9 +119,9 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (favorVictimModalOpen || developerVictimModalOpen) {
-      setVictimSelectionCountdown(dialogTimeoutSeconds);
+      setChoiceCountdown(choiceTimeoutSeconds);
       const interval = setInterval(() => {
-        setVictimSelectionCountdown(prev => {
+        setChoiceCountdown(prev => {
             if (prev <= 1) {
                 clearInterval(interval);
                 setFavorVictimModalOpen(false);
@@ -238,12 +236,12 @@ export default function GameScreen() {
 
     const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
       if (phase === TurnPhase.Reaction) {
-        setCountdown(duration);
+        setReactionCountdown(duration);
         if (countdownIntervalRef.current) {
           clearInterval(countdownIntervalRef.current);
         }
         countdownIntervalRef.current = setInterval(() => {
-          setCountdown(prev => {
+          setReactionCountdown(prev => {
             if (prev <= 1) {
               clearInterval(countdownIntervalRef.current!);
               return 0;
@@ -252,7 +250,7 @@ export default function GameScreen() {
           });
         }, 1000);
       } else if (phase === TurnPhase.Action) {
-        setCountdown(0);
+        setReactionCountdown(0);
         if (countdownIntervalRef.current) {
           clearInterval(countdownIntervalRef.current);
           countdownIntervalRef.current = null;
@@ -1295,14 +1293,14 @@ export default function GameScreen() {
               data-areaname="timer"
               data-turnphase={gameState.turnPhase}
             >
-              {(gameState.turnPhase === TurnPhase.Reaction) && countdown > 0 && (
+              {(gameState.turnPhase === TurnPhase.Reaction) && reactionCountdown > 0 && (
                 <>
                   {(gameState.lastActorName && me?.name === gameState.lastActorName) ? (
                     <h4 className="text-success">Waiting for other players to react</h4>
                   ) : (
                     <h4 className="text-warning">Want to react? Act fast!</h4>
                   )}
-                  <h2 className="display-3">{countdown}</h2>
+                  <h2 className="display-3">{reactionCountdown}</h2>
                 </>
               )}
               {(gameState.turnPhase === TurnPhase.Exploding) && (
@@ -1661,7 +1659,7 @@ export default function GameScreen() {
           centered
         >
           <Modal.Header>
-            <Modal.Title>Ask for a Favor ({victimSelectionCountdown}s)</Modal.Title>
+            <Modal.Title>Ask for a Favor ({choiceCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <p>Choose a player to ask for a favor:</p>
@@ -1700,7 +1698,7 @@ export default function GameScreen() {
           centered
         >
           <Modal.Header>
-            <Modal.Title>Grant a Favor ({favorCountdown}s)</Modal.Title>
+            <Modal.Title>Grant a Favor ({choiceCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <p>Choose a card to give:</p>
@@ -1747,7 +1745,7 @@ export default function GameScreen() {
           centered
         >
           <Modal.Header>
-            <Modal.Title>Steal a Card ({victimSelectionCountdown}s)</Modal.Title>
+            <Modal.Title>Steal a Card ({choiceCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <p>Choose a player to steal from:</p>
@@ -1785,7 +1783,7 @@ export default function GameScreen() {
           centered
         >
           <Modal.Header>
-            <Modal.Title>Choose a Card to Steal ({developerCountdown}s)</Modal.Title>
+            <Modal.Title>Choose a Card to Steal ({choiceCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <p>Pick a card from the victim&apos;s hand:</p>
