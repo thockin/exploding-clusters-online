@@ -50,3 +50,6 @@ tests, run `make test`.  To run a single test, run `npx playwright test -c
 
 When running browser tests directly (`npx playwright test`), always add
 `--workers 4` to manage the impact on the machine.
+
+When adding UI elements which need to be located in tests, always add a
+"data-{something}" attribute, so tests can find them more easily.

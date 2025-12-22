@@ -1,5 +1,5 @@
 Phase 4:
- - Don't do the "choose player" dialog if only 2 players
+ - timer on favro and combo
  - modal sizes
  - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
 

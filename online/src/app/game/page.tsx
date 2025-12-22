@@ -59,6 +59,7 @@ export default function GameScreen() {
   const [developerVictimModalOpen, setDeveloperVictimModalOpen] = useState(false);
   const [developerCardChoiceCount, setDeveloperCardChoiceCount] = useState<number | null>(null);
   const [developerStolenCard, setDeveloperStolenCard] = useState<Card | null>(null);
+  const [noVictimModalOpen, setNoVictimModalOpen] = useState(false);
 
   // Ensure isClient is true after first render
   useEffect(() => {
@@ -771,18 +772,43 @@ export default function GameScreen() {
 
       // Now handle the actual play
       if (cardsToPlay.length > 0) {
+        const getValidVictims = () => {
+             return gameState?.players.filter(p => p.id !== playerId && !p.isOut && !p.isDisconnected && p.cards > 0) || [];
+        };
+        let victimIdToUse: string | undefined;
+
         // Intercept FAVOR play
         if (cardsToPlay.length === 1 && cardsToPlay[0].class === CardClass.Favor) {
-            setFavorVictimModalOpen(true);
-            return;
+            const victims = getValidVictims();
+            if (victims.length === 0) {
+                setNoVictimModalOpen(true);
+                return; // Reject
+            }
+            if (victims.length === 1) {
+                victimIdToUse = victims[0].id;
+            } else {
+                setFavorVictimModalOpen(true);
+                return;
+            }
         }
 
         // Intercept DEVELOPER combo
         if (cardsToPlay.length === 2 && cardsToPlay[0].class === CardClass.Developer && cardsToPlay[1].class === CardClass.Developer) {
-             setDeveloperVictimModalOpen(true);
-             return;
+             const victims = getValidVictims();
+             if (victims.length === 0) {
+                 setNoVictimModalOpen(true);
+                 return; // Reject
+             }
+             if (victims.length === 1) {
+                 victimIdToUse = victims[0].id;
+             }
+             else {
+                 setDeveloperVictimModalOpen(true);
+                 return;
+             }
         }
 
+        // --- Client-side Play Validation ---
         // Use centralized isCardPlayable logic for consistency
         const isAllowed = cardsToPlay.every(c => isCardPlayable(c));
 
@@ -795,10 +821,10 @@ export default function GameScreen() {
         if (gameCode) {
           if (cardsToPlay.length === 1) {
             console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
-            socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id, nonce: dragStartNonceRef.current });
+            socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id, nonce: dragStartNonceRef.current, victimId: victimIdToUse });
           } else if (cardsToPlay.length === 2) {
             console.debug('Emitting playCombo for DEVELOPER cards');
-            socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id), nonce: dragStartNonceRef.current });
+            socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id), nonce: dragStartNonceRef.current, victimId: victimIdToUse });
           }
         } else {
           console.error("Game code not found, cannot play card.");
@@ -1646,6 +1672,7 @@ export default function GameScreen() {
                   onClick={() => {
                       if (gameCode) {
                           socket?.emit(SocketEvent.ResolveFavorCard, { gameCode, cardId: card.id });
+                          setFavorCardChoiceModalOpen(false);
                       }
                   }}
                   style={{ 
@@ -1756,6 +1783,23 @@ export default function GameScreen() {
             <Image src={developerStolenCard.imageUrl} alt={developerStolenCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
         )}
+
+        <Modal
+          data-modalname="victim-has-no-cards"
+          show={noVictimModalOpen}
+          onHide={() => setNoVictimModalOpen(false)}
+          centered
+        >
+          <Modal.Header>
+            <Modal.Title>Can't steal a card</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <p>No other player has cards left!</p>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="primary" onClick={() => setNoVictimModalOpen(false)} autoFocus>OK</Button>
+          </Modal.Footer>
+        </Modal>
 
         <Modal
           data-modalname="game-end"
