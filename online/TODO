@@ -1,6 +1,7 @@
 Phase 4:
- - timer on favro and combo
+ - timer on combo and choose-victim and ?
  - modal sizes
+ - FIXMES in gameManager
  - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
 
 tests

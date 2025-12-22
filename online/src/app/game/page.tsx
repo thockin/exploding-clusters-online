@@ -58,6 +58,7 @@ export default function GameScreen() {
   const [favorCountdown, setFavorCountdown] = useState(15);
   const [developerVictimModalOpen, setDeveloperVictimModalOpen] = useState(false);
   const [developerCardChoiceCount, setDeveloperCardChoiceCount] = useState<number | null>(null);
+  const [developerCountdown, setDeveloperCountdown] = useState(15); // Added
   const [developerStolenCard, setDeveloperStolenCard] = useState<Card | null>(null);
   const [noVictimModalOpen, setNoVictimModalOpen] = useState(false);
 
@@ -97,6 +98,23 @@ export default function GameScreen() {
       return () => clearInterval(interval);
     }
   }, [favorCardChoiceModalOpen]);
+
+  useEffect(() => {
+    if (developerCardChoiceCount !== null) {
+      setDeveloperCountdown(15);
+      const interval = setInterval(() => {
+        setDeveloperCountdown(prev => {
+            if (prev <= 1) {
+                clearInterval(interval);
+                setDeveloperCardChoiceCount(null);
+                return 0;
+            }
+            return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [developerCardChoiceCount]);
 
   const gameStateRef = useRef(gameState);
 
@@ -1737,16 +1755,9 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
-        <Modal
-          data-modalname="steal-choose-card"
-          show={developerCardChoiceCount !== null}
-          onHide={() => {}}
-          backdrop="static"
-          keyboard={false}
-          centered
-        >
+        <Modal show={developerCardChoiceCount !== null} onHide={() => {}} backdrop="static" keyboard={false} centered>
           <Modal.Header>
-            <Modal.Title>Choose a Card to Steal</Modal.Title>
+            <Modal.Title>Choose a Card to Steal ({developerCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <p>Pick a card from the victim&apos;s hand:</p>
