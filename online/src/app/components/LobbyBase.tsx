@@ -119,7 +119,11 @@ function LobbyContent() {
         </Col>
       </Row>
 
-      <Modal show={showPromotionModal} onHide={() => setShowPromotionModal(false)}>
+      <Modal
+        data-modalname="lobby-host-promotion"
+        show={showPromotionModal}
+        onHide={() => setShowPromotionModal(false)}
+      >
         <Modal.Header closeButton>
           <Modal.Title>You are now the game owner</Modal.Title>
         </Modal.Header>
@@ -133,7 +137,11 @@ function LobbyContent() {
         </Modal.Footer>
       </Modal>
 
-      <Modal show={showLeaveModal} onHide={() => setShowLeaveModal(false)}>
+      <Modal
+        data-modalname="lobby-leave-game"
+        show={showLeaveModal}
+        onHide={() => setShowLeaveModal(false)}
+      >
         <Modal.Header closeButton>
           <Modal.Title>Leave Game?</Modal.Title>
         </Modal.Header>

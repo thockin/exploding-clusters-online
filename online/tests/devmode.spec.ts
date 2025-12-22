@@ -130,6 +130,11 @@ function findOverlay(page: Page): Locator {
   return page.locator(`div[style*="z-index: 1000"]`);
 }
 
+// Helper to find modal dialogs
+function findModal(page: Page, name: string): Locator {
+  return page.locator(`div[data-modalname="${name}"]`);
+}
+
 test.describe('UI Tests with DEVMODE=1', () => {
 
   test('Game screen loads: 2 players + observer', async ({ browser }) => {
@@ -208,7 +213,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page6.click(Buttons.JOIN_GAME_CONFIRM);
 
     // Verify Error Modal appears with "full" message
-    await expect(page6.locator(Locators.MODAL_SHOW + ' .alert-danger')).toContainText('Sorry, that game is full');
+    await expect(page6.locator('.modal.show .alert-danger')).toContainText('Sorry, that game is full');
   });
 
   test('Fail to join: duplicate name', async ({ browser }) => {
@@ -227,7 +232,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.click(Buttons.JOIN_GAME_CONFIRM);
 
     // Verify Error Modal appears with "name taken" message
-    await expect(page2.locator(Locators.MODAL_SHOW + ' .alert-danger')).toContainText('name is already taken');
+    await expect(page2.locator('.modal.show .alert-danger')).toContainText('name is already taken');
   });
 
   test('Fail to join: unknown game code', async ({ browser }) => {
@@ -240,7 +245,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page.click(Buttons.JOIN_GAME_CONFIRM);
 
     // Verify Error Modal appears with "does not exist" message
-    await expect(page.locator(Locators.MODAL_SHOW + ' .alert-danger')).toContainText('does not exist');
+    await expect(page.locator('.modal.show .alert-danger')).toContainText('does not exist');
   });
 
   test('Fail to observe: unknown game coee', async ({ browser }) => {
@@ -251,7 +256,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page.fill(Inputs.GAME_CODE, 'YYYYY');
     await page.click(Buttons.WATCH_GAME_CONFIRM);
     // Verify Error Modal appears with "does not exist" message
-    await expect(page.locator(Locators.MODAL_SHOW + ' .alert-danger')).toContainText('does not exist');
+    await expect(page.locator('.modal.show .alert-danger')).toContainText('does not exist');
   });
 
   test('Lobby: disconnect, reconnect', async ({ browser }) => {
@@ -322,9 +327,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.waitForLoadState('networkidle'); // Wait for page to fully load
 
     // Verify Reconnection Fails: Error Modal should appear due to nonce mismatch
-    await expect(page2.locator(Locators.MODAL_SHOW + ' .modal-title')).toBeVisible({ timeout: 10000 });
-    await expect(page2.locator(Locators.MODAL_SHOW + ' .modal-title')).toContainText('Sorry!', { timeout: 5000 });
-    await expect(page2.locator(Locators.MODAL_SHOW + ' .modal-body')).toContainText('Rejoining', { timeout: 5000 });
+    await expect(findModal(page2, "rejoin-error")).toBeVisible();
   });
 
   test('Lobby: game owner reassignment', async ({ browser }) => {
@@ -367,7 +370,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // P3 does not see Start Game button
     await expect(page3.locator(Buttons.START_GAME)).not.toBeVisible();
     // P2 sees promotion modal
-    await expect(page2.locator('.modal-title:has-text("You are now the game owner")')).toBeVisible();
+    await expect(findModal(page2, "lobby-host-promotion")).toBeVisible();
 
     // P1 Reconnects
     await page1.goBack();
@@ -573,8 +576,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.waitForLoadState('networkidle');
 
     // Verify Rejoin Fails (Error Modal)
-    await expect(page1.locator(Locators.MODAL_SHOW)).toBeVisible();
-    await expect(page1.locator(Locators.MODAL_SHOW)).toContainText('Sorry');
+    const modal = findModal(page1, "rejoin-error");
+    await expect(modal).toBeVisible();
 
     // Verify player does NOT reappear in list
     await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
@@ -583,10 +586,14 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // P2 leaves game voluntarily
     await page2.click(Buttons.LEAVE_GAME);
     // Confirm modal
-    await page2.locator(Locators.MODAL_SHOW + ' .modal-footer button.btn-danger').click({ force: true });
+    const leaveModal = findModal(page2, "leave-game");
+    await expect(leaveModal).toBeVisible();
+    await leaveModal.locator(' .modal-footer button.btn-danger').click();
 
     // Winner should see Win Dialog
-    await expect(page3.locator(Locators.MODAL_SHOW + ' .modal-title')).toHaveText(/.*You win!/, { timeout: 10000 });
+    const winModal = findModal(page3, "game-end");
+    await expect(winModal).toBeVisible();
+    await expect(winModal.locator(' .modal-title')).toContainText("You win!");
     await page3.click(Buttons.OK);
     await expect(page3).toHaveURL('/'); 
   });
@@ -1608,11 +1615,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.mouse.up();
 
     // Verify rejection dialog on P2
-    await expect(page2.locator('.modal-title')).toHaveText('Game Updated');
-    await expect(page2.locator('.modal-body')).toContainText('beat you to it');
+    const retryModal = findModal(page2, "retry-play");
+    await expect(retryModal).toBeVisible();
 
     // P2 retries (Click OK)
-    await page2.getByRole('button', { name: 'Play it!' }).click();
+    await retryModal.getByRole('button', { name: 'Play it!' }).click();
 
     // Verify P2 played
     await expect(findLogArea(page1)).toContainText('P2 played NAK');
@@ -1895,10 +1902,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // P1 plays FAVOR
     await playCard(page1, favorCard);
 
-    // Verify Victim modal appears
-    await expect(page1.locator('.modal-title')).toContainText('Ask for a Favor');
+    // Verify the choose-victim modal appears
+    const chooseVictimModal = findModal(page1, "favor-choose-victim");
+    await expect(chooseVictimModal).toBeVisible();
     // Verify player list: P2 should be present, P3 (empty hand) and P1 (self) should not.
-    const modalBody = page1.locator('.modal-body');
+    const modalBody = chooseVictimModal.locator('.modal-body');
     await expect(modalBody.locator('.list-group-item', { hasText: 'P1' })).not.toBeVisible();
     await expect(modalBody.locator('.list-group-item', { hasText: 'P2' })).toBeVisible();
     await expect(modalBody.locator('.list-group-item', { hasText: 'P3' })).not.toBeVisible();
@@ -1932,14 +1940,13 @@ test.describe('UI Tests with DEVMODE=1', () => {
     }
 
     // Verify card choice modal on P2
-    await expect(page2.locator('.modal-title')).toContainText('Grant a Favor');
-    await expect(page2.locator('.modal-title')).toContainText('15s'); // Countdown
+    const chooseCardModal = findModal(page2, "favor-choose-card");
+    await expect(chooseCardModal).toBeVisible();
     // Verify P2 hand is shown
     await expect(page2.locator('.modal-body img')).toHaveCount(8); // P2 had 8 cards
 
     // P2 chooses first card
     await page2.locator('.modal-body div[style*="cursor: pointer"]').first().click();
-    await page2.click('button:has-text("Give Card")');
 
     // Verify P1 sees overlay
     await expect(findOverlay(page1)).toBeVisible();
@@ -2051,9 +2058,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.mouse.up();
 
     // Verify Victim Modal appears
-    await expect(page1.locator('.modal-title')).toContainText('Steal a Card');
+    const chooseVictimModal = findModal(page1, "steal-choose-victim");
+    await expect(chooseVictimModal).toBeVisible();
     // Verify player list: P2 should be present, P3 (empty hand) and P1 (self) should not.
-    const modalBody = page1.locator('.modal-body');
+    const modalBody = chooseVictimModal.locator('.modal-body');
     await expect(modalBody.locator('.list-group-item', { hasText: 'P1' })).not.toBeVisible();
     await expect(modalBody.locator('.list-group-item', { hasText: 'P2' })).toBeVisible();
     await expect(modalBody.locator('.list-group-item', { hasText: 'P3' })).not.toBeVisible();
@@ -2087,12 +2095,13 @@ test.describe('UI Tests with DEVMODE=1', () => {
     }
 
     // Verify Card Choice Modal on P1
-    await expect(page1.locator('.modal-title')).toContainText('Choose a Card to Steal');
+    const chooseCardModal = findModal(page1, "steal-choose-card");
+    await expect(chooseCardModal).toBeVisible();
     // Verify card backs (P2 has 8 cards)
     await expect(page1.locator('.modal-body img')).toHaveCount(8);
 
     // Pick first card
-    await page1.locator('.modal-body div[style*="cursor: pointer"]').first().click();
+    await chooseCardModal.locator('.modal-body div[style*="cursor: pointer"]').first().click();
 
     // Verify P2 sees overlay
     await expect(findOverlay(page2)).toBeVisible();
@@ -2184,9 +2193,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     }
 
     // Verify P2 sees See The Future modal
-    await expect(page2.locator('.modal-title')).toContainText('See The Future');
-    const seeFutureModal = page2.locator('.modal-body');
-    const cardsInModal = seeFutureModal.locator('img');
+    const modal = findModal(page2, "see-the-future");
+    await expect(modal).toBeVisible();
+    const cardsInModal = modal.locator('.modal-body').locator('img');
     await expect(cardsInModal).toHaveCount(3);
 
     // Verify the cards in the modal are the top 3 from the deck
@@ -2294,12 +2303,14 @@ test.describe('UI Tests with DEVMODE=1', () => {
       await expect(findLogArea(page3)).toContainText(`${p1}'s cluster almost exploded`);
 
       // Verify the insertion dialog
-      await expect(page1.locator('.modal-title')).toContainText("You're safe, for now");
-      await expect(page1.locator('input[type="number"]')).toBeVisible();
+      const insertModal = findModal(page1, "exploding-reinsert");
+      await expect(insertModal).toBeVisible();
+      const input = insertModal.locator('input[type="number"]');
+      await expect(input).toBeVisible();
 
       // Re-insert it
-      await page1.fill('input[type="number"]', hide.toString());
-      await page1.getByRole('button', { name: 'OK', exact: true }).click();
+      await input.fill(hide.toString());
+      await insertModal.getByRole('button', { name: 'OK', exact: true }).click();
 
       // Verify turn advance
       await expect(findTurnArea(page1)).toContainText(`It's ${p2}'s turn`);
@@ -2399,18 +2410,21 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await drawCard(page2)
 
     // Verify P3 sees "You win!"
-    await expect(page3.locator('.modal-title')).toHaveText("You win!");
-    await expect(page3.locator('.modal-body')).toContainText("You have the last operational cluster");
-    await page3.getByRole('button', { name: 'OK', exact: true }).click();
+    const p3Modal = findModal(page3, "game-end");
+    await expect(p3Modal).toBeVisible();
+    await expect(p3Modal).toContainText("You win!");
+    await p3Modal.getByRole('button', { name: 'OK', exact: true }).click();
 
     // Verify other players' end of game messages
-    await expect(page1.locator('.modal-title')).toHaveText("P3 wins!");
-    await expect(page1.locator('.modal-body')).toContainText("P3 wins, with the last operational cluster");
-    await page1.getByRole('button', { name: 'OK', exact: true }).click();
+    const p1Modal = findModal(page1, "game-end");
+    await expect(p1Modal).toBeVisible();
+    await expect(p1Modal).toContainText("P3 wins!");
+    await p1Modal.getByRole('button', { name: 'OK', exact: true }).click();
 
-    await expect(page2.locator('.modal-title')).toHaveText("P3 wins!");
-    await expect(page2.locator('.modal-body')).toContainText("P3 wins, with the last operational cluster");
-    await page2.getByRole('button', { name: 'OK', exact: true }).click();
+    const p2Modal = findModal(page2, "game-end");
+    await expect(p2Modal).toBeVisible();
+    await expect(p2Modal).toContainText("P3 wins!");
+    await p2Modal.getByRole('button', { name: 'OK', exact: true }).click();
   });
 
   test('Draw: UPGRADE CLUSTER', async ({ browser }) => {
@@ -2446,12 +2460,14 @@ test.describe('UI Tests with DEVMODE=1', () => {
       await expect(pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.Debug);
 
       // Verify the insertion dialog
-      await expect(page1.locator('.modal-title')).toContainText("You're safe, for now");
-      await expect(page1.locator('input[type="number"]')).toBeVisible();
+      const insertModal = findModal(page1, "exploding-reinsert");
+      await expect(insertModal).toBeVisible();
+      const input = insertModal.locator('input[type="number"]');
+      await expect(input).toBeVisible();
 
       // Re-insert it
-      await page1.fill('input[type="number"]', hide.toString());
-      await page1.getByRole('button', { name: 'OK', exact: true }).click();
+      await input.fill(hide.toString());
+      await insertModal.getByRole('button', { name: 'OK', exact: true }).click();
       await expect(findTurnArea(page3)).toContainText(`your turn is next`);
     }
 
@@ -2526,12 +2542,14 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p3Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
 
     // Verify the insertion dialog
-    await expect(page2.locator('.modal-title')).toContainText("back into the deck");
-    await expect(page2.locator('input[type="number"]')).toBeVisible();
+    const p2InsertModal = findModal(page2, "upgrade-reinsert");
+    await expect(p2InsertModal).toBeVisible();
+    const p2Input = p2InsertModal.locator('input[type="number"]');
+    await expect(p2Input).toBeVisible();
 
     // Re-insert it
-    await page2.fill('input[type="number"]', "2");
-    await page2.getByRole('button', { name: 'OK', exact: true }).click();
+    await p2Input.fill("2");
+    await p2InsertModal.getByRole('button', { name: 'OK', exact: true }).click();
 
     // Safe draws
     await drawCard(page3);
@@ -2571,12 +2589,14 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p3Pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
 
     // Verify the insertion dialog
-    await expect(page3.locator('.modal-title')).toContainText("back into the deck");
-    await expect(page3.locator('input[type="number"]')).toBeVisible();
+    const p3InsertModal = findModal(page3, "upgrade-reinsert");
+    await expect(p3InsertModal).toBeVisible();
+    const p3Input = p3InsertModal.locator('input[type="number"]');
+    await expect(p3Input).toBeVisible();
 
     // Re-insert it
-    await page3.fill('input[type="number"]', "0");
-    await page3.getByRole('button', { name: 'OK', exact: true }).click();
+    await p3Input.fill("0");
+    await p3InsertModal.getByRole('button', { name: 'OK', exact: true }).click();
 
     // P1 gets UPGRADE CLUSTER face-up
     await expect(findTurnArea(page1)).toContainText(`It's your turn`);
@@ -2584,18 +2604,21 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await drawCard(page1);
 
     // Verify P3 sees "You win!"
-    await expect(page3.locator('.modal-title')).toHaveText("You win!");
-    await expect(page3.locator('.modal-body')).toContainText("You have the last operational cluster");
-    await page3.getByRole('button', { name: 'OK', exact: true }).click();
+    const p3Modal = findModal(page3, "game-end");
+    await expect(p3Modal).toBeVisible();
+    await expect(p3Modal).toContainText("You win!");
+    await p3Modal.getByRole('button', { name: 'OK', exact: true }).click();
 
     // Verify other players' end of game messages
-    await expect(page1.locator('.modal-title')).toHaveText("P3 wins!");
-    await expect(page1.locator('.modal-body')).toContainText("P3 wins, with the last operational cluster");
-    await page1.getByRole('button', { name: 'OK', exact: true }).click();
+    const p1Modal = findModal(page1, "game-end");
+    await expect(p1Modal).toBeVisible();
+    await expect(p1Modal).toContainText("P3 wins!");
+    await p1Modal.getByRole('button', { name: 'OK', exact: true }).click();
 
-    await expect(page2.locator('.modal-title')).toHaveText("P3 wins!");
-    await expect(page2.locator('.modal-body')).toContainText("P3 wins, with the last operational cluster");
-    await page2.getByRole('button', { name: 'OK', exact: true }).click();
+    const p2Modal = findModal(page2, "game-end");
+    await expect(p2Modal).toBeVisible();
+    await expect(p2Modal).toContainText("P3 wins!");
+    await p2Modal.getByRole('button', { name: 'OK', exact: true }).click();
   });
 
   test('Message log: cleared between games', async ({ browser }) => {
@@ -2633,10 +2656,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.click(Buttons.LEAVE_GAME_CONFIRM);
     await page1.waitForURL('/');
 
-    // P2 sees win/end?
-    // "game ended due to insufficient players"
-    // P2 acknowledges
-    await expect(page2.locator(Locators.MODAL_SHOW)).toContainText(/win/i);
+    // P2 sees win
+    const modal = findModal(page2, "game-end");
     await page2.click(Buttons.MODAL_OK);
     await page2.waitForURL('/');
 

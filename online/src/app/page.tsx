@@ -187,7 +187,11 @@ export default function Home() {
       </Row>
 
       {/* Create Game Modal */}
-      <Modal show={mode === 'create'} onHide={handleCloseModal}>
+      <Modal
+        show={mode === 'create'}
+        onHide={handleCloseModal}
+        data-modalname="create-game"
+      >
         <Modal.Header closeButton>
           <Modal.Title>Create a New Game</Modal.Title>
         </Modal.Header>
@@ -220,7 +224,11 @@ export default function Home() {
       </Modal>
 
       {/* Join Game Modal */}
-      <Modal show={mode === 'join'} onHide={handleCloseModal}>
+      <Modal
+        data-modalname="join-game"
+        show={mode === 'join'}
+        onHide={handleCloseModal}
+      >
         <Modal.Header closeButton>
           <Modal.Title>Join an Existing Game</Modal.Title>
         </Modal.Header>
@@ -264,7 +272,11 @@ export default function Home() {
       </Modal>
 
       {/* Watch Game Modal */}
-      <Modal show={mode === 'watch'} onHide={handleCloseModal}>
+      <Modal
+        data-modalname="watch-game"
+        show={mode === 'watch'}
+        onHide={handleCloseModal}
+      >
         <Modal.Header closeButton>
           <Modal.Title>Watch an Existing Game</Modal.Title>
         </Modal.Header>
@@ -292,7 +304,13 @@ export default function Home() {
       </Modal>
 
       {/* Rejoin Error Modal */}
-      <Modal show={!!rejoinError} onHide={handleRejoinErrorClose} backdrop="static" keyboard={false}>
+      <Modal
+        data-modalname="rejoin-error"
+        show={!!rejoinError}
+        onHide={handleRejoinErrorClose}
+        backdrop="static"
+        keyboard={false}
+      >
         <Modal.Header>
           <Modal.Title>Sorry!</Modal.Title>
         </Modal.Header>

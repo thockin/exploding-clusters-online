@@ -1,10 +1,7 @@
 Phase 4:
- - FAVOR has a "give card" button on the final modal, DEVELOPER just clicks the
-   card -- make them the same
- - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
- - send BIG messages when executing
-   - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
  - Don't do the "choose player" dialog if only 2 players
+ - modal sizes
+ - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
 
 tests
  - more helpers
@@ -35,6 +32,9 @@ Later:
 * Make FAVOR and DEVELOPER modals bigger to show bigger card icons
 * Make it more visible when yoou are being targetted by a favor or steal
 * Modals vs overlays
+* Scale hand animations with cards
+ - send BIG messages when executing
+   - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
 
 Bugs:
 * if non-current player plays NAK out of turn (8 cards->7), they get a

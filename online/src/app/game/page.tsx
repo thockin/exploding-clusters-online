@@ -55,7 +55,6 @@ export default function GameScreen() {
   const [favorVictimSelection, setFavorVictimSelection] = useState<string | null>(null);
   const [favorCardChoiceModalOpen, setFavorCardChoiceModalOpen] = useState(false);
   const [favorOutcomeCard, setFavorOutcomeCard] = useState<Card | null>(null);
-  const [favorSelectedCardId, setFavorSelectedCardId] = useState<string | null>(null); // For victim selecting card to give
   const [favorCountdown, setFavorCountdown] = useState(15);
   const [developerVictimModalOpen, setDeveloperVictimModalOpen] = useState(false);
   const [developerCardChoiceCount, setDeveloperCardChoiceCount] = useState<number | null>(null);
@@ -1417,7 +1416,11 @@ export default function GameScreen() {
         )}
 
         {/* Modals... */}
-        <Modal show={!!hostPromotionMessage} onHide={() => setHostPromotionMessage(null)}>
+        <Modal
+          data-modalname="host-promotion"
+          show={!!hostPromotionMessage}
+          onHide={() => setHostPromotionMessage(null)}
+        >
           <Modal.Header closeButton>
             <Modal.Title>You are now the game owner</Modal.Title>
           </Modal.Header>
@@ -1429,7 +1432,11 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
-        <Modal show={showLeaveModal} onHide={() => setShowLeaveModal(false)}>
+        <Modal
+          data-modalname="leave-game"
+          show={showLeaveModal}
+          onHide={() => setShowLeaveModal(false)}
+        >
           <Modal.Header closeButton>
             <Modal.Title>Leave Game?</Modal.Title>
           </Modal.Header>
@@ -1442,7 +1449,11 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
-        <Modal show={!!replayModal?.show} onHide={() => setReplayModal(null)}>
+        <Modal
+          data-modalname="retry-play"
+          show={!!replayModal?.show}
+          onHide={() => setReplayModal(null)}
+        >
           <Modal.Header closeButton>
             <Modal.Title>Game Updated</Modal.Title>
           </Modal.Header>
@@ -1455,7 +1466,13 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
-        <Modal show={!!upgradeInsertionModal?.show} onHide={() => {}} backdrop="static" keyboard={false}>
+        <Modal
+          data-modalname="upgrade-reinsert"
+          show={!!upgradeInsertionModal?.show}
+          onHide={() => {}}
+          backdrop="static"
+          keyboard={false}
+        >
           <Modal.Header>
             <Modal.Title>Put the UPGRADE CLUSTER card back into the deck</Modal.Title>
           </Modal.Header>
@@ -1494,7 +1511,13 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
-        <Modal show={!!insertionModal?.show} onHide={() => {}} backdrop="static" keyboard={false}>
+        <Modal
+          data-modalname="exploding-reinsert"
+          show={!!insertionModal?.show}
+          onHide={() => {}}
+          backdrop="static"
+          keyboard={false}
+        >
           <Modal.Header>
             <Modal.Title>You&apos;re safe, for now</Modal.Title>
           </Modal.Header>
@@ -1533,7 +1556,15 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
-        <Modal show={!!seeTheFutureCards} onHide={handleDismissSeeTheFuture} backdrop="static" keyboard={false} centered fullscreen={true}>
+        <Modal
+          data-modalname="see-the-future"
+          show={!!seeTheFutureCards}
+          onHide={handleDismissSeeTheFuture}
+          backdrop="static"
+          keyboard={false}
+          centered
+          fullscreen={true}
+        >
           <Modal.Header>
             <Modal.Title>See The Future</Modal.Title>
           </Modal.Header>
@@ -1556,7 +1587,14 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
-        <Modal show={favorVictimModalOpen} onHide={() => setFavorVictimModalOpen(false)} backdrop="static" keyboard={false} centered>
+        <Modal
+          data-modalname="favor-choose-victim"
+          show={favorVictimModalOpen}
+          onHide={() => setFavorVictimModalOpen(false)}
+          backdrop="static"
+          keyboard={false}
+          centered
+        >
           <Modal.Header>
             <Modal.Title>Ask for a Favor</Modal.Title>
           </Modal.Header>
@@ -1588,19 +1626,30 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
-        <Modal show={favorCardChoiceModalOpen} onHide={() => {}} backdrop="static" keyboard={false} centered>
+        <Modal
+          data-modalname="favor-choose-card"
+          show={favorCardChoiceModalOpen}
+          onHide={() => {}}
+          backdrop="static"
+          keyboard={false}
+          centered
+        >
           <Modal.Header>
             <Modal.Title>Grant a Favor ({favorCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <p>Someone asked you for a favor! Choose a card to give them:</p>
+            <p>Choose a card to give:</p>
             <div className="d-flex flex-wrap justify-content-center" style={{ gap: '10px' }}>
               {myHand.map((card, index) => (
                 <div 
                   key={index} 
-                  onClick={() => setFavorSelectedCardId(card.id)}
+                  onClick={() => {
+                      if (gameCode) {
+                          socket?.emit(SocketEvent.ResolveFavorCard, { gameCode, cardId: card.id });
+                      }
+                  }}
                   style={{ 
-                    border: favorSelectedCardId === card.id ? '3px solid blue' : '1px solid gray',
+                    border: '1px solid gray',
                     borderRadius: '5px',
                     cursor: 'pointer'
                   }}
@@ -1610,15 +1659,6 @@ export default function GameScreen() {
               ))}
             </div>
           </Modal.Body>
-          <Modal.Footer>
-            <Button variant="primary" disabled={!favorSelectedCardId} onClick={() => {
-              if (gameCode && favorSelectedCardId) {
-                socket?.emit(SocketEvent.ResolveFavorCard, { gameCode, cardId: favorSelectedCardId });
-                setFavorCardChoiceModalOpen(false);
-                setFavorSelectedCardId(null);
-              }
-            }}>Give Card</Button>
-          </Modal.Footer>
         </Modal>
 
         {favorOutcomeCard && (
@@ -1632,7 +1672,14 @@ export default function GameScreen() {
           </div>
         )}
 
-        <Modal show={developerVictimModalOpen} onHide={() => setDeveloperVictimModalOpen(false)} backdrop="static" keyboard={false} centered>
+        <Modal
+          data-modalname="steal-choose-victim"
+          show={developerVictimModalOpen}
+          onHide={() => setDeveloperVictimModalOpen(false)}
+          backdrop="static"
+          keyboard={false}
+          centered
+        >
           <Modal.Header>
             <Modal.Title>Steal a Card</Modal.Title>
           </Modal.Header>
@@ -1663,7 +1710,14 @@ export default function GameScreen() {
           </Modal.Footer>
         </Modal>
 
-        <Modal show={developerCardChoiceCount !== null} onHide={() => {}} backdrop="static" keyboard={false} centered>
+        <Modal
+          data-modalname="steal-choose-card"
+          show={developerCardChoiceCount !== null}
+          onHide={() => {}}
+          backdrop="static"
+          keyboard={false}
+          centered
+        >
           <Modal.Header>
             <Modal.Title>Choose a Card to Steal</Modal.Title>
           </Modal.Header>
@@ -1703,7 +1757,14 @@ export default function GameScreen() {
           </div>
         )}
 
-        <Modal show={!!gameEndData} onHide={handleGameEndConfirm} backdrop="static" keyboard={false} centered>
+        <Modal
+          data-modalname="game-end"
+          show={!!gameEndData}
+          onHide={handleGameEndConfirm}
+          backdrop="static"
+          keyboard={false}
+          centered
+        >
           <Modal.Header>
             <Modal.Title>
               {

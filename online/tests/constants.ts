@@ -37,7 +37,6 @@ export const Locators = {
   DRAW_PILE_COUNT: '.draw-pile-count',
   DISCARD_PILE_COUNT: '.discard-pile-count',
   HAND_ANIMATION_CARD: '.hand-animation .hand-card img',
-  MODAL_SHOW: '.modal.show',
   LOBBY_PLAYER_LIST: '[data-testid="lobby-player-list"]',
 };
 
