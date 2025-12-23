@@ -1,4 +1,5 @@
-import { test, expect, Page, Locator } from '@playwright/test'; import { Buttons, Inputs, Headers, Locators, CSS } from './constants';
+import { test, expect, Page, Locator } from '@playwright/test';
+import { Buttons, Inputs, Headers, Locators, CSS } from './constants';
 import { CardClass, TurnPhase } from '../src/api';
 
 // Helper to create game
