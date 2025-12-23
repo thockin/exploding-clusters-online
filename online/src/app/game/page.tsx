@@ -624,15 +624,18 @@ export default function GameScreen() {
 
       // Show overlay slightly before animation ends to avoid gap/flicker
       setTimeout(() => {
+        // If there is a card to overlay (e.g. EXPLODING CLUSTER), that uses
+        // the same duration, but starts when the animation ends.
         if (data.card) {
           setOverlayCard(data.card);
 
-          let dismissDelay = data.duration;
+          // If this is too short, tests flake.
+          let dismissDelay = Math.max(data.duration, 1000);
           setTimeout(() => {
             setOverlayCard(null);
           }, dismissDelay);
         }
-      }, Math.max(250, data.duration - 666));
+      }, Math.max(50, data.duration - 300));
 
       // Clear animation after duration
       setTimeout(() => {

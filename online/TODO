@@ -38,6 +38,7 @@ Later:
 * Scale hand animations with cards
  - send BIG messages when executing
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
+* Most "durations" should be client-side, not sent by server
 
 Bugs:
 * if non-current player plays NAK out of turn (8 cards->7), they get a
