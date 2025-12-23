@@ -66,7 +66,11 @@ async function playCard(page: Page, card: Locator) {
 // Helper to draw a card.
 async function drawCard(page: Page) {
   await expect(findTurnArea(page)).toContainText(`It's your turn`);
-  await findDrawPile(page).click();
+  const drawPile = findDrawPile(page);
+  const initialCount = await drawPile.getAttribute('data-drawcount');
+  const count = parseInt(initialCount || '0', 10);
+  await drawPile.click();
+  await expect(drawPile).toHaveAttribute('data-drawcount', String(count + 1));
 }
 
 // Helper to find the player-list area.
@@ -2621,18 +2625,15 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const p3Modal = findModal(page3, "game-end");
     await expect(p3Modal).toBeVisible();
     await expect(p3Modal).toContainText("You win!");
-    await p3Modal.getByRole('button', { name: 'OK', exact: true }).click();
 
     // Verify other players' end of game messages
     const p1Modal = findModal(page1, "game-end");
     await expect(p1Modal).toBeVisible();
     await expect(p1Modal).toContainText("P3 wins!");
-    await p1Modal.getByRole('button', { name: 'OK', exact: true }).click();
 
     const p2Modal = findModal(page2, "game-end");
     await expect(p2Modal).toBeVisible();
     await expect(p2Modal).toContainText("P3 wins!");
-    await p2Modal.getByRole('button', { name: 'OK', exact: true }).click();
   });
 
   test('Draw: UPGRADE CLUSTER', async ({ browser }) => {
@@ -2814,18 +2815,15 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const p3Modal = findModal(page3, "game-end");
     await expect(p3Modal).toBeVisible();
     await expect(p3Modal).toContainText("You win!");
-    await p3Modal.getByRole('button', { name: 'OK', exact: true }).click();
 
     // Verify other players' end of game messages
     const p1Modal = findModal(page1, "game-end");
     await expect(p1Modal).toBeVisible();
     await expect(p1Modal).toContainText("P3 wins!");
-    await p1Modal.getByRole('button', { name: 'OK', exact: true }).click();
 
     const p2Modal = findModal(page2, "game-end");
     await expect(p2Modal).toBeVisible();
     await expect(p2Modal).toContainText("P3 wins!");
-    await p2Modal.getByRole('button', { name: 'OK', exact: true }).click();
   });
 
   test('Message log: cleared between games', async ({ browser }) => {

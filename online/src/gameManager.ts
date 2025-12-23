@@ -38,6 +38,7 @@ interface Game {
   turnPhase: TurnPhase;
   timerDuration?: number; // active timer duration
   drawPile: Card[];
+  drawCount: number; // Incremented on every draw
   discardPile: Card[];
   removedPile: Card[]; // New: cards removed from the game
   pendingOperations: Operation[];
@@ -384,6 +385,7 @@ export class GameManager {
       topDiscardCard: topDiscardCard, // Always send top card for rendering
       drawPileImage: drawPileImage,
       topDrawPileCard: topDrawPileCard,
+      drawCount: game.drawCount,
     };
 
     if (game.devMode) {
@@ -567,10 +569,11 @@ export class GameManager {
       state: GameState.Lobby,
       turnOrder: [],
       currentTurnIndex: -1,
-      turnPhase: TurnPhase.Action, // Default phase
+      turnPhase: TurnPhase.Action,
       drawPile: [],
+      drawCount: 0,
       discardPile: [],
-      removedPile: [], // Initialize new removed pile
+      removedPile: [],
       pendingOperations: [],
       gameOwnerId: playerId,
       nonce: this.generateNonce(),
@@ -1107,10 +1110,11 @@ export class GameManager {
         this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "The deck is empty!" });
         return;
       }
-      this.log(game, `player "${player.name}" drew ${card.class} ("${card.name}")`);
+      game.drawCount++;
+      this.log(game, `player "${player.name}" drew ${card.class} ("${card.name}"), draw=${game.drawCount}`);
 
       // Empirical - not too fast, not too slow
-      const animDuration = config.goFast ? 500 : 2000;
+      const animDuration = config.goFast ? 250 : 2000;
 
       // Determine next card image (for animation background)
       const nextCard = game.drawPile.length > 0 ? game.drawPile[game.drawPile.length - 1] : undefined;
@@ -1211,7 +1215,6 @@ export class GameManager {
               }
             } else {
               // Has DEBUG card
-              this.log(currentGame, `player "${currentPlayer.name}" drew EXPLODING CLUSTER but has DEBUG`);
               // Stay in turn, phase is Exploding
               this.updateGameNonce(currentGame, currentPlayer.name);
             }
@@ -1269,7 +1272,7 @@ export class GameManager {
         }
       };
 
-      game.timer = setTimeout(finalizeDraw, animDuration * 0.8);
+      game.timer = setTimeout(finalizeDraw, animDuration);
     } catch (error) {
       // Handle any errors that occur before or during setTimeout setup
       this.log(game, `drawCard error: ${error}`);
@@ -1622,10 +1625,10 @@ export class GameManager {
            action: async (_g: Game) => {
              // Retrieve top 3 cards without removing them
              const top3Cards = _g.drawPile.slice(Math.max(0, _g.drawPile.length - 3)).reverse();
-             const duration = config.goFast ? 2000 : 10000;
+             const duration = config.goFast ? 500 : 10000;
 
              // Send to player who played card
-             this.emitToSocket(player.socketId, SocketEvent.SeeTheFutureData, { cards: top3Cards, timeout: duration });
+             this.emitToSocket(player.socketId, SocketEvent.SeeTheFutureData, { cards: top3Cards, duration: duration });
              this.log(_g, `player "${player.name}" saw the future`);
              this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} saw the future.` });
 
@@ -1658,7 +1661,7 @@ export class GameManager {
            playerName: player.name,
            action: async (_g: Game) => {
              // Sleep for 3 seconds (or less if GO_FAST)
-             const duration = config.goFast ? 500 : 3000;
+             const duration = config.goFast ? 250 : 3000;
              if (this.verbose) {
                this.log(_g, `executing do-nothing operation for card ${card.class} (sleeping ${duration}ms)`);
              }
@@ -1872,7 +1875,7 @@ export class GameManager {
             playerName: player.name,
             action: async (_g: Game) => {
               // Sleep for 3 seconds (or less if GO_FAST)
-              const duration = config.goFast ? 500 : 3000;
+              const duration = config.goFast ? 250 : 3000;
               if (this.verbose) {
                 this.log(_g, `executing do-nothing operation for card ${proto.class} (sleeping ${duration}ms)`);
               }
@@ -2098,6 +2101,7 @@ export class GameManager {
 
     // Set game state to Ended to prevent new operations and make this idempotent
     game.state = GameState.Ended;
+    this.emitGameUpdate(game);
 
     const gameEndData = { winner: winnerName, winType: winType };
 

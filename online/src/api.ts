@@ -117,6 +117,7 @@ export interface GameUpdatePayload {
   topDiscardCard?: Card;     // optional (may be no discarded cards)
   drawPileImage?: string;    // Image to show for the draw pile
   topDrawPileCard?: Card;    // If the top card is face-up, this is the card, else nothing
+  drawCount?: number;        // Incremented on every draw
   drawPileCount?: number;    // optional, devMode only
   discardPileCount?: number; // optional, devMode only
   removedPileCount?: number; // optional, devMode only

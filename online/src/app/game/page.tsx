@@ -203,9 +203,9 @@ export default function GameScreen() {
           setReplayModal({ show: true, ...data });
         };
   
-    const onSeeTheFutureData = (data: { cards: Card[], timeout?: number }) => {
+    const onSeeTheFutureData = (data: { cards: Card[], duration?: number }) => {
       setSeeTheFutureCards(data.cards);
-      const duration = data.timeout || (gameStateRef.current?.devMode ? 2000 : 10000);
+      const duration = data.duration || (gameStateRef.current?.devMode ? 2000 : 10000);
       setTimeout(() => {
         setSeeTheFutureCards(null);
         if (socket && gameCode) {
@@ -586,24 +586,30 @@ export default function GameScreen() {
   };
 
   const handleDrawClick = useCallback(() => {
-    if (!socket || !gameState) return;
+    if (!socket) {
+      console.debug("Cannot draw: no socket");
+      return;
+    }
+    if (!gameState) {
+      console.debug("Cannot draw: no game state");
+      return;
+    }
 
-    if (isDrawingRef.current) return;
-    if (drawingAnimation?.active) return;
+    if (drawingAnimation?.active) {
+      console.debug("Cannot draw: animation is active");
+      return;
+    }
 
     const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
     if (currentPlayerId !== playerId) {
       console.log("Cannot draw: not your turn");
-      return; // Or show toast
+      return;
     }
 
     if (gameState.turnPhase !== TurnPhase.Action) {
       console.log("Cannot draw: not in action phase");
       return;
     }
-
-    isDrawingRef.current = true;
-    setTimeout(() => { isDrawingRef.current = false; }, 1000);
 
     socket.emit(SocketEvent.DrawCard, gameCode);
   }, [socket, gameState, playerId, gameCode, drawingAnimation]);
@@ -1324,6 +1330,7 @@ export default function GameScreen() {
                 <div
                   className="draw-pile position-relative" 
                   data-areaname="draw-pile"
+                  data-drawcount={gameState?.drawCount ?? 0}
                   style={{ 
                     width: getCardSize().width, 
                     height: getCardSize().height,
