@@ -1,6 +1,6 @@
 Phase 4:
+ - Make FAVOR and DEVELOPER modals bigger to show bigger card icons
  - SEE FUTURE as overlay not dialog
- - modals' card sizes
 
 tests
  - more helpers
@@ -13,26 +13,24 @@ tests
 
 Later:
 * Play-card animation (important when playing the same card)
-* Shuffle hands at game start, but not in DEVMODE
+* Re-insert card animation
 * Hand animation is ugly
   - need configurable skin colors?
-* Re-insert card animation
+  - scale hand animations with cards
+  - center on deck
 * Shuffle animation
 * Scale cards up in size as they get closer to discard pile (drag)
+* Announce who is the first player
+* Announce the victim more visibly when FAVOR or combo is played
 * Reduce card spacing in hand or even overlap them?
 * copyrights on art and code
 * Capitalization and grammar/style in all buttons and labels
  - Modal dialog for "beat you to it"
-* colors for reaction timer
-* Send card classes to logs as `s/_/ /g`
-* Nonce updates in `finally` blocks
+* colors for reaction timer text
+* Send card classes to logs and messages as `s/_/ /g`
+* Nonce updates in `finally` blocks (redundant updates?)
 * Better messages for NAK (e.g. "P2 NAK'ed the SHUFFLE")
-* Put a GameMessage into HandUpdate, too
-* Fix dump LLM comments like "Maybe we should" and "design doc says..." and "phase X"
-* Make FAVOR and DEVELOPER modals bigger to show bigger card icons
-* Make it more visible when yoou are being targetted by a favor or steal
-* Modals vs overlays
-* Scale hand animations with cards
+* Fix dumb LLM comments like "Maybe we should" and "design doc says..." and "phase X"
  - send BIG messages when executing
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
 * Most "durations" should be client-side, not sent by server

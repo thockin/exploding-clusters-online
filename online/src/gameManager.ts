@@ -412,10 +412,12 @@ export class GameManager {
       return baseData;
     }
   }
+
   private emitGameUpdate(game: Game) {
     const data = this.getGameUpdateData(game);
     this.emitToGame(game.code, SocketEvent.GameUpdate, data);
   }
+
   private updateGameNonce(game: Game, actorName?: string) {
     if (actorName) {
       game.lastActorName = actorName;
@@ -785,9 +787,10 @@ export class GameManager {
         game.players[i].hand.push(...deck.splice(0, 7));
       }
     } else {
-      // Deal 7 cards to each player
+      // Deal 7 cards to each player and shuffle them
       for (const p of game.players) {
         p.hand.push(...deck.splice(0, 7));
+        p.hand = shuffleDeck(p.hand, this.prng.random.bind(this.prng));
       }
     }
 
@@ -2119,19 +2122,15 @@ export class GameManager {
 
   // Centralized logging
   private log(game: Game | null, message: string) {
-    if (!game || game.devMode) {
-      const timestamp = new Date().toISOString();
-      const prefix = game ? `[${timestamp}] [game ${game.code}] ` : `[${timestamp}] [server] `;
-      console.log(prefix + message);
-    }
+    const timestamp = new Date().toISOString();
+    const prefix = game ? `[${timestamp}] [game ${game.code}] ` : `[${timestamp}] [server] `;
+    console.log(prefix + message);
   }
   private vlog(game: Game | null, message: string) {
     if (this.verbose) {
-      if (!game || game.devMode) {
-        const timestamp = new Date().toISOString();
-        const prefix = game ? `[${timestamp}] [game ${game.code}] ` : `[${timestamp}] [server] `;
-        console.log(prefix + message);
-      }
+      const timestamp = new Date().toISOString();
+      const prefix = game ? `[${timestamp}] [game ${game.code}] ` : `[${timestamp}] [server] `;
+      console.log(prefix + message);
     }
   }
 
