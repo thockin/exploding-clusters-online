@@ -1465,7 +1465,6 @@ export class GameManager {
     // played by others.  It will be checked in canPlayCard.
 
     // Nonce check
-    // FIXME: nonce should be required
     if (nonce && nonce !== game.nonce) {
       this.log(game, `playCard rejected: nonce mismatch (client=${nonce}, server=${game.nonce})`);
       this.emitToSocket(socket.id, SocketEvent.PlayError, {
@@ -1712,7 +1711,6 @@ export class GameManager {
     }
 
     // Nonce check
-    // FIXME: nonce should be required
     if (nonce && nonce !== game.nonce) {
       this.log(game, `playCombo rejected: nonce mismatch (client=${nonce}, server=${game.nonce})`);
       this.emitToSocket(socket.id, SocketEvent.PlayError, {
