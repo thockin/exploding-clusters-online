@@ -1,7 +1,6 @@
 Phase 4:
  - SEET FUTURE as overlay not dialog
  - modal sizes
- - rename overlay variables
  - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
 
 tests

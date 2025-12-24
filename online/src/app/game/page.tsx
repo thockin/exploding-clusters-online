@@ -21,9 +21,9 @@ export default function GameScreen() {
   const router = useRouter();
   const { socket, gameCode, gameState, playerName, playerId, myHand, setMyHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
 
-  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showLeaveGameModal, setShowLeaveGameModal] = useState(false);
   const [selectedCards, setSelectedCards] = useState<Card[]>([]); // For single or combo selection
-  const [overlayCard, setOverlayCard] = useState<Card | null>(null);
+  const [inspectCardOverlay, setInspectCardOverlay] = useState<Card | null>(null);
   const [explodingCard, setExplodingCard] = useState<Card | null>(null);
   const [windowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
   const [isClient, setIsClient] = useState(false); // Initialize as false
@@ -45,23 +45,23 @@ export default function GameScreen() {
   const isShiftKeyPressed = useRef(false);
   const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: Card, playerId?: string, duration?: number, nextCardImageUrl?: string, currentPileImageUrl?: string } | null>(null);
   const [replayModal, setReplayModal] = useState<{ show: boolean, reason: string, cardId?: string, cardIds?: string[] } | null>(null);
-  const [insertionModal, setInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
-  const [insertionIndex, setInsertionIndex] = useState<string | number>(0);
-  const [upgradeInsertionModal, setUpgradeInsertionModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
+  const [explodingReinsertModal, setExplodingReinsertModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
+  const [upgradeReinsertModal, setUpgradeReinsertModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
+  const [reinsertIndex, setInsertionIndex] = useState<string | number>(0);
   const [seeTheFutureCards, setSeeTheFutureCards] = useState<Card[] | null>(null);
   const [favorVictimModalOpen, setFavorVictimModalOpen] = useState(false);
   const [favorVictimSelection, setFavorVictimSelection] = useState<string | null>(null);
   const [favorCardChoiceModalOpen, setFavorCardChoiceModalOpen] = useState(false);
-  const [favorOutcomeCard, setFavorOutcomeCard] = useState<Card | null>(null);
-  const [developerVictimModalOpen, setDeveloperVictimModalOpen] = useState(false);
-  const [developerCardChoiceCount, setDeveloperCardChoiceCount] = useState<number | null>(null);
-  const [developerStolenEventData, setDeveloperStolenEventData] = useState<{ card: Card, stealerId?: string, victimId?: string } | null>(null);
-  const [noVictimModalOpen, setNoVictimModalOpen] = useState(false);
+  const [favorResultCardOverlay, setFavorResultCardOverlay] = useState<Card | null>(null);
+  const [stealCardVictimModalOpen, setStealCardVictimModalOpen] = useState(false);
+  const [stealCardVictimHandSize, setStealCardVictimHandSize] = useState<number | null>(null);
+  const [stealCardResultOverlay, setStealCardResultOverlay] = useState<{ card: Card, stealerId?: string, victimId?: string } | null>(null);
+  const [noPossibleVictimModalOpen, setNoPossibleVictimModalOpen] = useState(false);
+  const [hostPromotionModal, setHostPromotionModal] = useState<string | null>(null);
 
   // DEVMODE states
-  const [deckOverlay, setDeckOverlay] = useState<Card[] | null>(null);
-  const [removedOverlay, setRemovedOverlay] = useState<Card[] | null>(null); // New: for removed pile overlay
-  const [hostPromotionMessage, setHostPromotionMessage] = useState<string | null>(null);
+  const [deckCardsOverlay, setDeckCardsOverlay] = useState<Card[] | null>(null);
+  const [removedCardsOverlay, setRemovedCardsOverlay] = useState<Card[] | null>(null); // New: for removed pile overlay
 
   // Ensure isClient is true after first render
   useEffect(() => {
@@ -101,13 +101,13 @@ export default function GameScreen() {
   }, [favorCardChoiceModalOpen]);
 
   useEffect(() => {
-    if (developerCardChoiceCount !== null) {
+    if (stealCardVictimHandSize !== null) {
       setChoiceCountdown(choiceTimeoutSeconds);
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
             if (prev <= 1) {
                 clearInterval(interval);
-                setDeveloperCardChoiceCount(null);
+                setStealCardVictimHandSize(null);
                 return 0;
             }
             return prev - 1;
@@ -115,17 +115,17 @@ export default function GameScreen() {
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [developerCardChoiceCount]);
+  }, [stealCardVictimHandSize]);
 
   useEffect(() => {
-    if (favorVictimModalOpen || developerVictimModalOpen) {
+    if (favorVictimModalOpen || stealCardVictimModalOpen) {
       setChoiceCountdown(choiceTimeoutSeconds);
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
             if (prev <= 1) {
                 clearInterval(interval);
                 setFavorVictimModalOpen(false);
-                setDeveloperVictimModalOpen(false);
+                setStealCardVictimModalOpen(false);
                 return 0;
             }
             return prev - 1;
@@ -133,7 +133,7 @@ export default function GameScreen() {
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [favorVictimModalOpen, developerVictimModalOpen]);
+  }, [favorVictimModalOpen, stealCardVictimModalOpen]);
 
   const gameStateRef = useRef(gameState);
 
@@ -144,7 +144,7 @@ export default function GameScreen() {
         const prevOwner = prevGameState.players.find(p => p.id === prevGameState.gameOwnerId);
         const prevOwnerName = prevOwner ? prevOwner.name : 'The previous host';
         setTimeout(() => {
-          setHostPromotionMessage(`${prevOwnerName} left the game, so you have been selected as the new game owner. Congratulations on your promotion!`);
+          setHostPromotionModal(`${prevOwnerName} left the game, so you have been selected as the new game owner. Congratulations on your promotion!`);
         }, 0);
       }
     }
@@ -170,34 +170,34 @@ export default function GameScreen() {
       const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
       if (currentPlayerId === playerId) {
         const hasDebug = myHand.some(c => c.class === CardClass.Debug);
-        if (!hasDebug && !insertionModal && !overlayCard) {
-           setInsertionModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
+        if (!hasDebug && !explodingReinsertModal && !inspectCardOverlay) {
+           setExplodingReinsertModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
         }
       }
     } else {
-      if (insertionModal) setInsertionModal(null);
+      if (explodingReinsertModal) setExplodingReinsertModal(null);
     }
-  }, [gameState, playerId, myHand, insertionModal, overlayCard]);
+  }, [gameState, playerId, myHand, explodingReinsertModal, inspectCardOverlay]);
 
   useEffect(() => {
     // Detect if we are in Upgrading phase and need to show Insertion Modal
     if (gameState?.turnPhase === TurnPhase.Upgrading) {
       const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
       if (currentPlayerId === playerId) {
-        if (!upgradeInsertionModal && !overlayCard) {
-           setUpgradeInsertionModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
+        if (!upgradeReinsertModal && !inspectCardOverlay) {
+           setUpgradeReinsertModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
         }
       }
     } else {
-      if (upgradeInsertionModal) setUpgradeInsertionModal(null);
+      if (upgradeReinsertModal) setUpgradeReinsertModal(null);
     }
-  }, [gameState, playerId, upgradeInsertionModal, overlayCard]);
+  }, [gameState, playerId, upgradeReinsertModal, inspectCardOverlay]);
 
   useEffect(() => {
     if (!socket) return;
 
-    const onDeckData = ({ deck }: { deck: Card[] }) => setDeckOverlay(deck);
-    const onRemovedData = ({ removedPile }: { removedPile: Card[] }) => setRemovedOverlay(removedPile);
+    const onDeckData = ({ deck }: { deck: Card[] }) => setDeckCardsOverlay(deck);
+    const onRemovedData = ({ removedPile }: { removedPile: Card[] }) => setRemovedCardsOverlay(removedPile);
     const onPlayerExploding = ({ card }: { card: Card }) => setExplodingCard(card);
         const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
           setReplayModal({ show: true, ...data });
@@ -219,19 +219,19 @@ export default function GameScreen() {
     };
 
     const onFavorOutcome = (data: { card: Card }) => {
-      setFavorOutcomeCard(data.card);
+      setFavorResultCardOverlay(data.card);
       setTimeout(() => {
-        setFavorOutcomeCard(null);
+        setFavorResultCardOverlay(null);
       }, 3000);
     };
 
     const onChooseDeveloperCard = (data: { victimId: string, handCount: number }) => {
-        setDeveloperCardChoiceCount(data.handCount);
+        setStealCardVictimHandSize(data.handCount);
     };
 
     const onDeveloperStolen = (data: { card: Card, stealerId?: string, victimId?: string }) => {
-        setDeveloperStolenEventData(data);
-        setTimeout(() => setDeveloperStolenEventData(null), 3000);
+        setStealCardResultOverlay(data);
+        setTimeout(() => setStealCardResultOverlay(null), 3000);
     };
 
     const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
@@ -298,9 +298,9 @@ export default function GameScreen() {
       useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
           if (event.key === 'Escape') {
-            setOverlayCard(null);
-            setDeckOverlay(null);
-            setRemovedOverlay(null);
+            setInspectCardOverlay(null);
+            setDeckCardsOverlay(null);
+            setRemovedCardsOverlay(null);
             setDrawingAnimation(null); // Clear drawing animation on Escape
             setSeeTheFutureCards(null); // Clear See The Future overlay on Escape
           }
@@ -344,10 +344,10 @@ export default function GameScreen() {
 
   const handleUpgradeInsertConfirm = useCallback(() => {
     if (!socket || !gameCode || !gameState) return;
-    const index = typeof insertionIndex === 'string' ? parseInt(insertionIndex, 10) : insertionIndex;
+    const index = typeof reinsertIndex === 'string' ? parseInt(reinsertIndex, 10) : reinsertIndex;
     socket.emit(SocketEvent.InsertUpgradeCard, { gameCode, index, nonce: gameState.nonce });
-    setUpgradeInsertionModal(null);
-  }, [socket, gameCode, gameState, insertionIndex]);
+    setUpgradeReinsertModal(null);
+  }, [socket, gameCode, gameState, reinsertIndex]);
 
   const handleGameEndConfirm = useCallback(() => {
     resetState();
@@ -356,10 +356,10 @@ export default function GameScreen() {
 
   const handleInsertConfirm = useCallback(() => {
     if (!socket || !gameCode || !gameState) return;
-    const index = typeof insertionIndex === 'string' ? parseInt(insertionIndex, 10) : insertionIndex;
+    const index = typeof reinsertIndex === 'string' ? parseInt(reinsertIndex, 10) : reinsertIndex;
     socket.emit(SocketEvent.InsertExplodingCard, { gameCode, index, nonce: gameState.nonce });
-    setInsertionModal(null);
-  }, [socket, gameCode, gameState, insertionIndex]);
+    setExplodingReinsertModal(null);
+  }, [socket, gameCode, gameState, reinsertIndex]);
 
   const isCardPlayable = useCallback((card: Card) => {
     if (!gameState || !playerId) return false;
@@ -437,7 +437,7 @@ export default function GameScreen() {
     if (socket && gameCode) {
       socket.emit(SocketEvent.LeaveGame, gameCode);
     }
-    setShowLeaveModal(false);
+    setShowLeaveGameModal(false);
     resetState();
     router.push('/');
   }, [socket, gameCode, resetState, router]);
@@ -512,7 +512,7 @@ export default function GameScreen() {
   }, [selectedCards, isCardPlayable]);
 
   const handleCardDoubleClick = useCallback((card: Card) => {
-    setOverlayCard(card);
+    setInspectCardOverlay(card);
   }, []);
 
   // Helper function to calculate layout constraints
@@ -627,12 +627,12 @@ export default function GameScreen() {
         // If there is a card to overlay (e.g. EXPLODING CLUSTER), that uses
         // the same duration, but starts when the animation ends.
         if (data.card) {
-          setOverlayCard(data.card);
+          setInspectCardOverlay(data.card);
 
           // If this is too short, tests flake.
           let dismissDelay = Math.max(data.duration, 1000);
           setTimeout(() => {
-            setOverlayCard(null);
+            setInspectCardOverlay(null);
           }, dismissDelay);
         }
       }, Math.max(50, data.duration - 300));
@@ -827,7 +827,7 @@ export default function GameScreen() {
         if (cardsToPlay.length === 1 && cardsToPlay[0].class === CardClass.Favor) {
             const victims = getValidVictims();
             if (victims.length === 0) {
-                setNoVictimModalOpen(true);
+                setNoPossibleVictimModalOpen(true);
                 return; // Reject
             }
             if (victims.length === 1) {
@@ -842,14 +842,14 @@ export default function GameScreen() {
         if (cardsToPlay.length === 2 && cardsToPlay[0].class === CardClass.Developer && cardsToPlay[1].class === CardClass.Developer) {
              const victims = getValidVictims();
              if (victims.length === 0) {
-                 setNoVictimModalOpen(true);
+                 setNoPossibleVictimModalOpen(true);
                  return; // Reject
              }
              if (victims.length === 1) {
                  victimIdToUse = victims[0].id;
              }
              else {
-                 setDeveloperVictimModalOpen(true);
+                 setStealCardVictimModalOpen(true);
                  return;
              }
         }
@@ -1177,7 +1177,7 @@ export default function GameScreen() {
   const isSpectator = gameState && !gameState.players.some(p => p.id === playerId);
 
   // Determine which card to show in overlay: Drawing card takes precedence over inspection
-  let activeOverlayCard = overlayCard;
+  let activeOverlayCard = inspectCardOverlay;
   if ((gameState?.turnPhase === TurnPhase.Exploding || gameState?.turnPhase === TurnPhase.Upgrading) && gameState?.overlayCard) {
     // Only show persistent overlay for players who are NOT the active player
     // AND suppress it if animation is active (so they see the animation instead)
@@ -1206,7 +1206,7 @@ export default function GameScreen() {
               if (isDrawingPause) {
                 setDrawingAnimation(null);
               } else {
-                setOverlayCard(null);
+                setInspectCardOverlay(null);
               }
             }}
           >
@@ -1216,7 +1216,7 @@ export default function GameScreen() {
           </div>
         )}
 
-        {deckOverlay && (
+        {deckCardsOverlay && (
           <div
             data-overlayname="show-deck"
             style={{
@@ -1226,11 +1226,11 @@ export default function GameScreen() {
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               zIndex: 1000, overflowY: 'auto', padding: '20px'
             }}
-            onClick={() => setDeckOverlay(null)}
+            onClick={() => setDeckCardsOverlay(null)}
           >
-            <h2 style={{color: 'white'}}>Draw Pile ({deckOverlay.length} cards)</h2>
+            <h2 style={{color: 'white'}}>Draw Pile ({deckCardsOverlay.length} cards)</h2>
             <div className="d-flex flex-wrap justify-content-center">
-              {deckOverlay.map((card, index) => (
+              {deckCardsOverlay.map((card, index) => (
                 <div key={index} className="m-1">
                   <Image src={card.imageUrl}
                     alt={`${card.class}: ${card.name}`}
@@ -1242,7 +1242,7 @@ export default function GameScreen() {
           </div>
         )}
 
-        {removedOverlay && (
+        {removedCardsOverlay && (
           <div
             data-overlayname="show-removed"
             style={{
@@ -1252,11 +1252,11 @@ export default function GameScreen() {
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               zIndex: 1000, overflowY: 'auto', padding: '20px'
             }}
-            onClick={() => setRemovedOverlay(null)}
+            onClick={() => setRemovedCardsOverlay(null)}
           >
-            <h2 style={{color: 'white'}}>Removed Pile ({removedOverlay.length} cards)</h2>
+            <h2 style={{color: 'white'}}>Removed Pile ({removedCardsOverlay.length} cards)</h2>
             <div className="d-flex flex-wrap justify-content-center">
-              {removedOverlay.map((card, index) => (
+              {removedCardsOverlay.map((card, index) => (
                 <div key={index} className="m-1">
                   <Image src={card.imageUrl}
                     alt={`${card.class}: ${card.name}`}
@@ -1470,7 +1470,7 @@ export default function GameScreen() {
               variant="secondary"
               className="position-absolute bottom-0 end-0 m-3 w-auto"
               style={{ zIndex: 10 }}
-              onClick={() => setShowLeaveModal(true)}
+              onClick={() => setShowLeaveGameModal(true)}
             >
               Leave Game
             </Button>
@@ -1483,7 +1483,7 @@ export default function GameScreen() {
                 variant="secondary"
                 className="w-auto"
                 style={{ zIndex: 10 }}
-                onClick={() => setShowLeaveModal(true)}
+                onClick={() => setShowLeaveGameModal(true)}
               >
                 Leave Game
               </Button>
@@ -1494,24 +1494,24 @@ export default function GameScreen() {
         {/* Modals... */}
         <Modal
           data-modalname="host-promotion"
-          show={!!hostPromotionMessage}
-          onHide={() => setHostPromotionMessage(null)}
+          show={!!hostPromotionModal}
+          onHide={() => setHostPromotionModal(null)}
         >
           <Modal.Header closeButton>
             <Modal.Title>You are now the game owner</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <p>{hostPromotionMessage}</p>
+            <p>{hostPromotionModal}</p>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="primary" onClick={() => setHostPromotionMessage(null)}>OK</Button>
+            <Button variant="primary" onClick={() => setHostPromotionModal(null)}>OK</Button>
           </Modal.Footer>
         </Modal>
 
         <Modal
           data-modalname="leave-game"
-          show={showLeaveModal}
-          onHide={() => setShowLeaveModal(false)}
+          show={showLeaveGameModal}
+          onHide={() => setShowLeaveGameModal(false)}
         >
           <Modal.Header closeButton>
             <Modal.Title>Leave Game?</Modal.Title>
@@ -1520,7 +1520,7 @@ export default function GameScreen() {
             <p>Are you sure you want to leave the game?</p>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowLeaveModal(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setShowLeaveGameModal(false)}>Cancel</Button>
             <Button variant="danger" onClick={handleLeaveGame} autoFocus>Leave Game</Button>
           </Modal.Footer>
         </Modal>
@@ -1544,7 +1544,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="upgrade-reinsert"
-          show={!!upgradeInsertionModal?.show}
+          show={!!upgradeReinsertModal?.show}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
@@ -1560,12 +1560,12 @@ export default function GameScreen() {
               type="number"
               min={0}
               max={gameState?.drawPileCount || 50}
-              value={insertionIndex}
+              value={reinsertIndex}
               onChange={(e) => setInsertionIndex(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  const val = parseInt(String(insertionIndex), 10);
+                  const val = parseInt(String(reinsertIndex), 10);
                   const max = gameState?.drawPileCount ?? 50;
                   if (!isNaN(val) && val >= 0 && val <= max) {
                     handleUpgradeInsertConfirm();
@@ -1579,7 +1579,7 @@ export default function GameScreen() {
               variant="primary"
               onClick={handleUpgradeInsertConfirm}
               disabled={(() => {
-                const val = parseInt(String(insertionIndex), 10);
+                const val = parseInt(String(reinsertIndex), 10);
                 const max = gameState?.drawPileCount ?? 50;
                 return isNaN(val) || val < 0 || val > max;
               })()}
@@ -1589,7 +1589,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="exploding-reinsert"
-          show={!!insertionModal?.show}
+          show={!!explodingReinsertModal?.show}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
@@ -1604,14 +1604,14 @@ export default function GameScreen() {
             <Form.Control
               type="number"
               min={0}
-              max={insertionModal?.maxIndex}
-              value={insertionIndex}
+              max={explodingReinsertModal?.maxIndex}
+              value={reinsertIndex}
               onChange={(e) => setInsertionIndex(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  const val = parseInt(String(insertionIndex), 10);
-                  const max = insertionModal?.maxIndex ?? 50;
+                  const val = parseInt(String(reinsertIndex), 10);
+                  const max = explodingReinsertModal?.maxIndex ?? 50;
                   if (!isNaN(val) && val >= 0 && val <= max) {
                     handleInsertConfirm();
                   }
@@ -1624,8 +1624,8 @@ export default function GameScreen() {
               variant="primary"
               onClick={handleInsertConfirm}
               disabled={(() => {
-                const val = parseInt(String(insertionIndex), 10);
-                const max = insertionModal?.maxIndex ?? 50;
+                const val = parseInt(String(reinsertIndex), 10);
+                const max = explodingReinsertModal?.maxIndex ?? 50;
                 return isNaN(val) || val < 0 || val > max;
               })()}
             >OK</Button>
@@ -1738,7 +1738,7 @@ export default function GameScreen() {
           </Modal.Body>
         </Modal>
 
-        {favorOutcomeCard && (
+        {favorResultCardOverlay && (
           <div
             data-overlayname="favor-result"
             style={{
@@ -1749,14 +1749,14 @@ export default function GameScreen() {
             }}
           >
             <h2>You received:</h2>
-            <Image src={favorOutcomeCard.imageUrl} alt={favorOutcomeCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
+            <Image src={favorResultCardOverlay.imageUrl} alt={favorResultCardOverlay.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
         )}
 
         <Modal
           data-modalname="steal-choose-victim"
-          show={developerVictimModalOpen}
-          onHide={() => setDeveloperVictimModalOpen(false)}
+          show={stealCardVictimModalOpen}
+          onHide={() => setStealCardVictimModalOpen(false)}
           backdrop="static"
           keyboard={false}
           centered
@@ -1779,11 +1779,11 @@ export default function GameScreen() {
             </div>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setDeveloperVictimModalOpen(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setStealCardVictimModalOpen(false)}>Cancel</Button>
             <Button variant="primary" disabled={!favorVictimSelection} onClick={() => {
                 if (selectedCards.length === 2 && gameCode && favorVictimSelection) {
                     socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: selectedCards.map(c => c.id), nonce: gameState?.nonce, victimId: favorVictimSelection });
-                    setDeveloperVictimModalOpen(false);
+                    setStealCardVictimModalOpen(false);
                     setFavorVictimSelection(null);
                     setSelectedCards([]);
                 }
@@ -1793,7 +1793,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="steal-choose-card"
-          show={developerCardChoiceCount !== null}
+          show={stealCardVictimHandSize !== null}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
@@ -1805,13 +1805,13 @@ export default function GameScreen() {
           <Modal.Body>
             <p>Pick a card from the victim&apos;s hand:</p>
             <div className="d-flex flex-wrap justify-content-center" style={{ gap: '10px' }}>
-              {Array.from({ length: developerCardChoiceCount || 0 }).map((_, index) => (
+              {Array.from({ length: stealCardVictimHandSize || 0 }).map((_, index) => (
                 <div 
                     key={index} 
                     onClick={() => {
                         if (gameCode) {
                             socket?.emit(SocketEvent.ResolveDeveloperCard, { gameCode, index });
-                            setDeveloperCardChoiceCount(null);
+                            setStealCardVictimHandSize(null);
                         }
                     }}
                     style={{ 
@@ -1827,7 +1827,7 @@ export default function GameScreen() {
           </Modal.Body>
         </Modal>
 
-        {developerStolenEventData && (
+        {stealCardResultOverlay && (
           <div
             data-overlayname="combo-result"
             style={{
@@ -1838,18 +1838,18 @@ export default function GameScreen() {
             }}
           >
             <h2>
-               {developerStolenEventData.stealerId === playerId
+               {stealCardResultOverlay.stealerId === playerId
                  ? "You stole:"
                  : `${gameState?.lastActorName || "Someone"} stole your:`}
             </h2>
-            <Image src={developerStolenEventData.card.imageUrl} alt={developerStolenEventData.card.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
+            <Image src={stealCardResultOverlay.card.imageUrl} alt={stealCardResultOverlay.card.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
         )}
 
         <Modal
           data-modalname="victim-has-no-cards"
-          show={noVictimModalOpen}
-          onHide={() => setNoVictimModalOpen(false)}
+          show={noPossibleVictimModalOpen}
+          onHide={() => setNoPossibleVictimModalOpen(false)}
           centered
         >
           <Modal.Header>
@@ -1859,7 +1859,7 @@ export default function GameScreen() {
             <p>No other player has cards left!</p>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="primary" onClick={() => setNoVictimModalOpen(false)} autoFocus>OK</Button>
+            <Button variant="primary" onClick={() => setNoPossibleVictimModalOpen(false)} autoFocus>OK</Button>
           </Modal.Footer>
         </Modal>
 
