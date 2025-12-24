@@ -55,7 +55,7 @@ export default function GameScreen() {
   const [favorResultCardOverlay, setFavorResultCardOverlay] = useState<Card | null>(null);
   const [stealCardVictimModalOpen, setStealCardVictimModalOpen] = useState(false);
   const [stealCardVictimHandSize, setStealCardVictimHandSize] = useState<number | null>(null);
-  const [stealCardResultOverlay, setStealCardResultOverlay] = useState<{ card: Card, stealerId?: string, victimId?: string } | null>(null);
+  const [stealCardResultOverlay, setStealCardResultOverlay] = useState<Card | null>(null);
   const [noPossibleVictimModalOpen, setNoPossibleVictimModalOpen] = useState(false);
   const [hostPromotionModal, setHostPromotionModal] = useState<string | null>(null);
 
@@ -220,17 +220,15 @@ export default function GameScreen() {
 
     const onFavorOutcome = (data: { card: Card }) => {
       setFavorResultCardOverlay(data.card);
-      setTimeout(() => {
-        setFavorResultCardOverlay(null);
-      }, 3000);
+      setTimeout(() => setFavorResultCardOverlay(null), 3000);
     };
 
     const onChooseDeveloperCard = (data: { victimId: string, handCount: number }) => {
         setStealCardVictimHandSize(data.handCount);
     };
 
-    const onDeveloperStolen = (data: { card: Card, stealerId?: string, victimId?: string }) => {
-        setStealCardResultOverlay(data);
+    const onDeveloperStolen = (data: { card: Card }) => {
+        setStealCardResultOverlay(data.card);
         setTimeout(() => setStealCardResultOverlay(null), 3000);
     };
 
@@ -1838,11 +1836,13 @@ export default function GameScreen() {
             }}
           >
             <h2>
-               {stealCardResultOverlay.stealerId === playerId
-                 ? "You stole:"
-                 : `${gameState?.lastActorName || "Someone"} stole your:`}
+              {
+                gameState?.turnOrder[gameState?.currentTurnIndex] == playerId
+                  ? "You stole:"
+                  : `${gameState?.lastActorName || "<BUG!>"} stole your:`
+              }
             </h2>
-            <Image src={stealCardResultOverlay.card.imageUrl} alt={stealCardResultOverlay.card.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
+            <Image src={stealCardResultOverlay.imageUrl} alt={stealCardResultOverlay.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
         )}
 

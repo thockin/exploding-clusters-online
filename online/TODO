@@ -1,4 +1,5 @@
 Phase 4:
+ - rename onDeveloperStolen and onChooseDeveloperCard
  - SEET FUTURE as overlay not dialog
  - modal sizes
  - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
