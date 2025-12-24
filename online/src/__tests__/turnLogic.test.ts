@@ -170,7 +170,7 @@ describe('Turn Logic (Phase 3.1.3)', () => {
 
   // Helper to get last TimerUpdate
   const getLastTimerUpdate = (): TimerUpdateData | undefined => {
-    const emits = mockServer.games[gameCode].emitted[SocketEvent.TimerUpdate];
+    const emits = mockServer.games[gameCode].emitted[SocketEvent.ReactionTimerUpdate];
     if (!emits || emits.length === 0) return undefined;
     return emits[emits.length - 1] as TimerUpdateData;
   };
@@ -192,7 +192,7 @@ describe('Turn Logic (Phase 3.1.3)', () => {
     host.trigger('playCard', { gameCode, cardId: shuffleCard.id });
     
     setTimeout(() => {
-      // Should trigger TimerUpdate with Reaction phase
+      // Should trigger ReactionTimerUpdate with Reaction phase
       const update = getLastTimerUpdate();
       expect(update).toBeDefined();
       expect(update!.phase).toBe(TurnPhase.Reaction);

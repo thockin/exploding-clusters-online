@@ -463,7 +463,7 @@ export class GameManager {
     // Always set to Reaction phase.
     game.turnPhase = TurnPhase.Reaction;
 
-    this.emitToGame(game.code, SocketEvent.TimerUpdate, { duration: this.reactionTimerDuration, phase: game.turnPhase });
+    this.emitToGame(game.code, SocketEvent.ReactionTimerUpdate, { duration: this.reactionTimerDuration, phase: game.turnPhase });
     if (this.verbose || game.devMode) {
       this.log(game, `starting ${game.turnPhase} phase (${this.reactionTimerDuration}s)`);
     }
@@ -537,7 +537,7 @@ export class GameManager {
     if (finalGame && finalGame.state !== GameState.Ended) {
       // Reset Phase to Action
       finalGame.turnPhase = TurnPhase.Action;
-      this.emitToGame(finalGame.code, SocketEvent.TimerUpdate, { duration: 0, phase: finalGame.turnPhase });
+      this.emitToGame(finalGame.code, SocketEvent.ReactionTimerUpdate, { duration: 0, phase: finalGame.turnPhase });
       this.updateGameNonce(finalGame); // Notify state change
     }
   }
@@ -1605,7 +1605,7 @@ export class GameManager {
                  const requester = _g.players.find(p => p.id === player.id);
                  if (requester) {
                     requester.hand.push(stolenCard);
-                    this.emitToSocket(requester.socketId, SocketEvent.FavorOutcome, { card: stolenCard });
+                    this.emitToSocket(requester.socketId, SocketEvent.FavorResult, { card: stolenCard });
                     this.emitToSocket(requester.socketId, SocketEvent.HandUpdate, { hand: requester.hand });
                  }
                  this.emitToSocket(freshVictim.socketId, SocketEvent.HandUpdate, { hand: freshVictim.hand });
@@ -1823,7 +1823,7 @@ export class GameManager {
                 this.updateGameNonce(_g, player.name);
 
                 // Ask requester to choose index
-                this.emitToSocket(player.socketId, SocketEvent.ChooseDeveloperCard, { victimId: currentVictim.id, handCount: currentVictim.hand.length });
+                this.emitToSocket(player.socketId, SocketEvent.ChooseStealCard, { victimId: currentVictim.id, handCount: currentVictim.hand.length });
 
                 // Wait for response (index)
                 const timeoutMs = 15000;
@@ -1855,9 +1855,9 @@ export class GameManager {
                 if (requester) {
                     requester.hand.push(stolenCard);
                     this.emitToSocket(requester.socketId, SocketEvent.HandUpdate, { hand: requester.hand });
-                    this.emitToSocket(requester.socketId, SocketEvent.DeveloperStolen, { card: stolenCard });
+                    this.emitToSocket(requester.socketId, SocketEvent.StealResult, { card: stolenCard });
                 }
-                this.emitToSocket(freshVictim.socketId, SocketEvent.DeveloperStolen, { card: stolenCard });
+                this.emitToSocket(freshVictim.socketId, SocketEvent.StealResult, { card: stolenCard });
                 this.emitToSocket(freshVictim.socketId, SocketEvent.HandUpdate, { hand: freshVictim.hand });
 
                 this.log(_g, `player "${player.name}" stole "${stolenCard.class}" from "${freshVictim.name}"`);

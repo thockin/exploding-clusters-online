@@ -75,10 +75,10 @@ export enum SocketEvent {
   DrawCardAnimation = 'drawCardAnimation',
   SeeTheFutureData = 'seeTheFutureData',
   ChooseFavorCard = 'chooseFavorCard',
-  FavorOutcome = 'favorOutcome',
-  ChooseDeveloperCard = 'chooseDeveloperCard',
-  DeveloperStolen = 'developerStolen',
-  TimerUpdate = 'timerUpdate',
+  FavorResult = 'favorResult',
+  ChooseStealCard = 'chooseStealCard',
+  StealResult = 'stealResult',
+  ReactionTimerUpdate = 'reactionTimerUpdate',
   PlayError = 'playError',
 }
 

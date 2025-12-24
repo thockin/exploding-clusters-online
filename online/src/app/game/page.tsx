@@ -202,7 +202,7 @@ export default function GameScreen() {
         const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
           setReplayModal({ show: true, ...data });
         };
-  
+
     const onSeeTheFutureData = (data: { cards: Card[], duration?: number }) => {
       setSeeTheFutureCards(data.cards);
       const duration = data.duration || (gameStateRef.current?.devMode ? 2000 : 10000);
@@ -218,21 +218,21 @@ export default function GameScreen() {
       setFavorCardChoiceModal({ show: true, stealerName: data.stealerName });
     };
 
-    const onFavorOutcome = (data: { card: Card }) => {
+    const onFavorResult = (data: { card: Card }) => {
       setFavorResultCardOverlay(data.card);
       setTimeout(() => setFavorResultCardOverlay(null), 3000);
     };
 
-    const onChooseDeveloperCard = (data: { victimId: string, handCount: number }) => {
+    const onChooseStealCard = (data: { victimId: string, handCount: number }) => {
         setStealCardVictimHandSize(data.handCount);
     };
 
-    const onDeveloperStolen = (data: { card: Card }) => {
+    const onStealResult = (data: { card: Card }) => {
         setStealCardResultOverlay(data.card);
         setTimeout(() => setStealCardResultOverlay(null), 3000);
     };
 
-    const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
+    const onReactionTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
       if (phase === TurnPhase.Reaction) {
         setReactionCountdown(duration);
         if (countdownIntervalRef.current) {
@@ -263,10 +263,10 @@ export default function GameScreen() {
     socket.on(SocketEvent.PlayError, onPlayError);
     socket.on(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
     socket.on(SocketEvent.ChooseFavorCard, onChooseFavorCard);
-    socket.on(SocketEvent.FavorOutcome, onFavorOutcome);
-    socket.on(SocketEvent.ChooseDeveloperCard, onChooseDeveloperCard);
-    socket.on(SocketEvent.DeveloperStolen, onDeveloperStolen);
-    socket.on(SocketEvent.TimerUpdate, onTimerUpdate);
+    socket.on(SocketEvent.FavorResult, onFavorResult);
+    socket.on(SocketEvent.ChooseStealCard, onChooseStealCard);
+    socket.on(SocketEvent.StealResult, onStealResult);
+    socket.on(SocketEvent.ReactionTimerUpdate, onReactionTimerUpdate);
 
     return () => {
       socket.off(SocketEvent.DeckData, onDeckData);
@@ -275,16 +275,16 @@ export default function GameScreen() {
       socket.off(SocketEvent.PlayError, onPlayError);
       socket.off(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
       socket.off(SocketEvent.ChooseFavorCard, onChooseFavorCard);
-      socket.off(SocketEvent.FavorOutcome, onFavorOutcome);
-      socket.off(SocketEvent.ChooseDeveloperCard, onChooseDeveloperCard);
-      socket.off(SocketEvent.DeveloperStolen, onDeveloperStolen);
-      socket.off(SocketEvent.TimerUpdate, onTimerUpdate);
+      socket.off(SocketEvent.FavorResult, onFavorResult);
+      socket.off(SocketEvent.ChooseStealCard, onChooseStealCard);
+      socket.off(SocketEvent.StealResult, onStealResult);
+      socket.off(SocketEvent.ReactionTimerUpdate, onReactionTimerUpdate);
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
       }
     };
   }, [socket, gameCode]);
-  
+
       // handleDismissSeeTheFuture function
       const handleDismissSeeTheFuture = useCallback(() => {
         if (socket && gameCode) {
@@ -292,7 +292,7 @@ export default function GameScreen() {
           setSeeTheFutureCards(null);
         }
       }, [socket, gameCode]);
-  
+
       useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
           if (event.key === 'Escape') {
