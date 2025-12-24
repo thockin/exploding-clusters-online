@@ -131,8 +131,8 @@ function findTurnArea(page: Page): Locator {
 }
 
 // Helper to find the overlay
-function findOverlay(page: Page): Locator {
-  return page.locator(`div[style*="z-index: 1000"]`);
+function findOverlay(page: Page, name: string): Locator {
+  return page.locator(`div[data-overlayname="${name}"]`);
 }
 
 // Helper to find modal dialogs
@@ -623,22 +623,22 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Double-click first card to open overlay
     await cardImg.dblclick({ force: true });
 
-    // Check for overlay (z-index 1000)
-    await expect(findOverlay(page1)).toBeVisible();
+    // Check for overlay
+    await expect(findOverlay(page1, "inspect-card")).toBeVisible();
 
     // Press <escape> to dismiss
     await page1.keyboard.press('Escape');
-    await expect(findOverlay(page1)).not.toBeVisible();
+    await expect(findOverlay(page1, "inspect-card")).not.toBeVisible();
 
     // Double-click first card to open overlay again
     await cardImg.dblclick({ force: true });
 
-    // Check for overlay (z-index 1000)
-    await expect(findOverlay(page1)).toBeVisible();
+    // Check for overlay
+    await expect(findOverlay(page1, "inspect-card")).toBeVisible();
 
     // Click the overlay to dismiss
-    await findOverlay(page1).click();
-    await expect(findOverlay(page1)).not.toBeVisible();
+    await findOverlay(page1, "inspect-card").click();
+    await expect(findOverlay(page1, "inspect-card")).not.toBeVisible();
   });
 
   test('DEVMODE: DEBUG Button limit', async ({ browser }) => {
@@ -714,21 +714,21 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.click(Buttons.DEV_SHOW_DECK);
 
     // Check for overlay
-    await expect(findOverlay(page1).first()).toBeVisible();
+    await expect(findOverlay(page1, "show-deck")).toBeVisible();
 
     // Press <escape> to dismiss
     await page1.keyboard.press('Escape');
-    await expect(findOverlay(page1).first()).not.toBeVisible();
+    await expect(findOverlay(page1, "show-deck")).not.toBeVisible();
 
     // Click "Show the deck" button again
     await page1.click(Buttons.DEV_SHOW_DECK);
 
-    // Check for overlay (z-index 1000)
-    await expect(findOverlay(page1).first()).toBeVisible();
+    // Check for overlay
+    await expect(findOverlay(page1, "show-deck")).toBeVisible();
 
     // Click the overlay to dismiss
-    await findOverlay(page1).first().click();
-    await expect(findOverlay(page1).first()).not.toBeVisible();
+    await findOverlay(page1, "show-deck").click();
+    await expect(findOverlay(page1, "show-deck")).not.toBeVisible();
   });
 
   test('DEVMODE: dismiss show-removed overlay', async ({ browser }) => {
@@ -744,21 +744,21 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.click(Buttons.DEV_SHOW_REMOVED);
 
     // Check for overlay
-    await expect(findOverlay(page1).first()).toBeVisible();
+    await expect(findOverlay(page1, "show-removed")).toBeVisible();
 
     // Press <escape> to dismiss
     await page1.keyboard.press('Escape');
-    await expect(findOverlay(page1).first()).not.toBeVisible();
+    await expect(findOverlay(page1, "show-removed")).not.toBeVisible();
 
     // Click "Show removed cards" button again
     await page1.click(Buttons.DEV_SHOW_REMOVED);
 
-    // Check for overlay (z-index 1000)
-    await expect(findOverlay(page1).first()).toBeVisible();
+    // Check for overlay
+    await expect(findOverlay(page1, "show-removed")).toBeVisible();
 
     // Click the overlay to dismiss
-    await findOverlay(page1).first().click();
-    await expect(findOverlay(page1).first()).not.toBeVisible();
+    await findOverlay(page1, "show-removed").click();
+    await expect(findOverlay(page1, "show-removed")).not.toBeVisible();
   });
 
   test('Hand: card selection. deselection', async ({ browser }) => {
@@ -1152,7 +1152,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await findDrawPile(page1).click();
 
     // Verify overlay on P1
-    await expect(findOverlay(page1)).toBeVisible();
+    await expect(findOverlay(page1, "inspect-card")).toBeVisible();
 
     // Verify Animation on P2
     const animatedHandCard = page2.locator(Locators.HAND_ANIMATION_CARD);
@@ -1160,7 +1160,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(animatedHandCard).toHaveAttribute('src', /back\.png/);
 
     // Verify overlay gone
-    await expect(findOverlay(page1)).not.toBeVisible();
+    await expect(findOverlay(page1, "inspect-card")).not.toBeVisible();
 
     // Verify hand count +1
     await expect(findAllHandCards(page1)).toHaveCount(9);
@@ -1190,11 +1190,12 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await findDrawPile(page1).click();
 
     // Verify overlay appears
-    await expect(findOverlay(page1)).toBeVisible();
+    const p1Overlay = findOverlay(page1, "inspect-card");
+    await expect(p1Overlay).toBeVisible();
 
     // Click to dismiss (should disappear immediately)
-    await findOverlay(page1).click();
-    await expect(findOverlay(page1)).not.toBeVisible();
+    await p1Overlay.click();
+    await expect(p1Overlay).not.toBeVisible();
 
     // Verify turn passes to P2
     await expect(findTurnArea(page2)).toContainText(`It's your turn`);
@@ -1203,11 +1204,12 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await findDrawPile(page2).click();
 
     // Verify overlay appears
-    await expect(findOverlay(page2)).toBeVisible();
+    const p2Overlay = findOverlay(page2, "inspect-card");
+    await expect(p2Overlay).toBeVisible();
 
     // Press <escape> to dismiss
     await page2.keyboard.press('Escape');
-    await expect(findOverlay(page2).first()).not.toBeVisible();
+    await expect(p2Overlay).not.toBeVisible();
 
     // Verify turn passes to P1
     await expect(findTurnArea(page1)).toContainText(`It's your turn`);
@@ -1216,10 +1218,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await findDrawPile(page1).click();
 
     // Verify overlay appears
-    await expect(findOverlay(page1)).toBeVisible();
+    await expect(p1Overlay).toBeVisible();
 
     // Do nothing to dismiss (should disappear automatically in time)
-    await expect(findOverlay(page1)).not.toBeVisible();
+    await expect(p1Overlay).not.toBeVisible();
   });
 
   // This test proves the basic game play loop - action/reaction/resolution -
@@ -1926,8 +1928,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(chooseCardModal).not.toBeVisible();
 
     // Verify P1 sees overlay
-    await expect(findOverlay(page1)).toBeVisible();
-    await expect(findOverlay(page1)).toContainText('You received:');
+    await expect(findOverlay(page1, "favor-result")).toBeVisible();
+    await expect(findOverlay(page1, "favor-result")).toContainText('You received:');
     await expect(page1.locator('h2')).toContainText('You received:');
 
     // Verify execution
@@ -2041,8 +2043,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(chooseCardModal).not.toBeVisible();
 
     // Verify P1 sees overlay
-    await expect(findOverlay(page1)).toBeVisible();
-    await expect(findOverlay(page1)).toContainText('You received:');
+    await expect(findOverlay(page1, "favor-result")).toBeVisible();
+    await expect(findOverlay(page1, "favor-result")).toContainText('You received:');
     await expect(page1.locator('h2')).toContainText('You received:');
 
     // Verify execution
@@ -2168,10 +2170,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(chooseCardModal).not.toBeVisible();
 
     // Verify overlays
-    await expect(findOverlay(page1)).toBeVisible();
-    await expect(findOverlay(page1)).toContainText('You stole:');
-    await expect(findOverlay(page2)).toBeVisible();
-    await expect(findOverlay(page2)).toContainText('P1 stole your:');
+    await expect(findOverlay(page1, "combo-result")).toBeVisible();
+    await expect(findOverlay(page1, "combo-result")).toContainText('You stole:');
+    await expect(findOverlay(page2, "combo-result")).toBeVisible();
+    await expect(findOverlay(page2, "combo-result")).toContainText('P1 stole your:');
 
     // Verify execution
     await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing DEVELOPER played by "P1"');
@@ -2319,10 +2321,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(chooseCardModal).not.toBeVisible();
 
     // Verify overlays
-    await expect(findOverlay(page1)).toBeVisible();
-    await expect(findOverlay(page1)).toContainText('You stole:');
-    await expect(findOverlay(page2)).toBeVisible();
-    await expect(findOverlay(page2)).toContainText('P1 stole your:');
+    await expect(findOverlay(page1, "combo-result")).toBeVisible();
+    await expect(findOverlay(page1, "combo-result")).toContainText('You stole:');
+    await expect(findOverlay(page2, "combo-result")).toBeVisible();
+    await expect(findOverlay(page2, "combo-result")).toContainText('P1 stole your:');
 
     // Verify execution
     await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing DEVELOPER played by "P1"');
@@ -2376,7 +2378,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Show the deck to get top 3 cards
     await page2.click(Buttons.DEV_SHOW_DECK);
-    const deckOverlay = findOverlay(page2);
+    const deckOverlay = findOverlay(page2, "show-deck");
     await expect(deckOverlay).toBeVisible();
     const deckCards = await deckOverlay.locator('img').all();
     const top3CardClasses = await Promise.all(deckCards.slice(0, 3).map(async (img) => await img.getAttribute('alt')));
@@ -2439,9 +2441,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Define a helper to use below
     type dismissFunc = (page: Page) => Promise<void>;
     const almostExplode = async (p1: string, page1: Page, p2: string, page2: Page, p3: string, page3: Page, dismiss: dismissFunc, hide: number) => {
-      const p1Overlay = findOverlay(page1);
-      const p2Overlay = findOverlay(page2);
-      const p3Overlay = findOverlay(page3);
+      const p1Overlay = findOverlay(page1, "inspect-card");
+      const p2Overlay = findOverlay(page2, "inspect-card");
+      const p3Overlay = findOverlay(page3, "inspect-card");
 
       // P1 draws a card
       await drawCard(page1);
@@ -2570,7 +2572,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // P1 draws, explodes, and debugs
     const waitForAutoDismiss = async (page: Page) => {
       // Wait for auto-dismiss
-      await expect(findOverlay(page)).toBeHidden();
+      await expect(findOverlay(page, "inspect-card")).toBeHidden();
     }
     await almostExplode("P1", page1, "P2", page2, "P3", page3, waitForAutoDismiss, 0);
     await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(0);
@@ -2646,7 +2648,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Define a helper to use below
     const almostExplode = async (page: Page, hide: number) => {
-      const overlay = findOverlay(page1);
+      const overlay = findOverlay(page1, "inspect-card");
 
       // Draw a card
       await drawCard(page1);
@@ -2734,9 +2736,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
     await almostExplode(page1, 20);
 
-    const p1Overlay = findOverlay(page1);
-    const p2Overlay = findOverlay(page2);
-    const p3Overlay = findOverlay(page3);
+    const p1Overlay = findOverlay(page1, "inspect-card");
+    const p2Overlay = findOverlay(page2, "inspect-card");
+    const p3Overlay = findOverlay(page3, "inspect-card");
 
     const p1Pile = findDiscardPile(page1);
     const p2Pile = findDiscardPile(page2);

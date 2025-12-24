@@ -1194,6 +1194,7 @@ export default function GameScreen() {
       <Container fluid className="p-3 d-flex flex-column" style={{ height: '100vh', overflow: 'hidden' }}>
         {activeOverlayCard && (
           <div
+            data-overlayname="inspect-card"
             style={{
               position: 'fixed',
               top: 0, left: 0, right: 0, bottom: 0,
@@ -1217,6 +1218,7 @@ export default function GameScreen() {
 
         {deckOverlay && (
           <div
+            data-overlayname="show-deck"
             style={{
               position: 'fixed',
               top: 0, left: 0, right: 0, bottom: 0,
@@ -1242,6 +1244,7 @@ export default function GameScreen() {
 
         {removedOverlay && (
           <div
+            data-overlayname="show-removed"
             style={{
               position: 'fixed',
               top: 0, left: 0, right: 0, bottom: 0,
@@ -1736,11 +1739,15 @@ export default function GameScreen() {
         </Modal>
 
         {favorOutcomeCard && (
-          <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white'
-          }}>
+          <div
+            data-overlayname="favor-result"
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              zIndex: 1000,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white'
+            }}
+          >
             <h2>You received:</h2>
             <Image src={favorOutcomeCard.imageUrl} alt={favorOutcomeCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
@@ -1821,11 +1828,15 @@ export default function GameScreen() {
         </Modal>
 
         {developerStolenEventData && (
-          <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white'
-          }}>
+          <div
+            data-overlayname="combo-result"
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              zIndex: 1000,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white'
+            }}
+          >
             <h2>
                {developerStolenEventData.stealerId === playerId
                  ? "You stole:"
