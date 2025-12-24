@@ -2,6 +2,14 @@ import { test, expect, Page, Locator } from '@playwright/test';
 import { Buttons, Inputs, Headers, Locators, CSS } from './constants';
 import { CardClass, TurnPhase } from '../src/api';
 
+// Helper to wait for a page to actually load.  Without this lots of
+// tests flake.
+async function waitForURL(page: Page, url: string) {
+  // The long timeout covers startup time.
+  await expect(page).toHaveURL(url, { timeout: 15000 });
+  await page.waitForLoadState('networkidle');
+}
+
 // Helper to create game
 // - Navigates to home page
 // - Clicks "Create a new game"
@@ -9,12 +17,13 @@ import { CardClass, TurnPhase } from '../src/api';
 // - Clicks "Create Game"
 // - Verifies lobby is shown and extracts game code
 async function createGame(page: Page, name: string) {
-  await page.goto('/', { timeout: 30000 });
-  await page.click(Buttons.CREATE_NEW_GAME, { timeout: 15000 });
-  await page.fill(Inputs.NAME, name, { timeout: 15000 });
-  await page.click(Buttons.CREATE_GAME_CONFIRM, { timeout: 15000 });
-  await expect(page.locator(Headers.LOBBY_GAME_CODE)).toContainText('Lobby - Game Code:', { timeout: 15000 });
-  const text = await page.locator(Headers.LOBBY_GAME_CODE).textContent({ timeout: 15000 });
+  await page.goto('/', { timeout: 15000 });
+  await page.click(Buttons.CREATE_NEW_GAME);
+  await page.fill(Inputs.NAME, name);
+  await page.click(Buttons.CREATE_GAME_CONFIRM);
+  await waitForURL(page, /lobby/);
+  await expect(page.locator(Headers.LOBBY_GAME_CODE)).toContainText('Lobby - Game Code:');
+  const text = await page.locator(Headers.LOBBY_GAME_CODE).textContent();
   return text?.split(': ')[1].trim() as string;
 }
 
@@ -25,12 +34,13 @@ async function createGame(page: Page, name: string) {
 // - Clicks "Join Game"
 // - Verifies lobby is shown
 async function joinGame(page: Page, name: string, code: string) {
-  await page.goto('/', { timeout: 30000 });
-  await page.click(Buttons.JOIN_GAME, { timeout: 15000 });
-  await page.fill(Inputs.NAME, name, { timeout: 15000 });
-  await page.fill(Inputs.GAME_CODE, code, { timeout: 15000 });
-  await page.click(Buttons.JOIN_GAME_CONFIRM, { timeout: 15000 });
-  await expect(page.locator(Locators.LOBBY_TEXT)).toBeVisible({ timeout: 15000 });
+  await page.goto('/', { timeout: 15000 });
+  await page.click(Buttons.JOIN_GAME);
+  await page.fill(Inputs.NAME, name);
+  await page.fill(Inputs.GAME_CODE, code);
+  await page.click(Buttons.JOIN_GAME_CONFIRM);
+  await waitForURL(page, /lobby/);
+  await expect(page.locator(Locators.LOBBY_TEXT)).toBeVisible();
 }
 
 // Helper to watch game
@@ -40,12 +50,12 @@ async function joinGame(page: Page, name: string, code: string) {
 // - Clicks "Watch Game"
 // - Verifies lobby is shown
 async function watchGame(page: Page, code: string) {
-  await page.goto('/', { timeout: 30000 });
-  await page.click(Buttons.WATCH_GAME, { timeout: 15000 });
-  await page.fill(Inputs.GAME_CODE, code, { timeout: 15000 });
-  await page.click(Buttons.WATCH_GAME_CONFIRM, { timeout: 15000 });
-  await expect(page).toHaveURL(/observer/, { timeout: 15000 });
-  await expect(page.locator(Locators.LOBBY_TEXT)).toBeVisible({ timeout: 15000 });
+  await page.goto('/', { timeout: 15000 });
+  await page.click(Buttons.WATCH_GAME);
+  await page.fill(Inputs.GAME_CODE, code);
+  await page.click(Buttons.WATCH_GAME_CONFIRM);
+  await waitForURL(page, /observer/);
+  await expect(page.locator(Locators.LOBBY_TEXT)).toBeVisible();
 }
 
 // Helper to play a card via drag-and-drop from hand to pile.
@@ -182,9 +192,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.click(Buttons.START_GAME);
 
     // Verify Game Screen loaded for all participants
-    await expect(page1).toHaveURL(/game/);
-    await expect(page2).toHaveURL(/game/);
-    await expect(pageObs).toHaveURL(/observer/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(pageObs, /observer/);
 
     // Verify Observer UI: Should NOT see a hand
     await expect(pageObs.locator(Headers.YOUR_HAND)).not.toBeVisible();
@@ -211,7 +221,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // 6th Player attempts to join
     const p6 = await browser.newContext();
     const page6 = await p6.newPage();
-    await page6.goto('/');
+    await page6.goto('/', { timeout: 15000 });
     await page6.click(Buttons.JOIN_GAME);
     await page6.fill(Inputs.NAME, 'Player 6');
     await page6.fill(Inputs.GAME_CODE, code);
@@ -230,7 +240,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const ctx2 = await browser.newContext();
     const page2 = await ctx2.newPage();
     // Try to join with same name 'Alice'
-    await page2.goto('/');
+    await page2.goto('/', { timeout: 15000 });
     await page2.click(Buttons.JOIN_GAME);
     await page2.fill(Inputs.NAME, 'Alice');
     await page2.fill(Inputs.GAME_CODE, code);
@@ -243,7 +253,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
   test('Fail to join: unknown game code', async ({ browser }) => {
     const page = await browser.newPage();
     // Attempt to join invalid code 'YYYYY'
-    await page.goto('/');
+    await page.goto('/', { timeout: 15000 });
     await page.click(Buttons.JOIN_GAME);
     await page.fill(Inputs.NAME, 'Bob');
     await page.fill(Inputs.GAME_CODE, 'YYYYY');
@@ -256,7 +266,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
   test('Fail to observe: unknown game coee', async ({ browser }) => {
     const page = await browser.newPage();
     // Attempt to watch invalid code 'YYYYY'
-    await page.goto('/');
+    await page.goto('/', { timeout: 15000 });
     await page.click(Buttons.WATCH_GAME);
     await page.fill(Inputs.GAME_CODE, 'YYYYY');
     await page.click(Buttons.WATCH_GAME_CONFIRM);
@@ -297,10 +307,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify P2 successfully rejoins lobby
     await expect(page2.locator(Headers.LOBBY_GAME_CODE)).toBeVisible();
     // Verify URL is correct
-    await expect(page2).toHaveURL(/lobby/, { timeout: 5000 });
+    await waitForURL(page2, /lobby/);
 
     // Host sees 'Leaver' again in the list
-    await expect(page1.locator('text=Leaver')).toBeVisible({ timeout: 10000 });
+    await expect(page1.locator('text=Leaver')).toBeVisible();
   });
 
   test('Lobby: disconnect, reconnect fails after nonce change', async ({ browser }) => {
@@ -409,9 +419,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Start game
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-    await page3.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
 
     // Verify the player list
     await expect(findPlayerList(page1).locator('.list-group-item')).toHaveCount(3);
@@ -458,7 +468,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Start Game
     await page.click(Buttons.START_GAME);
-    await page.waitForURL(/game/);
+    await waitForURL(page, /game/);
 
     // Wait for hand to render and verify initial count (8)
     const handArea = findHand(page);
@@ -551,9 +561,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Start Game
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-    await page3.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
 
     // Verify P1 starts
     await expect(page1.locator('.list-group-item:has-text("P1")')).toHaveClass(/bg-success-subtle/);
@@ -600,7 +610,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(winModal).toBeVisible();
     await expect(winModal.locator(' .modal-title')).toContainText("You win!");
     await page3.click(Buttons.OK);
-    await expect(page3).toHaveURL('/');
+    await waitForURL(page3, '/');
   });
 
   test('Hand: dismiss inspect-card overlay', async ({ browser }) => {
@@ -611,8 +621,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     // Wait for hand to be visible and have cards
     const handArea = findHand(page1)
@@ -649,7 +659,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
+    await waitForURL(page1, /game/);
 
     const debugBtn = page1.locator(Buttons.DEV_GIVE_DEBUG_CARD);
     await expect(debugBtn).toBeVisible();
@@ -674,7 +684,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
+    await waitForURL(page1, /game/);
 
     // Verify initial hand count (8)
     const handArea = page1.locator(Headers.YOUR_HAND).locator('xpath=..');
@@ -769,7 +779,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
     await page.click(Buttons.START_GAME);
-    await page.waitForURL(/game/);
+    await waitForURL(page, /game/);
 
     // Wait for hand to populate
     await expect(findAllHandCards(page)).toHaveCount(8);
@@ -861,7 +871,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const page2 = await ctx2.newPage();
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
+    await waitForURL(page1, /game/);
 
     // Wait for hand to populate
     await expect(findAllHandCards(page1)).toHaveCount(8);
@@ -906,13 +916,13 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await joinGame(page3, 'P3', code);
 
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-    await page3.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
 
     // Use a player who is NOT current turn to perform reorder
     const handArea = findHand(page2)
-    await expect(handArea).toBeVisible({ timeout: 15000 });
+    await expect(handArea).toBeVisible();
     await expect(findAllHandCards(page2)).toHaveCount(8);
 
     const rows = handArea.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
@@ -974,8 +984,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await joinGame(page2, 'P2', code);
 
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     const handArea = findHand(page1);
     await expect(handArea).toBeVisible();
@@ -1076,7 +1086,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await joinGame(page2, 'P2', code);
 
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
+    await waitForURL(page1, /game/);
 
     // Wait for initial layout
     await page1.waitForSelector(Locators.DRAW_PILE_COUNT);
@@ -1140,8 +1150,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Start game
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     // Ensure it's P1's turn
     await expect(findTurnArea(page1)).toContainText(`It's your turn`);
@@ -1183,8 +1193,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await joinGame(page2, 'P2', code);
 
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     // P1 draws a card
     await findDrawPile(page1).click();
@@ -1238,8 +1248,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const code = await createGame(page1, 'P1');
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     const p1TimerArea = findTimerArea(page1);
     await expect(p1TimerArea).toBeHidden();
@@ -1374,8 +1384,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const code = await createGame(page1, 'P1');
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     const p1TimerArea = findTimerArea(page1);
     await expect(p1TimerArea).toBeHidden();
@@ -1436,8 +1446,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const code = await createGame(page1, 'P1');
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     const p1TimerArea = findTimerArea(page1);
     await expect(p1TimerArea).toBeHidden();
@@ -1506,8 +1516,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const code = await createGame(page1, 'P1');
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     const p1TimerArea = findTimerArea(page1);
     await expect(p1TimerArea).toBeHidden();
@@ -1569,9 +1579,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await joinGame(page2, 'P2', code);
     await joinGame(page3, 'P3', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-    await page3.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
 
     // Find the important elements of the page
     const p1Shuffle = findHandCardsByClass(page1, CardClass.Shuffle).first();
@@ -1643,8 +1653,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const code = await createGame(page1, 'P1');
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     const timerArea = findTimerArea(page1);
     await expect(timerArea).toBeHidden();
@@ -1778,8 +1788,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const code = await createGame(page1, 'P1');
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     const p1TimerArea = findTimerArea(page1);
     await expect(p1TimerArea).toBeHidden();
@@ -1868,8 +1878,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const code = await createGame(page1, 'P1');
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await page1.waitForLoadState('networkidle'); // Wait for page to fully load
+    await page2.waitForLoadState('networkidle'); // Wait for page to fully load
 
     const p1TimerArea = findTimerArea(page1);
     await expect(p1TimerArea).toBeHidden();
@@ -1960,10 +1972,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await joinGame(page3, 'P3', code);
     await joinGame(page4, 'P4', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-    await page3.waitForURL(/game/);
-    await page4.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+    await waitForURL(page4, /game/);
 
     const p1TimerArea = findTimerArea(page1);
     await expect(p1TimerArea).toBeHidden();
@@ -2075,8 +2087,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const code = await createGame(page1, 'P1');
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     const p1TimerArea = findTimerArea(page1);
     await expect(p1TimerArea).toBeHidden();
@@ -2203,10 +2215,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await joinGame(page3, 'P3', code);
     await joinGame(page4, 'P4', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-    await page3.waitForURL(/game/);
-    await page4.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+    await waitForURL(page4, /game/);
 
     const p1TimerArea = findTimerArea(page1);
     await expect(p1TimerArea).toBeHidden();
@@ -2354,8 +2366,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const code = await createGame(page1, 'P1');
     await joinGame(page2, 'P2', code);
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     const p1TimerArea = findTimerArea(page1);
     await expect(p1TimerArea).toBeHidden();
@@ -2551,9 +2563,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await joinGame(page3, 'P3', code);
 
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-    await page3.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
 
     // Play begins - we have a fixed deck for DEVMODE, so we need to get past
     // initial safe draws
@@ -2701,9 +2713,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await joinGame(page3, 'P3', code);
 
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
-    await page3.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
 
     // Play begins - we have a fixed deck for DEVMODE, so we need to get past
     // initial draws
@@ -2846,8 +2858,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Start Game 1
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     // P1 plays a card to generate a log
     // Draw until we have something playable? Or just use DEV_GIVE_SAFE_CARD if hand empty?
@@ -2866,12 +2878,12 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page1.click(Buttons.LEAVE_GAME);
     // Confirm Leave
     await page1.click(Buttons.LEAVE_GAME_CONFIRM);
-    await page1.waitForURL('/');
+    await waitForURL(page1, '/');
 
     // P2 sees win
     const modal = findModal(page2, "game-end");
     await page2.click(Buttons.MODAL_OK);
-    await page2.waitForURL('/');
+    await waitForURL(page2, '/');
 
     // P1 Creates Game 2
     const code2 = await createGame(page1, 'P1');
@@ -2882,8 +2894,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Start Game 2 to see the logs
     await page1.click(Buttons.START_GAME);
-    await page1.waitForURL(/game/);
-    await page2.waitForURL(/game/);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
 
     // Verify logs are clean.
     // Game 1 had "P1 drew a card".

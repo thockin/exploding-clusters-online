@@ -1,5 +1,5 @@
 Phase 4:
- - SEET FUTURE as overlay not dialog
+ - SEE FUTURE as overlay not dialog
  - modal sizes
  - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
 
@@ -8,8 +8,6 @@ tests
  - better locator for all areas
  - remove unused locator consts
  - Add a prod test with cases which do not need DEVMODE
- - flakes
-   - -g "FAVOR"
 
 
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
