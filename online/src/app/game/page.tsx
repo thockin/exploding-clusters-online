@@ -51,7 +51,7 @@ export default function GameScreen() {
   const [seeTheFutureCards, setSeeTheFutureCards] = useState<Card[] | null>(null);
   const [favorVictimModalOpen, setFavorVictimModalOpen] = useState(false);
   const [favorVictimSelection, setFavorVictimSelection] = useState<string | null>(null);
-  const [favorCardChoiceModalOpen, setFavorCardChoiceModalOpen] = useState(false);
+  const [favorCardChoiceModal, setFavorCardChoiceModal] = useState<{ show: boolean, stealerName?: string } | null>(null);
   const [favorResultCardOverlay, setFavorResultCardOverlay] = useState<Card | null>(null);
   const [stealCardVictimModalOpen, setStealCardVictimModalOpen] = useState(false);
   const [stealCardVictimHandSize, setStealCardVictimHandSize] = useState<number | null>(null);
@@ -84,13 +84,13 @@ export default function GameScreen() {
   }, []);
 
   useEffect(() => {
-    if (favorCardChoiceModalOpen) {
+    if (favorCardChoiceModal?.show) {
       setChoiceCountdown(choiceTimeoutSeconds);
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
             if (prev <= 1) {
                 clearInterval(interval);
-                setFavorCardChoiceModalOpen(false);
+                setFavorCardChoiceModal(null);
                 return 0;
             }
             return prev - 1;
@@ -98,7 +98,7 @@ export default function GameScreen() {
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [favorCardChoiceModalOpen]);
+  }, [favorCardChoiceModal]);
 
   useEffect(() => {
     if (stealCardVictimHandSize !== null) {
@@ -214,8 +214,8 @@ export default function GameScreen() {
       }, duration);
     };
 
-    const onChooseFavorCard = () => {
-      setFavorCardChoiceModalOpen(true);
+    const onChooseFavorCard = (data: { show: boolean, stealerName?: string }) => {
+      setFavorCardChoiceModal({ show: true, stealerName: data.stealerName });
     };
 
     const onFavorOutcome = (data: { card: Card }) => {
@@ -1704,7 +1704,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="favor-choose-card"
-          show={favorCardChoiceModalOpen}
+          show={!!favorCardChoiceModal?.show}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
@@ -1714,7 +1714,7 @@ export default function GameScreen() {
             <Modal.Title>Grant a Favor ({choiceCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <p>Choose a card to give:</p>
+            <p>{`Choose a card to give to ${favorCardChoiceModal?.stealerName ?? "<BUG!>"}:`}</p>
             <div className="d-flex flex-wrap justify-content-center" style={{ gap: '10px' }}>
               {myHand.map((card, index) => (
                 <div 
@@ -1722,7 +1722,7 @@ export default function GameScreen() {
                   onClick={() => {
                       if (gameCode) {
                           socket?.emit(SocketEvent.ResolveFavorCard, { gameCode, cardId: card.id });
-                          setFavorCardChoiceModalOpen(false);
+                          setFavorCardChoiceModal(null);
                       }
                   }}
                   style={{ 

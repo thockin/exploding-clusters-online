@@ -1570,7 +1570,7 @@ export class GameManager {
              _g.turnPhase = TurnPhase.ChoosingFavorCard;
              this.updateGameNonce(_g, player.name);
 
-             this.emitToSocket(currentVictim.socketId, SocketEvent.ChooseFavorCard, {});
+             this.emitToSocket(currentVictim.socketId, SocketEvent.ChooseFavorCard, {stealerName: player.name});
 
              const cardId = await Promise.race([
                  new Promise<string>(resolve => {
