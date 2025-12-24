@@ -239,7 +239,7 @@ export class GameManager {
           player.hand = []; // Clear hand
 
           game.players.splice(playerIndex, 1); // Remove from array
-          this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} has left the game, what a chicken!` });
+          this.msgToAllPlayers(game.code, `${player.name} has left the game, what a chicken!`);
 
           // Handle owner migration if needed
           if (game.state === GameState.Lobby && game.gameOwnerId === player.id) {
@@ -319,11 +319,11 @@ export class GameManager {
     return randomBytes(8).toString('hex');
   }
 
-  private emitToGame(game: string, event: string, data?: unknown) {
+  private emitToGame(gameCode: string, event: string, data?: unknown) {
     if (this.verbose) {
-      this.log(null, `game ${game}: sending event "${event}" to all players: ${JSON.stringify(data as string)}`);
+      this.log(null, `game ${gameCode}: sending event "${event}" to all players: ${JSON.stringify(data as string)}`);
     }
-    this.io.to(game).emit(event, data);
+    this.io.to(gameCode).emit(event, data);
   }
 
   private emitToSocket(socketId: string, event: string, data?: unknown) {
@@ -333,9 +333,17 @@ export class GameManager {
     this.io.to(socketId).emit(event, data);
   }
 
+  private msgToAllPlayers(gameCode: string, msg: string) {
+    this.emitToGame(gameCode, SocketEvent.GameMessage, { message: msg });
+  }
+
+  private msgToPlayer(socketId: string, msg: string) {
+    this.emitToSocket(socketId, SocketEvent.GameMessage, { message: msg });
+  }
+
   private getGameUpdateData(game: Game): GameUpdatePayload {
     const topDiscardCard = game.discardPile.length > 0 ? game.discardPile[game.discardPile.length - 1] : undefined;
-    
+
     // Handle face-up cards in draw pile
     const topDrawCard = game.drawPile.length > 0 ? game.drawPile[game.drawPile.length - 1] : undefined;
     let drawPileImage = "/art/back.png";
@@ -516,7 +524,7 @@ export class GameManager {
         this.log(game, `executing operation for ${op.cardClass} played by "${op.playerName}"`);
         try {
           if (game.devMode) {
-            this.emitToGame(game.code, SocketEvent.GameMessage, { message: `DEV: op[${i}]: Executing ${op.cardClass} played by "${op.playerName}".` });
+            this.msgToAllPlayers(game.code, `DEV: op[${i}]: Executing ${op.cardClass} played by "${op.playerName}".`);
           }
           // Wrap operation in timeout promise
           const timeoutPromise = new Promise((_, reject) => {
@@ -639,7 +647,7 @@ export class GameManager {
         // For now, just fixing the lookup.
 
         this.log(game, `player "${sanitizedName}" (${existingPlayer.socketId}) rejoined the game`);
-        this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${sanitizedName} has rejoined the game, hoorah!` });
+        this.msgToAllPlayers(game.code, `${sanitizedName} has rejoined the game, hoorah!`);
         this.emitGameUpdate(game); // Rejoining player does not change nonce
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: existingPlayer.hand });
         return callback({ success: true, gameCode, nonce: game.nonce, playerId: existingPlayer.id });
@@ -1055,7 +1063,7 @@ export class GameManager {
 
     // Check if game has ended
     if (game.state === GameState.Ended) {
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game has ended." });
+      this.msgToPlayer(socket.id, "Game has ended.");
       return;
     }
 
@@ -1070,30 +1078,30 @@ export class GameManager {
     // Prevent concurrent hand modifications (race condition protection)
     if (player.isPlaying) {
       this.log(game, `player "${player.name}" tried to draw a card while another operation is in progress`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current operation to complete." });
+      this.msgToPlayer(socket.id, "Please wait for your current operation to complete.");
       return;
     }
 
     // Validation
     if (game.state !== GameState.Started) {
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game not started." });
+      this.msgToPlayer(socket.id, "Game not started.");
       return;
     }
 
     if (!this.isPlayerTurn(game, player)) {
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
+      this.msgToPlayer(socket.id, "It's not your turn!");
       return;
     }
 
     if (game.turnPhase !== TurnPhase.Action) {
       this.log(game, `player "${player.name}" tried to draw in phase ${game.turnPhase} (expected Action)`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You cannot draw right now (wait for reactions)." });
+      this.msgToPlayer(socket.id, "You cannot draw right now (wait for reactions).");
       return;
     }
 
     if (game.drawPile.length === 0) {
       this.log(game, `draw pile empty, cannot draw`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "The deck is empty!" });
+      this.msgToPlayer(socket.id, "The deck is empty!");
       return;
     }
 
@@ -1107,7 +1115,7 @@ export class GameManager {
       if (!card) {
         // This shouldn't happen due to earlier check, but handle it defensively
         this.log(game, `drawCard: draw pile was empty when trying to pop`);
-        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "The deck is empty!" });
+        this.msgToPlayer(socket.id, "The deck is empty!");
         return;
       }
       game.drawCount++;
@@ -1183,13 +1191,13 @@ export class GameManager {
           if (card!.class === CardClass.ExplodingCluster) {
             currentGame.turnPhase = TurnPhase.Exploding;
             currentGame.discardPile.push(card!); // Put on discard pile
-            this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew an EXPLODING CLUSTER!` });
+            this.msgToAllPlayers(currentGame.code, `${currentPlayer.name} drew an EXPLODING CLUSTER!`);
 
             const debugCardIndex = currentPlayer.hand.findIndex(c => c.class === CardClass.Debug);
             if (debugCardIndex === -1) {
               // Eliminate player
               this.log(currentGame, `player "${currentPlayer.name}" exploded (no DEBUG card)`);
-              this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name}'s cluster has exploded, they are out of the game.` });
+              this.msgToAllPlayers(currentGame.code, `${currentPlayer.name}'s cluster has exploded, they are out of the game.`);
 
               const hand = currentPlayer.hand;
               currentGame.removedPile.push(...hand);
@@ -1222,7 +1230,7 @@ export class GameManager {
             if (card!.isFaceUp) {
                 // Face-up UPGRADE CLUSTER: Immediate Elimination
                 this.log(currentGame, `player "${currentPlayer.name}" drew face-up UPGRADE CLUSTER and is OUT`);
-                this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name}'s cluster was upgraded out of existence, they are out of the game.` });
+                this.msgToAllPlayers(currentGame.code, `${currentPlayer.name}'s cluster was upgraded out of existence, they are out of the game.`);
 
                 // Remove player hand
                 const hand = currentPlayer.hand;
@@ -1249,12 +1257,12 @@ export class GameManager {
                 // Face-down UPGRADE CLUSTER: Upgrading Phase
                 currentGame.turnPhase = TurnPhase.Upgrading;
                 currentGame.discardPile.push(card!);
-                this.emitToGame(currentGame.code, SocketEvent.GameMessage, { message: `${currentPlayer.name} drew an UPGRADE CLUSTER!` });
+                this.msgToAllPlayers(currentGame.code, `${currentPlayer.name} drew an UPGRADE CLUSTER!`);
                 this.updateGameNonce(currentGame, currentPlayer.name);
             }
           } else {
             // Regular card
-            this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} drew a card.` });
+            this.msgToAllPlayers(game.code, `${player.name} drew a card.`);
             currentPlayer.hand.push(card!);
             this.advanceTurn(currentGame);
             this.updateGameNonce(currentGame, currentPlayer.name);
@@ -1282,7 +1290,7 @@ export class GameManager {
       if (card) {
         game.drawPile.push(card);
       }
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "An error occurred while drawing a card." });
+      this.msgToPlayer(socket.id, "An error occurred while drawing a card.");
     }
   }
 
@@ -1442,14 +1450,14 @@ export class GameManager {
     const game = this.games.get(gameCode);
     if (!game) {
       this.log(null, `playCard failed: game ${gameCode} not found`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Game not found." });
+      this.msgToPlayer(socket.id, "Error: Game not found.");
       return;
     }
 
     // Check if game has ended
     if (game.state === GameState.Ended) {
       this.log(game, `playCard failed: game has ended`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game has ended." });
+      this.msgToPlayer(socket.id, "Game has ended.");
       return;
     }
 
@@ -1479,7 +1487,7 @@ export class GameManager {
     // Prevent concurrent card plays from the same player (race condition protection)
     if (player!.isPlaying) {
       this.log(game, `player "${player.name}" tried to play a card while another play is in progress`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current play to complete." });
+      this.msgToPlayer(socket.id, "Please wait for your current play to complete.");
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
       return;
     }
@@ -1488,7 +1496,7 @@ export class GameManager {
     const cardIndex = player.hand.findIndex(c => c.id === cardId);
     if (cardIndex === -1) {
       this.log(game, `player "${player.name}" tried to play a card they don't have (id: "${cardId}")`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card!" });
+      this.msgToPlayer(socket.id, "You don't have that card!");
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
       return;
     }
@@ -1498,7 +1506,7 @@ export class GameManager {
     const { allowed, reason } = this.canPlayCard(game, player, cardInHand);
     if (!allowed) {
       this.log(game, `player "${player.name}" tried to play ${cardId}, rejected: ${reason} (phase=${game.turnPhase})`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: reason || "You can't play that card right now!" });
+      this.msgToPlayer(socket.id, reason || "You can't play that card right now!");
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand }); // Revert optimistic update
       return;
     }
@@ -1511,11 +1519,11 @@ export class GameManager {
       game.discardPile.push(card);
 
       this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
-      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played ${card.class}.` });
+      this.msgToAllPlayers(game.code, `${player.name} played ${card.class}.`);
 
       // Special handling for DEBUG card
       if (card.class === CardClass.Debug) {
-         this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name}'s cluster almost exploded, but they debugged it!` });
+         this.msgToAllPlayers(game.code, `${player.name}'s cluster almost exploded, but they debugged it!`);
          this.updateGameNonce(game, player.name);
          return;
       } else if (card.class === CardClass.Nak) {
@@ -1526,7 +1534,7 @@ export class GameManager {
              const negatedOp = _g.pendingOperations.pop(); // Pop the item below
              if (negatedOp) {
                this.log(_g, `NAK by player "${player.name}" negated operation ${negatedOp.cardClass} by ${negatedOp.playerName}`);
-               this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} NAKed ${negatedOp.playerName}'s ${negatedOp.cardClass}.` });
+               this.msgToAllPlayers(_g.code, `${player.name} NAKed ${negatedOp.playerName}'s ${negatedOp.cardClass}.`);
              }
            }
          });
@@ -1537,7 +1545,7 @@ export class GameManager {
            action: async (_g: Game) => {
              _g.drawPile = shuffleDeck(_g.drawPile, this.prng.random.bind(this.prng));
              this.log(_g, "The deck was shuffled");
-             this.emitToGame(_g.code, SocketEvent.GameMessage, { message: "The deck was shuffled." });
+             this.msgToAllPlayers(_g.code, "The deck was shuffled.");
            }
          });
       } else if (card.class === CardClass.Favor) {
@@ -1545,7 +1553,7 @@ export class GameManager {
          const victim = victimId ? game.players.find(p => p.id === victimId) : undefined;
          if (!victim || victim.isOut || victim.id === player.id || victim.hand.length === 0) {
              this.log(game, `player "${player.name}" tried to play FAVOR with invalid victim`);
-             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid victim for FAVOR." });
+             this.msgToPlayer(socket.id, "Invalid victim for FAVOR.");
              // Revert play
              game.discardPile.pop();
              player.hand.push(card);
@@ -1553,7 +1561,7 @@ export class GameManager {
              return;
          }
 
-         this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} asked ${victim.name} for a favor.` });
+         this.msgToAllPlayers(game.code, `${player.name} asked ${victim.name} for a favor.`);
 
          game.pendingOperations.push({
            cardClass: card.class,
@@ -1563,7 +1571,7 @@ export class GameManager {
              const currentVictim = _g.players.find(p => p.id === victimId);
              if (!currentVictim || currentVictim.isOut || currentVictim.hand.length === 0) {
                  this.log(_g, `FAVOR failed: victim "${currentVictim?.name}" unavailable`);
-                 this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} asked ${currentVictim?.name || 'someone'} for a favor, but they have no cards left, sorry!` });
+                 this.msgToAllPlayers(_g.code, `${player.name} asked ${currentVictim?.name || 'someone'} for a favor, but they have no cards left, sorry!`);
                  return;
              }
 
@@ -1610,7 +1618,7 @@ export class GameManager {
                  }
                  this.emitToSocket(freshVictim.socketId, SocketEvent.HandUpdate, { hand: freshVictim.hand });
                  this.log(_g, `player "${player.name}" received "${stolenCard.class}" from "${freshVictim.name}"`);
-                 this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${freshVictim.name} gave ${player.name} a card.` });
+                 this.msgToAllPlayers(_g.code, `${freshVictim.name} gave ${player.name} a card.`);
              }
 
              _g.turnPhase = TurnPhase.Action;
@@ -1629,7 +1637,7 @@ export class GameManager {
              // Send to player who played card
              this.emitToSocket(player.socketId, SocketEvent.SeeTheFutureData, { cards: top3Cards, duration: duration });
              this.log(_g, `player "${player.name}" saw the future`);
-             this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} saw the future.` });
+             this.msgToAllPlayers(_g.code, `${player.name} saw the future.`);
 
              // Set phase to SeeingTheFuture and block other players
              _g.turnPhase = TurnPhase.SeeingTheFuture;
@@ -1683,14 +1691,14 @@ export class GameManager {
     const game = this.games.get(gameCode);
     if (!game) {
       this.log(null, `playCombo failed: game ${gameCode} not found`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Error: Game not found." });
+      this.msgToPlayer(socket.id, "Error: Game not found.");
       return;
     }
 
     // Check if game has ended
     if (game.state === GameState.Ended) {
       this.log(game, `playCombo failed: game has ended`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game has ended." });
+      this.msgToPlayer(socket.id, "Game has ended.");
       return;
     }
 
@@ -1705,7 +1713,7 @@ export class GameManager {
     // Unlike playCard, combos can only be played by the current player
     if (!this.isPlayerTurn(game, player)) {
       this.log(game, `player "${player.name}" tried to play a combo out of turn`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
+      this.msgToPlayer(socket.id, "It's not your turn!");
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
       return;
     }
@@ -1725,7 +1733,7 @@ export class GameManager {
     // Prevent concurrent card plays from the same player (race condition protection)
     if (player!.isPlaying) {
       this.log(game, `player "${player.name}" tried to play a combo while another play is in progress`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Please wait for your current play to complete." });
+      this.msgToPlayer(socket.id, "Please wait for your current play to complete.");
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
       return;
     }
@@ -1733,7 +1741,7 @@ export class GameManager {
     // Validate the combo: we only support 2x combos for now
     if (!cardIds || cardIds.length !== 2) {
       this.log(game, `player "${player.name}" tried to play a combo of ${cardIds?.length}`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo." });
+      this.msgToPlayer(socket.id, "Invalid combo.");
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
       return;
     }
@@ -1741,7 +1749,7 @@ export class GameManager {
     let idSet: Set<string> = new Set(cardIds);
     if (idSet.size !== cardIds.length) {
       this.log(game, `player "${player.name}" tried to play a combo with duplicate card IDs`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo." });
+      this.msgToPlayer(socket.id, "Invalid combo.");
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
       return;
     }
@@ -1751,7 +1759,7 @@ export class GameManager {
       const idx = player.hand.findIndex(c => c.id === id);
       if (idx === -1) {
         this.log(game, `player "${player.name}" tried to play combo with a card they don't have (id: ${id})`);
-        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card!" });
+        this.msgToPlayer(socket.id, "You don't have that card!");
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
         return;
       }
@@ -1764,7 +1772,7 @@ export class GameManager {
     for (const c of cardsInHand) {
       if (c.class !== proto.class || c.name !== proto.name) {
         this.log(game, `player "${player.name}" tried to play an invalid combo: ${cardsInHand.map(c => `${c.class}:${c.name}`).join(", ")}`);
-        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid combo. Must be DEVELOPER cards." });
+        this.msgToPlayer(socket.id, "Invalid combo. Must be DEVELOPER cards.");
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
         return;
       }
@@ -1773,7 +1781,7 @@ export class GameManager {
     // Combo can only be played in Action phase
     if (game.turnPhase !== TurnPhase.Action) {
       this.log(game, `player "${player.name}" tried to play a combo in wrong phase: ${game.turnPhase}`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You can only play combos in your Action phase." });
+      this.msgToPlayer(socket.id, "You can only play combos in your Action phase.");
       this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
       return;
     }
@@ -1796,7 +1804,7 @@ export class GameManager {
           const victim = victimId ? game.players.find(p => p.id === victimId) : undefined;
           if (!victim || victim.isOut || victim.id === player.id || victim.hand.length === 0) {
              this.log(game, `player "${player.name}" tried to play DEV combo with invalid victim`);
-             this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid victim for Developer combo." });
+             this.msgToPlayer(socket.id, "Invalid victim for Developer combo.");
              // Revert play
              for (let i = 0; i < cardsInHand.length; i++) game.discardPile.pop();
              player.hand.push(...cardsInHand);
@@ -1805,7 +1813,7 @@ export class GameManager {
           }
 
           this.log(game, `player "${player.name}" played 2x combo "${proto.class}: ${proto.name}" targeting "${victim.name}"`);
-          this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} wants to steal a card from ${victim.name}.` });
+          this.msgToAllPlayers(game.code, `${player.name} wants to steal a card from ${victim.name}.`);
 
           game.pendingOperations.push({
             cardClass: proto.class,
@@ -1815,7 +1823,7 @@ export class GameManager {
                 const currentVictim = _g.players.find(p => p.id === victimId);
                 if (!currentVictim || currentVictim.isOut || currentVictim.hand.length === 0) {
                     this.log(_g, `DEV combo failed: victim unavailable or empty hand`);
-                    this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} tried to steal from ${currentVictim?.name || 'someone'}, but they have no cards left!` });
+                    this.msgToAllPlayers(_g.code, `${player.name} tried to steal from ${currentVictim?.name || 'someone'}, but they have no cards left!`);
                     return;
                 }
 
@@ -1861,7 +1869,7 @@ export class GameManager {
                 this.emitToSocket(freshVictim.socketId, SocketEvent.HandUpdate, { hand: freshVictim.hand });
 
                 this.log(_g, `player "${player.name}" stole "${stolenCard.class}" from "${freshVictim.name}"`);
-                this.emitToGame(_g.code, SocketEvent.GameMessage, { message: `${player.name} stole a card from ${freshVictim.name}.` });
+                this.msgToAllPlayers(_g.code, `${player.name} stole a card from ${freshVictim.name}.`);
 
                 _g.turnPhase = TurnPhase.Action;
                 this.updateGameNonce(_g, player.name);
@@ -1882,7 +1890,7 @@ export class GameManager {
             }
           });
           this.log(game, `player "${player.name}" played 2x combo "${proto.class}: ${proto.name}"`);
-          this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} played a pair of ${proto.class}.` });
+          this.msgToAllPlayers(game.code, `${player.name} played a pair of ${proto.class}.`);
       }
 
       // Start Timer
@@ -1926,7 +1934,7 @@ export class GameManager {
       const oldSocketId = player.socketId;
       player.isDisconnected = true;
       player.socketId = ''; // Clear socketId so this socket can't be reused directly
-      this.emitToGame(game.code, SocketEvent.GameMessage, { message: `${player.name} has disconnected, maybe they will be right back?` });
+      this.msgToAllPlayers(game.code, `${player.name} has disconnected, maybe they will be right back?`);
 
       // If current player disconnected, handle turn progression
       if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
@@ -2023,9 +2031,7 @@ export class GameManager {
         const nextPlayerId = game.turnOrder[game.currentTurnIndex];
         const nextPlayer = game.players.find(p => p.id === nextPlayerId);
         if (nextPlayer) {
-          this.emitToGame(game.code, SocketEvent.GameMessage, {
-            message: `${player.name} has abandoned their turn, it's ${nextPlayer.name}'s turn.`
-          });
+          this.msgToAllPlayers(game.code, `${player.name} has abandoned their turn, it's ${nextPlayer.name}'s turn.`);
         }
         // Ensure nonce is updated because game state changed significantly
         this.updateGameNonce(game);
@@ -2164,25 +2170,25 @@ export class GameManager {
 
     if (!this.isPlayerTurn(game, player)) {
       this.log(game, `insertUpgradeCard event from player "${player?.name}": not their turn`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
+      this.msgToPlayer(socket.id, "It's not your turn!");
       return;
     }
 
     if (game.turnPhase !== TurnPhase.Upgrading) {
       this.log(game, `insertUpgradeCard event from player "${player?.name}": wrong phase (${game.turnPhase})`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Turn phase is not ${TurnPhase.Upgrading}" });
+      this.msgToPlayer(socket.id, "Turn phase is not ${TurnPhase.Upgrading}");
       return;
     }
 
     if (nonce !== game.nonce) {
       this.log(game, `insertUpgradeCard event from player "${player?.name}": wrong nonce (${nonce})`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game state mismatch." });
+      this.msgToPlayer(socket.id, "Game state mismatch.");
       return;
     }
 
     if (index < 0 || index > game.drawPile.length) {
       this.log(game, `insertUpgradeCard event from player "${player?.name}": invalid insertion index (${index})`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid insertion index." });
+      this.msgToPlayer(socket.id, "Invalid insertion index.");
       return;
     }
 
@@ -2254,7 +2260,7 @@ export class GameManager {
 
     // Validate ownership
     if (!player.hand.some(c => c.id === cardId)) {
-        this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "You don't have that card." });
+        this.msgToPlayer(socket.id, "You don't have that card.");
         return;
     }
 
@@ -2292,25 +2298,25 @@ export class GameManager {
 
     if (!this.isPlayerTurn(game, player)) {
       this.log(game, `insertExplodingCard event from player "${player?.name}": not their turn`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "It's not your turn!" });
+      this.msgToPlayer(socket.id, "It's not your turn!");
       return;
     }
 
     if (game.turnPhase !== TurnPhase.Exploding) {
       this.log(game, `insertExplodingCard event from player "${player?.name}": wrong phase (${game.turnPhase})`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Turn phase is not ${TurnPhase.Exploding}" });
+      this.msgToPlayer(socket.id, "Turn phase is not ${TurnPhase.Exploding}");
       return;
     }
 
     if (nonce !== game.nonce) {
       this.log(game, `insertExplodingCard event from player "${player?.name}": wrong nonce (${nonce})`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Game state mismatch." });
+      this.msgToPlayer(socket.id, "Game state mismatch.");
       return;
     }
 
     if (index < 0 || index > game.drawPile.length) {
       this.log(game, `insertExplodingCard event from player "${player?.name}": invalid insertion index (${index})`);
-      this.emitToSocket(socket.id, SocketEvent.GameMessage, { message: "Invalid insertion index." });
+      this.msgToPlayer(socket.id, "Invalid insertion index.");
       return;
     }
 

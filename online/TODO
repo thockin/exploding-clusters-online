@@ -1,7 +1,7 @@
 Phase 4:
  - SEE FUTURE as overlay not dialog
  - modal sizes
- - Helper func for this.emitToGame(_g.code, SocketEvent.GameMessage, { message: ... })
+ - use BUG for undefined values in page
 
 tests
  - more helpers
