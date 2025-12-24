@@ -13,6 +13,7 @@ tests
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
 
 Later:
+* Play-card animation (important when playing the same card)
 * Shuffle hands at game start, but not in DEVMODE
 * Hand animation is ugly
   - need configurable skin colors?

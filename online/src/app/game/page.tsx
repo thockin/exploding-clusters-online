@@ -285,27 +285,26 @@ export default function GameScreen() {
     };
   }, [socket, gameCode]);
 
-      // handleDismissSeeTheFuture function
-      const handleDismissSeeTheFuture = useCallback(() => {
-        if (socket && gameCode) {
-          socket.emit(SocketEvent.DismissSeeTheFuture, gameCode);
-          setSeeTheFutureCards(null);
-        }
-      }, [socket, gameCode]);
+  const handleDismissSeeTheFuture = useCallback(() => {
+    if (socket && gameCode) {
+      socket.emit(SocketEvent.DismissSeeTheFuture, gameCode);
+      setSeeTheFutureCards(null);
+    }
+  }, [socket, gameCode]);
 
-      useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-          if (event.key === 'Escape') {
-            setInspectCardOverlay(null);
-            setDeckCardsOverlay(null);
-            setRemovedCardsOverlay(null);
-            setDrawingAnimation(null); // Clear drawing animation on Escape
-            setSeeTheFutureCards(null); // Clear See The Future overlay on Escape
-          }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-      }, []);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setInspectCardOverlay(null);
+        setDeckCardsOverlay(null);
+        setRemovedCardsOverlay(null);
+        setDrawingAnimation(null); // Clear drawing animation on Escape
+        setSeeTheFutureCards(null); // Clear See The Future overlay on Escape
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (messageAreaRef.current) {
@@ -455,12 +454,9 @@ export default function GameScreen() {
     event.stopPropagation();
 
     if (isDraggingRef.current) {
-      // handleCardClick ignored (isDraggingRef)
       return;
     }
 
-    // Check playability (Phase 3.2)
-    // "If the player single-clicks an unplayable card in their hand, do nothing."
     if (!isCardPlayable(card)) {
       return;
     }
@@ -469,11 +465,9 @@ export default function GameScreen() {
     const moveX = Math.abs(event.clientX - clickStartPosRef.current.x);
     const moveY = Math.abs(event.clientY - clickStartPosRef.current.y);
     if (moveX > 30 || moveY > 30) {
-      // handleCardClick ignored (distance)
       return;
     }
     console.debug('handleCardClick', card.id, card.name, 'shift:', event.shiftKey, 'selected:', selectedCards.map(c => c.id));
-    // TODO: Add check for playable cards here (Phase 3)
 
     // If shift key is pressed, attempt combo selection
     if (event.shiftKey) {
@@ -540,8 +534,8 @@ export default function GameScreen() {
     let chosenFullWidth = CARD_FULL_WIDTH_PX;
     let chosenCols = standard.cols;
 
-    // "Once we shrink cards, they stay at the smaller size until the number of cards in the hand can all fit in two rows at the regular size."
-    // This implies: If Standard > 2 rows, use Small.
+    // Once we shrink cards, they stay at the smaller size until the number of
+    // cards in the hand can all fit in two rows at the regular size
     if (standard.rows > 2) {
       const small = getRowsAndCols(CARD_SMALL_FULL_WIDTH_PX);
       chosenCardWidth = CARD_SMALL_WIDTH_PX;
@@ -784,11 +778,11 @@ export default function GameScreen() {
                   draggedCard.class === CardClass.Developer &&
                   selected.name === draggedCard.name) {
 
-            // "the second card is also selected and both cards are played"
+            // The second card is also selected and both cards are played
             cardsToPlay = [selected, draggedCard];
             newSelectedCards = [selected, draggedCard];
           } else {
-            // "the selected card is deselected and the second card is selected and played"
+            // The selected card is deselected and the second card is selected and played
             cardsToPlay = [draggedCard];
             newSelectedCards = [draggedCard];
           }
@@ -801,7 +795,7 @@ export default function GameScreen() {
           cardsToPlay = selectedCards;
           newSelectedCards = selectedCards;
         } else {
-          // "the combo is deselected and the new card is selected and played"
+          // The combo is deselected and the new card is selected and played
           cardsToPlay = [draggedCard];
           newSelectedCards = [draggedCard];
         }
@@ -853,7 +847,6 @@ export default function GameScreen() {
         }
 
         // --- Client-side Play Validation ---
-        // Use centralized isCardPlayable logic for consistency
         const isAllowed = cardsToPlay.every(c => isCardPlayable(c));
 
         if (!isAllowed) {
@@ -876,7 +869,8 @@ export default function GameScreen() {
         }
 
         // Optimistic update and clear selection for successful plays
-        // Delay update to avoid "Unable to find drag handle" warning from dnd library trying to restore focus to unmounted item.
+        // Delay update to avoid "Unable to find drag handle" warning from dnd
+        // library trying to restore focus to unmounted item.
         setTimeout(() => {
           setSelectedCards([]);
           setMyHand((prevHand: Card[]) => prevHand.filter(c => !cardsToPlay.some(pc => pc.id === c.id)));
@@ -904,7 +898,8 @@ export default function GameScreen() {
 
       // If Shift is held, try to add to selection (Combo)
       if (isShiftKeyPressed.current) {
-        // "If there is a single DEVELOPER card selected and the player shift-clicks and drags another identical card..."
+        // If there is a single DEVELOPER card selected and the player
+        // shift-clicks and drags another identical card...
         if (selectedCards.length === 1) {
           const selected = selectedCards[0];
           if (selected.class === CardClass.Developer &&
@@ -1184,7 +1179,7 @@ export default function GameScreen() {
     }
   }
 
-  // "Game play is paused" - block dismiss if drawing
+  // Game play is paused - block dismiss if drawing
   const isDrawingPause = !!drawingAnimation?.active;
 
   return (
