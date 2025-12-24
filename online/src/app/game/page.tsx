@@ -55,7 +55,7 @@ export default function GameScreen() {
   const [favorOutcomeCard, setFavorOutcomeCard] = useState<Card | null>(null);
   const [developerVictimModalOpen, setDeveloperVictimModalOpen] = useState(false);
   const [developerCardChoiceCount, setDeveloperCardChoiceCount] = useState<number | null>(null);
-  const [developerStolenCard, setDeveloperStolenCard] = useState<Card | null>(null);
+  const [developerStolenEventData, setDeveloperStolenEventData] = useState<{ card: Card, stealerId?: string, victimId?: string } | null>(null);
   const [noVictimModalOpen, setNoVictimModalOpen] = useState(false);
 
   // DEVMODE states
@@ -229,9 +229,9 @@ export default function GameScreen() {
         setDeveloperCardChoiceCount(data.handCount);
     };
 
-    const onDeveloperStolen = (data: { card: Card }) => {
-        setDeveloperStolenCard(data.card);
-        setTimeout(() => setDeveloperStolenCard(null), 3000);
+    const onDeveloperStolen = (data: { card: Card, stealerId?: string, victimId?: string }) => {
+        setDeveloperStolenEventData(data);
+        setTimeout(() => setDeveloperStolenEventData(null), 3000);
     };
 
     const onTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
@@ -1820,14 +1820,18 @@ export default function GameScreen() {
           </Modal.Body>
         </Modal>
 
-        {developerStolenCard && (
+        {developerStolenEventData && (
           <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1000,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white'
           }}>
-            <h2>{gameState?.lastActorName} stole your:</h2>
-            <Image src={developerStolenCard.imageUrl} alt={developerStolenCard.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
+            <h2>
+               {developerStolenEventData.stealerId === playerId
+                 ? "You stole:"
+                 : `${gameState?.lastActorName || "Someone"} stole your:`}
+            </h2>
+            <Image src={developerStolenEventData.card.imageUrl} alt={developerStolenEventData.card.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
           </div>
         )}
 

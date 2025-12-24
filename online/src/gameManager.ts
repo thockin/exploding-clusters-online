@@ -1855,8 +1855,9 @@ export class GameManager {
                 if (requester) {
                     requester.hand.push(stolenCard);
                     this.emitToSocket(requester.socketId, SocketEvent.HandUpdate, { hand: requester.hand });
+                    this.emitToSocket(requester.socketId, SocketEvent.DeveloperStolen, { card: stolenCard, stealerId: player.id, victimId: freshVictim.id });
                 }
-                this.emitToSocket(freshVictim.socketId, SocketEvent.DeveloperStolen, { card: stolenCard });
+                this.emitToSocket(freshVictim.socketId, SocketEvent.DeveloperStolen, { card: stolenCard, stealerId: player.id, victimId: freshVictim.id });
                 this.emitToSocket(freshVictim.socketId, SocketEvent.HandUpdate, { hand: freshVictim.hand });
 
                 this.log(_g, `player "${player.name}" stole "${stolenCard.class}" from "${freshVictim.name}"`);

@@ -2167,7 +2167,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await chooseCardModal.locator('.modal-body div[style*="cursor: pointer"]').first().click();
     await expect(chooseCardModal).not.toBeVisible();
 
-    // Verify P2 sees overlay
+    // Verify overlays
+    await expect(findOverlay(page1)).toBeVisible();
+    await expect(findOverlay(page1)).toContainText('You stole:');
     await expect(findOverlay(page2)).toBeVisible();
     await expect(findOverlay(page2)).toContainText('P1 stole your:');
 
@@ -2316,7 +2318,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await chooseCardModal.locator('.modal-body div[style*="cursor: pointer"]').first().click();
     await expect(chooseCardModal).not.toBeVisible();
 
-    // Verify P2 sees overlay
+    // Verify overlays
+    await expect(findOverlay(page1)).toBeVisible();
+    await expect(findOverlay(page1)).toContainText('You stole:');
     await expect(findOverlay(page2)).toBeVisible();
     await expect(findOverlay(page2)).toContainText('P1 stole your:');
 
