@@ -1,7 +1,6 @@
 Phase 4:
  - SEE FUTURE as overlay not dialog
- - modal sizes
- - use BUG for undefined values in page
+ - modals' card sizes
 
 tests
  - more helpers

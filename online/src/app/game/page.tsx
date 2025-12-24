@@ -1547,8 +1547,8 @@ export default function GameScreen() {
           </Modal.Header>
           <Modal.Body>
             <p>You can put this card back into the deck anywhere you like.</p>
-            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards in the deck, where do you want to put the UPGRADE CLUSTER card?</p>
-            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '??'} is the bottom.</p>
+            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} cards in the deck, where do you want to put the UPGRADE CLUSTER card?</p>
+            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} is the bottom.</p>
             <Form.Control
               type="number"
               min={0}
@@ -1592,8 +1592,8 @@ export default function GameScreen() {
           </Modal.Header>
           <Modal.Body>
             <p>You can put this card back into the deck anywhere you like.</p>
-            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards in the deck, where do you want to hide the EXPLODING CLUSTER card?</p>
-            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '??'} is the bottom.</p>
+            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} cards in the deck, where do you want to hide the EXPLODING CLUSTER card?</p>
+            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} is the bottom.</p>
             <Form.Control
               type="number"
               min={0}
@@ -1883,7 +1883,7 @@ export default function GameScreen() {
                     ? "You have the last operational cluster."
                     : (gameEndData?.winType === WinType.Attrition
                       ? "Winning by attrition is still winning."
-                      : `Unknown win condition: ${gameEndData?.winType}.`))
+                      : `<BUG!: ${gameEndData?.winType}>`))
                   : `${gameEndData?.winner} wins, with the last operational cluster.`
               }
             </p>
