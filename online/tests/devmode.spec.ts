@@ -2423,22 +2423,28 @@ test.describe('UI Tests with DEVMODE=1', () => {
         await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
-    // Verify P2 sees See The Future modal
-    const modal = findModal(page2, "see-the-future");
-    await expect(modal).toBeVisible();
-    const cardsInModal = modal.locator('.modal-body').locator('img');
-    await expect(cardsInModal).toHaveCount(3);
+    // P1 should NOT see the overlay
+    await expect(findOverlay(page1, "see-the-future")).not.toBeVisible();
 
-    // Verify the cards in the modal are the top 3 from the deck
-    const allCardsInModal = await cardsInModal.all();
-    const modalCardAlts = await Promise.all(allCardsInModal.map(async (img) => await img.getAttribute('alt')));
-    expect(modalCardAlts[0]).toContain(top3CardClasses[0]);
-    expect(modalCardAlts[1]).toContain(top3CardClasses[1]);
-    expect(modalCardAlts[2]).toContain(top3CardClasses[2]);
+    // Verify P2 sees See The Future overlay
+    const p2SeeTheFutureOverlay = findOverlay(page2, "see-the-future");
+    await expect(p2SeeTheFutureOverlay).toBeVisible();
+    await expect(p2SeeTheFutureOverlay.locator('h2')).toContainText('See The Future');
+    const cardsInOverlay = p2SeeTheFutureOverlay.locator('img');
+    await expect(cardsInOverlay).toHaveCount(3);
 
-    // Dismiss modal
-    await page2.click('button:has-text("Done")');
-    await expect(page2.locator('.modal-title')).not.toBeVisible(); // Modal is gone
+    // Verify the cards in the overlay are the top 3 from the deck
+    const allCardsInOverlay = await cardsInOverlay.all();
+    const overlayCardAlts = await Promise.all(allCardsInOverlay.map(async (img) => await img.getAttribute('alt')));
+    expect(overlayCardAlts[0]).toContain(top3CardClasses[0]);
+    expect(overlayCardAlts[1]).toContain(top3CardClasses[1]);
+    expect(overlayCardAlts[2]).toContain(top3CardClasses[2]);
+
+    // P2 dismisses overlay
+    await page2.keyboard.press('Escape');
+
+    // Verify P2 overlay is gone
+    await expect(findOverlay(page2, "see-the-future")).not.toBeVisible();
 
     // Verify execution
     await expect(findLogArea(page1)).toContainText('DEV: op[0]: Executing SEE_THE_FUTURE played by "P2"');
