@@ -1834,7 +1834,7 @@ export class GameManager {
                 this.updateGameNonce(_g, player.name);
 
                 // Ask requester to choose index
-                this.emitToSocket(player.socketId, SocketEvent.ChooseStealCard, { victimId: currentVictim.id, handCount: currentVictim.hand.length });
+                this.emitToSocket(player.socketId, SocketEvent.ChooseStealCard, { victimName: currentVictim.name, handCount: currentVictim.hand.length });
 
                 // Wait for response (index)
                 const timeoutMs = 15000;

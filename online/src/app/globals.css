@@ -83,3 +83,13 @@
   animation: showCard 2s step-start forwards;
   z-index: -1; /* Behind hand */
 }
+
+.modal-dialog.modal-fit-content {
+  max-width: 95vw;
+  width: fit-content;
+  min-width: 300px;
+}
+
+.modal-body-compact {
+  padding: 8px !important; /* Reduce padding inside modal body */
+}

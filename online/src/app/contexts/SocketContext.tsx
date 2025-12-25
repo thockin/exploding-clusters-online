@@ -264,7 +264,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       }));
     });
 
-    socketIo.on(SocketEvent.GameEnded, (data?: { winner: string; winType: string }) => {
+    socketIo.on(SocketEvent.GameEnded, (data?: { winner: string; winType: WinType }) => {
       console.debug(`received event: ${SocketEvent.GameEnded}`);
       console.log('Game ended.', data);
       if (data) {

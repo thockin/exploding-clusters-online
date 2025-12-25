@@ -25,7 +25,7 @@ export default function GameScreen() {
   const [selectedCards, setSelectedCards] = useState<Card[]>([]); // For single or combo selection
   const [inspectCardOverlay, setInspectCardOverlay] = useState<Card | null>(null);
   const [explodingCard, setExplodingCard] = useState<Card | null>(null);
-  const [windowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
+  const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
   const [isClient, setIsClient] = useState(false); // Initialize as false
   const tableAreaRef = useRef<HTMLDivElement>(null);
   const messageAreaRef = useRef<HTMLDivElement>(null);
@@ -54,7 +54,7 @@ export default function GameScreen() {
   const [favorCardChoiceModal, setFavorCardChoiceModal] = useState<{ show: boolean, stealerName?: string } | null>(null);
   const [favorResultCardOverlay, setFavorResultCardOverlay] = useState<Card | null>(null);
   const [stealCardVictimModalOpen, setStealCardVictimModalOpen] = useState(false);
-  const [stealCardVictimHandSize, setStealCardVictimHandSize] = useState<number | null>(null);
+  const [stealCardChoiceModal, setStealCardChoiceModal] = useState<{ show: boolean, handSize: number, victimName?: string } | null>(null);
   const [stealCardResultOverlay, setStealCardResultOverlay] = useState<Card | null>(null);
   const [noPossibleVictimModalOpen, setNoPossibleVictimModalOpen] = useState(false);
   const [hostPromotionModal, setHostPromotionModal] = useState<string | null>(null);
@@ -101,13 +101,13 @@ export default function GameScreen() {
   }, [favorCardChoiceModal]);
 
   useEffect(() => {
-    if (stealCardVictimHandSize !== null) {
+    if (stealCardChoiceModal !== null) {
       setChoiceCountdown(choiceTimeoutSeconds);
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
             if (prev <= 1) {
                 clearInterval(interval);
-                setStealCardVictimHandSize(null);
+                setStealCardChoiceModal(null);
                 return 0;
             }
             return prev - 1;
@@ -115,7 +115,7 @@ export default function GameScreen() {
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [stealCardVictimHandSize]);
+  }, [stealCardChoiceModal]);
 
   useEffect(() => {
     if (favorVictimModalOpen || stealCardVictimModalOpen) {
@@ -223,8 +223,8 @@ export default function GameScreen() {
       setTimeout(() => setFavorResultCardOverlay(null), 3000);
     };
 
-    const onChooseStealCard = (data: { victimId: string, handCount: number }) => {
-        setStealCardVictimHandSize(data.handCount);
+    const onChooseStealCard = (data: { victimName: string, handCount: number }) => {
+        setStealCardChoiceModal({ show: true, handSize: data.handCount, victimName: data.victimName });
     };
 
     const onStealResult = (data: { card: Card }) => {
@@ -314,6 +314,7 @@ export default function GameScreen() {
 
   useEffect(() => {
     const handleResize = () => {
+      setWindowHeight(window.innerHeight);
       if (tableAreaRef.current) {
         setTableAreaSize({
           width: tableAreaRef.current.offsetWidth,
@@ -429,6 +430,98 @@ export default function GameScreen() {
     }
     return { width: Math.floor(cardW), height: Math.floor(cardH) };
   }, [tableAreaSize, windowHeight]);
+
+  const calculateAdaptiveLayout = useCallback((count: number) => {
+    // Default fallback
+    const fallback = { cardWidth: 100, cardHeight: 140, containerWidth: 'auto' };
+    if (typeof window === 'undefined') return fallback;
+
+    const target = getCardSize();
+    const aspectRatio = 5 / 7;
+    const gap = 8; // Slight reduction in gap
+
+    // Vertical overhead: Modal Header + Body Text + Margins + Safety Buffer
+    // Aggressively increased to ensure "bottom row" doesn't get cut off.
+    const heightPadding = 320;
+    // Horizontal overhead
+    const widthPadding = 60;
+
+    const maxW = window.innerWidth;
+    // Fit in 85% of height to be safe
+    const maxH = window.innerHeight * 0.85;
+
+    if (count === 0) return { cardWidth: target.width, cardHeight: target.height, containerWidth: 'auto' };
+
+    // Helper to find best fit given constraints
+    const findBestFit = (limitH: number) => {
+      let bestW = 0;
+      let bestCols = 1;
+
+      // Prefer fewer rows (more columns), so iterate cols down
+      for (let cols = count; cols >= 1; cols--) {
+        const rows = Math.ceil(count / cols);
+
+        const availableW = maxW - widthPadding - (cols - 1) * gap;
+        if (availableW <= 0) continue;
+        const wByWidth = availableW / cols;
+
+        let w = wByWidth;
+
+        // Apply height constraint if not infinite
+        if (limitH !== Infinity) {
+             const availableH = limitH - heightPadding - (rows - 1) * gap;
+             if (availableH <= 0) continue; // Cannot fit vertically
+             const wByHeight = availableH * aspectRatio / rows;
+             w = Math.min(w, wByHeight);
+        }
+
+        // Cap at the target (draw pile) size
+        w = Math.min(w, target.width);
+
+        // We iterate from max cols down.
+        // We want the widest card possible.
+        // If we find a wider card, we take it (implies fewer cols / more rows).
+        // If the width is the same (e.g. capped by target.width), we DO NOT update,
+        // effectively preferring the earlier result (more cols).
+        if (w > bestW) {
+            bestW = w;
+            bestCols = cols;
+        }
+      }
+      return { w: Math.floor(bestW), cols: bestCols };
+    };
+
+    // 1. Try to fit in viewport
+    let { w: fitW, cols: fitCols } = findBestFit(maxH);
+
+    // 2. Check criteria to allow scrolling
+    // "The only time scrolling is acceptable is if we shrink ALL the cards down to the hand-card size and still cannot fit on the screen."
+    // Hand cards shrink to 80px (CARD_SMALL_WIDTH_PX).
+    const MIN_READABLE_WIDTH = 80;
+    const shouldScroll = fitW < MIN_READABLE_WIDTH;
+
+    if (shouldScroll) {
+        // Recalculate with infinite height allowed (scrolling)
+        const scrollFit = findBestFit(Infinity);
+        // If we gain significant size by scrolling, do it.
+        // But if even scrolling keeps us small, we just do our best.
+        if (scrollFit.w > fitW) {
+            fitW = scrollFit.w;
+            fitCols = scrollFit.cols;
+        }
+    }
+
+    if (fitW === 0) return fallback;
+
+    const fitH = fitW / aspectRatio;
+    const containerWidth = fitCols * fitW + (fitCols - 1) * gap;
+
+    return {
+      cardWidth: fitW,
+      cardHeight: fitH,
+      containerWidth: Math.ceil(containerWidth) + 'px'
+    };
+  }, [getCardSize, windowHeight]);
 
   const handleLeaveGame = useCallback(() => {
     if (socket && gameCode) {
@@ -1327,14 +1420,14 @@ export default function GameScreen() {
               {/* Draw Pile */}
               <div className="d-flex flex-column align-items-center">
                 <div
-                  className="draw-pile position-relative" 
+                  className="draw-pile position-relative"
                   data-areaname="draw-pile"
                   data-drawcount={gameState?.drawCount ?? 0}
-                  style={{ 
-                    width: getCardSize().width, 
+                  style={{
+                    width: getCardSize().width,
                     height: getCardSize().height,
                     cursor: 'pointer',
-                    borderRadius: '5px' 
+                    borderRadius: '5px'
                   }}
                   onClick={handleDrawClick}
                 >
@@ -1375,7 +1468,7 @@ export default function GameScreen() {
                           width={getCardSize().width}
                           height={getCardSize().height}
                           style={{
-                            position: 'absolute', 
+                            position: 'absolute',
                             left: `${(100 - getCardSize().width) / 2}px`,
                             top: `${(180 - getCardSize().height) / 2}px`,
                             transform: drawingAnimation.card ? 'rotate(180deg)' : 'none'
@@ -1702,31 +1795,38 @@ export default function GameScreen() {
           backdrop="static"
           keyboard={false}
           centered
+          dialogClassName="modal-fit-content"
         >
           <Modal.Header>
             <Modal.Title>Grant a Favor ({choiceCountdown}s)</Modal.Title>
           </Modal.Header>
-          <Modal.Body>
-            <p>{`Choose a card to give to ${favorCardChoiceModal?.stealerName ?? "<BUG!>"}:`}</p>
-            <div className="d-flex flex-wrap justify-content-center" style={{ gap: '10px' }}>
-              {myHand.map((card, index) => (
-                <div 
-                  key={index} 
+          <Modal.Body className="bg-light">
+            <p>{`Choose a card to give to ${favorCardChoiceModal?.stealerName ?? "<BUG!>"}`}:</p>
+            <div className="d-flex justify-content-center w-100">
+            {(() => {
+              const { cardWidth, cardHeight, containerWidth } = calculateAdaptiveLayout(myHand.length);
+              return (
+              <div className="d-flex flex-wrap justify-content-center" style={{ gap: '8px', width: containerWidth, maxWidth: '100%' }}>
+                {myHand.map((card, index) => (
+                <div
+                  key={index}
                   onClick={() => {
                       if (gameCode) {
                           socket?.emit(SocketEvent.ResolveFavorCard, { gameCode, cardId: card.id });
                           setFavorCardChoiceModal(null);
                       }
                   }}
-                  style={{ 
-                    border: '1px solid gray',
+                  style={{
                     borderRadius: '5px',
                     cursor: 'pointer'
                   }}
                 >
-                  <Image src={card.imageUrl} alt={card.name} width={80} height={112} />
+                  <Image src={card.imageUrl} alt={card.name} width={cardWidth} height={cardHeight} />
                 </div>
               ))}
+              </div>
+              );
+            })()}
             </div>
           </Modal.Body>
         </Modal>
@@ -1786,36 +1886,44 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="steal-choose-card"
-          show={stealCardVictimHandSize !== null}
+          show={!!stealCardChoiceModal?.show}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
           centered
+          dialogClassName="modal-fit-content"
         >
           <Modal.Header>
             <Modal.Title>Choose a Card to Steal ({choiceCountdown}s)</Modal.Title>
           </Modal.Header>
-          <Modal.Body>
-            <p>Pick a card from the victim&apos;s hand:</p>
-            <div className="d-flex flex-wrap justify-content-center" style={{ gap: '10px' }}>
-              {Array.from({ length: stealCardVictimHandSize || 0 }).map((_, index) => (
-                <div 
-                    key={index} 
+          <Modal.Body className="bg-light">
+            <p>{`Pick a card from ${stealCardChoiceModal?.victimName ?? "<BUG!>"}'s hand`}:</p>
+            <div className="d-flex justify-content-center w-100">
+            {(() => {
+                const count = stealCardChoiceModal?.handSize || 0;
+                const { cardWidth, cardHeight, containerWidth } = calculateAdaptiveLayout(count);
+                return (
+                <div className="d-flex flex-wrap justify-content-center" style={{ gap: '8px', width: containerWidth, maxWidth: '100%' }}>
+                  {Array.from({ length: count }).map((_, index) => (
+                  <div
+                    key={index}
                     onClick={() => {
-                        if (gameCode) {
-                            socket?.emit(SocketEvent.ResolveDeveloperCard, { gameCode, index });
-                            setStealCardVictimHandSize(null);
-                        }
+                      if (gameCode) {
+                        socket?.emit(SocketEvent.ResolveDeveloperCard, { gameCode, index });
+                        setStealCardChoiceModal(null);
+                      }
                     }}
-                    style={{ 
-                        border: '1px solid gray',
-                        borderRadius: '5px',
-                        cursor: 'pointer'
+                    style={{
+                      borderRadius: '5px',
+                      cursor: 'pointer'
                     }}
-                >
-                    <Image src="/art/back.png" alt="Card Back" width={80} height={112} />
+                  >
+                    <Image src="/art/back.png" alt="Card Back" width={cardWidth} height={cardHeight} />
+                  </div>
+                  ))}
                 </div>
-              ))}
+              );
+              })()}
             </div>
           </Modal.Body>
         </Modal>
