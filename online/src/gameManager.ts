@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { IncomingMessage, ServerResponse } from 'http';
 import { fullDeck, shuffleDeck } from './app/game/deck';
-import { PseudoRandom } from './utils/PseudoRandom';
+import { PseudoRandom, RandomSource, SecureRandom } from './utils/PseudoRandom';
 import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent, TurnPhase, WinType } from './api';
 import { validatePlayerName, sanitizePlayerName, normalizeNameForComparison, escapeHtml } from './utils/nameValidation';
 import { config } from './config';
@@ -57,14 +57,14 @@ export class GameManager {
   private games: Map<string, Game> = new Map();
   private playerToGameMap: Map<string, string> = new Map(); // socketId -> gameCode
   private verbose: boolean = config.verbose;
-  private prng: PseudoRandom;
+  private prng: RandomSource;
   private maxGames: number;
   private maxSpectators: number;
   private reactionTimerDuration: number;
 
   constructor(private io: Server) {
     const devMode = config.devMode;
-    this.prng = new PseudoRandom(devMode ? 0 : undefined);
+    this.prng = devMode ? new PseudoRandom(0) : new SecureRandom();
 
     this.maxGames = config.maxGames;
     this.maxSpectators = config.maxSpectators;
@@ -1413,7 +1413,7 @@ export class GameManager {
           if (isNowCard) return { allowed: true };
           return { allowed: false, reason: "It's not your turn!" };
       }
-      return { allowed: false, reason: "You can't play cards right now (${game.turnPhase})." };
+      return { allowed: false, reason: `You can't play cards right now (${game.turnPhase}).` };
     }
 
     // It's my turn.
@@ -1442,7 +1442,7 @@ export class GameManager {
       case TurnPhase.Executing:
         return { allowed: false, reason: "You can't play cards while the previous play is in progress." };
     }
-    return { allowed: false, reason: "You can't play cards right now (${game.turnPhase})." };
+    return { allowed: false, reason: `You can't play cards right now (${game.turnPhase}).` };
   }
 
   private isPlayerTurn(game: Game, player: Player): boolean {

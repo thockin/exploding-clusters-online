@@ -1,15 +1,4 @@
 Gemini:
-✦ This is a rigorous assessment of the codebase in its current state, focusing on quality, reliability, and best practices.
-
-  Executive Summary
-  The codebase is functional and relatively robust, with strong adherence to the design document's requirements regarding race conditions and state synchronization. However, it
-  suffers from architectural monolithic bloat in the two core files (src/gameManager.ts and src/app/game/page.tsx), making it increasingly difficult to maintain or extend (e.g.,
-  adding "ATTACK").
-
-  The most critical issue is the use of a weak, predictable Pseudo-Random Number Generator (PRNG) in production, which compromises the integrity of a card game.
-
-  ---
-
   1. Code Quality & Architecture
 
   Bad:
@@ -22,58 +11,23 @@ Gemini:
    * Inefficient State Transmission: The getGameUpdateData method constructs a massive object containing the entire game state (including full player lists and status) and
      broadcasts it to everyone on every minor change (nonce update). This will not scale well.
 
-  Good:
-   * Strong Typing: The codebase makes excellent use of TypeScript. Interfaces like Game, Player, and Card are well-defined in src/api.ts.
-   * Clear Variable Naming: Variable names are descriptive (turnPhase, pendingOperations, reactionTimerDuration).
-   * Comments: Comments generally explain why something is done (e.g., // Prevent concurrent hand modifications (race condition protection)), which is excellent.
-
   2. Reliability & Safety
 
   Critical Issues (Must Fix):
-   * Predictable RNG: The game uses a custom Linear Congruential Generator (PseudoRandom) seeded with Date.now() (via undefined in the constructor) for shuffling the deck in
-     production. This is cryptographically insecure and predictable. A skilled player could predict the deck order.
-       * Correction: Use crypto.randomInt or Math.random (if acceptable) for production, and only use the seeded LCG for DEVMODE.
    * Unsecured Debug Endpoint: The /infoz endpoint exposes all game state (including hidden hands and the draw pile) without authentication. If deployed to production, this
      allows anyone to cheat.
 
-  Good:
-   * Race Condition Handling: The implementation of nonce checks in playCard and joinGame effectively prevents out-of-order execution and race conditions from clients.
-   * Concurrency Control: The player.isPlaying flag, combined with try...finally blocks, safely prevents a single player from triggering multiple async operations (like
-     drawing/playing) simultaneously.
-   * Operation Safety: The executePlayedCards loop includes a try...catch block and a timeout (Promise.race) for each operation, ensuring that one buggy card action doesn't
-     crash the entire game loop.
-
-  3. Test Coverage
-
-  Good:
-   * Browser Tests: tests/devmode.spec.ts is comprehensive. It covers the "Happy Path," error cases (full game, duplicate name), and specific mechanics (reordering hand,
-     specific card interactions).
-   * Unit Tests: The existence of src/__tests__/ with specific files for turnLogic, validation, etc., is promising, though the gameManager.test.ts focuses mostly on connection
-     logic rather than deep game rules.
-
   4. Recommendations (Prioritized)
 
-   1. Security Fix (RNG): Immediately switch to a secure random number generator for production builds. The PseudoRandom class should strictly be for DEVMODE determinism.
    2. Refactor Card Logic: Before implementing ATTACK, move the card execution logic out of GameManager. Create a CardAction strategy pattern or a mapping of CardClass ->
       HandlerFunction.
        * Why: The ATTACK card logic is complex (stacking attacks, transferring turns). Adding it to the existing playCard method will make it unreadable.
    3. Secure `/infoz`: Disable this endpoint unless DEVMODE=1 or add basic authentication.
    4. Frontend Componentization: Break src/app/game/page.tsx into smaller components (e.g., <Hand />, <PlayerList />, <GameTable />).
 
-  Assessment for "ATTACK" Implementation
-  You are safe to proceed, but be very careful with src/gameManager.ts. The playCard method is already very long. When implementing ATTACK, ensure you handle the turnsToTake
-  logic carefully, as it interacts with the turn advancement logic which currently assumes 1 turn per player.
-
 
 Cursor:
 Code quality assessment
-  Strengths
-   * Type safety: Strong TypeScript usage with clear interfaces and enums.
-   * Validation: Input validation (player names, card operations) with XSS protection.
-   * Race condition handling: isPlaying flag prevents concurrent operations.
-   * Error handling: Try-catch blocks and defensive checks in critical paths.
-   * Logging: Structured logging with game context and timestamps.
-   * Test coverage: Unit tests and Playwright tests for major flows.
   Critical issues
    * Nonce update redundancy
      - Location: gameManager.ts - multiple updateGameNonce() calls in finally blocks
@@ -87,13 +41,6 @@ Code quality assessment
      - Location: gameManager.ts lines 603-694
      - Issue: Large comment block (lines 636-648) indicates uncertainty about isOut vs isDisconnected semantics
      - Risk: Reconnection edge cases may not be handled correctly
-   * Template literal bug
-     - Location: gameManager.ts line 1416
-        - return { allowed: false, reason: "You can't play cards right now (${game.turnPhase})." };
-     - Issue: Template literal not interpolated (missing backticks)
-     - Risk: Users see literal ${game.turnPhase} instead of the phase name
-   * Similar issue at line 1445
-     - Same template literal bug pattern
   Code quality issues
    * Large function complexity
      - gameManager.ts: drawCard() (lines 1063-1298) is 235 lines with nested async logic
@@ -178,11 +125,3 @@ Code quality assessment
      - No rate limiting on socket events (could allow spam)
      - No authentication/authorization (anyone can join any game)
      - Session storage could be more secure (consider httpOnly cookies for sensitive data)
-  Recommendations for phase 4.6 (ATTACK)
-   * Before implementing ATTACK:
-     - Fix template literal bugs (lines 1416, 1445)
-     - Refactor large functions (drawCard, playCard) into smaller, testable units
-     - Add comprehensive tests for turn advancement logic (ATTACK will modify this)
-     - Document the turn state machine clearly (ATTACK affects turnsToTake)
-     - Review isPlaying flag usage to ensure it works with ATTACK's multi-turn logic
-     - Add tests for concurrent ATTACK scenarios (stacking attacks)
