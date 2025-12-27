@@ -24,7 +24,6 @@ interface Player {
   hand: Card[];
   isOut: boolean;
   isDisconnected: boolean;
-  turnsToTake: number;
   isPlaying: boolean; // Flag to prevent concurrent card plays from the same player
 }
 
@@ -36,6 +35,8 @@ interface Game {
   turnOrder: string[]; // Array of player IDs
   currentTurnIndex: number;
   turnPhase: TurnPhase;
+  attackTurns: number; // Number of turns the current player must take (0 means normal 1 turn)
+  attackTurnsTaken: number; // Number of turns already taken in this attack sequence
   timerDuration?: number; // active timer duration
   drawPile: Card[];
   drawCount: number; // Incremented on every draw
@@ -387,6 +388,8 @@ export class GameManager {
       turnOrder: game.turnOrder,
       currentTurnIndex: game.currentTurnIndex,
       turnPhase: game.turnPhase,
+      attackTurns: game.attackTurns,
+      attackTurnsTaken: game.attackTurnsTaken,
       lastActorName: game.lastActorName,
       overlayCard,
       timerDuration: game.timerDuration,
@@ -569,7 +572,7 @@ export class GameManager {
     const sanitizedName = sanitizePlayerName(validation.sanitized || playerName);
     const gameCode = this.generateGameCode();
     const playerId = uuidv4();
-    const player: Player = { id: playerId, name: sanitizedName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0, isPlaying: false };
+    const player: Player = { id: playerId, name: sanitizedName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, isPlaying: false };
     const devMode = config.devMode;
 
     const newGame: Game = {
@@ -580,6 +583,8 @@ export class GameManager {
       turnOrder: [],
       currentTurnIndex: -1,
       turnPhase: TurnPhase.Action,
+      attackTurns: 0,
+      attackTurnsTaken: 0,
       drawPile: [],
       drawCount: 0,
       discardPile: [],
@@ -681,7 +686,7 @@ export class GameManager {
     }
 
     const playerId = uuidv4(); // Generate a new ID for a new player
-    const player: Player = { id: playerId, name: sanitizedName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, turnsToTake: 0, isPlaying: false };
+    const player: Player = { id: playerId, name: sanitizedName, socketId: socket.id, hand: [], isOut: false, isDisconnected: false, isPlaying: false };
     game.players.push(player);
     this.playerToGameMap.set(socket.id, gameCode);
     socket.join(gameCode);
@@ -1267,8 +1272,19 @@ export class GameManager {
             // Regular card
             this.msgToAllPlayers(game.code, `${player.name} drew a card.`);
             currentPlayer.hand.push(card!);
-            this.advanceTurn(currentGame);
-            this.updateGameNonce(currentGame, currentPlayer.name);
+            
+            if (currentGame.attackTurns > 0) {
+              currentGame.attackTurns--;
+              currentGame.attackTurnsTaken++;
+            }
+
+            if (currentGame.attackTurns > 0) {
+               // Player must take more turns
+               this.updateGameNonce(currentGame, currentPlayer.name);
+            } else {
+               this.advanceTurn(currentGame);
+               this.updateGameNonce(currentGame, currentPlayer.name);
+            }
           }
         } catch (error) {
           this.log(null, `drawCard finalize error: ${error}`);
@@ -1539,6 +1555,46 @@ export class GameManager {
                this.log(_g, `NAK by player "${player.name}" negated operation ${negatedOp.cardClass} by ${negatedOp.playerName}`);
                this.msgToAllPlayers(_g.code, `${player.name} NAKed ${negatedOp.playerName}'s ${negatedOp.cardClass}.`);
              }
+           }
+         });
+      } else if (card.class === CardClass.Attack) {
+         game.pendingOperations.push({
+           cardClass: card.class,
+           playerName: player.name,
+           action: async (_g: Game) => {
+             // Increment attack turns by 2 (stacking)
+             _g.attackTurns += 2;
+             
+             // Current player's turn ends immediately, pass to next player
+             this.advanceTurn(_g);
+             const targetPlayerId = _g.turnOrder[_g.currentTurnIndex];
+             const targetPlayer = _g.players.find(p => p.id === targetPlayerId);
+             const targetName = targetPlayer ? targetPlayer.name : "the next player";
+
+             this.updateGameNonce(_g, player.name);
+             this.log(_g, `player "${player.name}" played ATTACK on "${targetName}". attackTurns is now ${_g.attackTurns}.`);
+             this.msgToAllPlayers(_g.code, `${player.name} attacked ${targetName} for ${_g.attackTurns} turns!`);
+           }
+         });
+      } else if (card.class === CardClass.Skip) {
+         game.pendingOperations.push({
+           cardClass: card.class,
+           playerName: player.name,
+           action: async (_g: Game) => {
+             if (_g.attackTurns > 0) {
+               _g.attackTurns--;
+               _g.attackTurnsTaken++;
+               this.log(_g, `player "${player.name}" skipped one attack turn. Remaining: ${_g.attackTurns}`);
+               if (_g.attackTurns > 0) {
+                 // Still has turns to take, so stay on current player
+                 this.updateGameNonce(_g, player.name);
+                 return;
+               }
+             }
+             // Turn over
+             this.advanceTurn(_g);
+             this.updateGameNonce(_g, player.name);
+             this.msgToAllPlayers(_g.code, `${player.name} skipped their turn.`);
            }
          });
       } else if (card.class === CardClass.Shuffle || card.class === CardClass.ShuffleNow) {
@@ -1999,6 +2055,10 @@ export class GameManager {
         // "Any pending operations for that player are discarded."
         game.pendingOperations = [];
 
+        // Reset attack turns if the player who left was under attack
+        game.attackTurns = 0;
+        game.attackTurnsTaken = 0;
+
         // Remove from turnOrder
         const turnIndex = game.turnOrder.indexOf(player.id);
         if (turnIndex !== -1) {
@@ -2135,6 +2195,7 @@ export class GameManager {
   }
 
   private advanceTurn(game: Game) {
+    game.attackTurnsTaken = 0; // Reset attack turns counter when moving to next player
     let nextIndex = (game.currentTurnIndex + 1) % game.turnOrder.length;
     let attempts = 0;
     while (attempts < game.turnOrder.length) {
@@ -2217,11 +2278,21 @@ export class GameManager {
 
     this.log(game, `player "${player.name}" re-inserted UPGRADE CLUSTER (face-up) at index ${insertIndex} (user input ${index})`);
 
-    // Reset phase to Action (for next player)
+    // Reset phase to Action (for next player or current player if more turns)
     game.turnPhase = TurnPhase.Action;
 
-    this.advanceTurn(game);
-    this.updateGameNonce(game, player.name);
+    if (game.attackTurns > 0) {
+      game.attackTurns--;
+      game.attackTurnsTaken++;
+    }
+
+    if (game.attackTurns > 0) {
+       // Player must take more turns
+       this.updateGameNonce(game, player.name);
+    } else {
+       this.advanceTurn(game);
+       this.updateGameNonce(game, player.name);
+    }
   }
 
   private dismissSeeTheFuture(socket: Socket, gameCode: string) {
@@ -2344,11 +2415,21 @@ export class GameManager {
 
     this.log(game, `player "${player.name}" re-inserted EXPLODING CLUSTER at index ${insertIndex} (user input ${index})`);
 
-    // Reset phase to Action (for next player)
+    // Reset phase to Action (for next player or current player if more turns)
     game.turnPhase = TurnPhase.Action;
 
-    this.advanceTurn(game);
-    this.updateGameNonce(game, player.name);
+    if (game.attackTurns > 0) {
+      game.attackTurns--;
+      game.attackTurnsTaken++;
+    }
+
+    if (game.attackTurns > 0) {
+       // Player must take more turns
+       this.updateGameNonce(game, player.name);
+    } else {
+       this.advanceTurn(game);
+       this.updateGameNonce(game, player.name);
+    }
   }
 
   // Cleanup method for tests - clears all timers

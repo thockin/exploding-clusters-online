@@ -1,4 +1,6 @@
 Phase 4:
+ - test draw/reinsert UPGRADE CLUSTER in the midst of ATTACK
+ - browser test for attack and all cases
 
 tests
  - more helpers

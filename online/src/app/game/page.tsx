@@ -1074,6 +1074,12 @@ export default function GameScreen() {
           turnStatus = `Your cluster is exploding - debug it!`;
           turnStatusBgColor = 'red';
           turnStatusColor = 'white';
+        } else if (gameState.attackTurns > 0) {
+          const turnsText = gameState.attackTurns === 1 ? 'turn' : 'turns';
+          const moreText = gameState.attackTurnsTaken > 0 ? ' more' : '';
+          turnStatus = `You have been attacked! You must take ${gameState.attackTurns}${moreText} ${turnsText}`;
+          turnStatusBgColor = 'red';
+          turnStatusColor = 'white';
         } else {
           turnStatus = `It's your turn, ${nextPlayer.name} is next`;
           turnStatusBgColor = 'lightgreen';

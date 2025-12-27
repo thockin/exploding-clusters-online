@@ -111,6 +111,8 @@ export interface GameUpdatePayload {
   turnOrder: string[];
   currentTurnIndex: number;
   turnPhase: TurnPhase;
+  attackTurns: number;
+  attackTurnsTaken: number;
   lastActorName?: string;
   overlayCard?: Card;        // If an overlay needs to be shown
   timerDuration?: number;    // Seconds remaining (or total duration for animation)
