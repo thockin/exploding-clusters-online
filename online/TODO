@@ -1,6 +1,9 @@
-Phase 4:
- - test draw/reinsert UPGRADE CLUSTER in the midst of ATTACK
- - browser test for attack and all cases
+Phase 5:
+ - reduce REACTION timoueout in tests
+ - test flakes wrt timeouts
+   - make overlays last longer and explicitly dismiss them
+* Most "durations" should be client-side, not sent by server
+  - change DrawCardAnimation to take all draw state in the payload
 
 tests
  - more helpers
@@ -33,7 +36,6 @@ Later:
 * Fix dumb LLM comments like "Maybe we should" and "design doc says..." and "phase X"
  - send BIG messages when executing
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
-* Most "durations" should be client-side, not sent by server
 
 Bugs:
 * if non-current player plays NAK out of turn (8 cards->7), they get a

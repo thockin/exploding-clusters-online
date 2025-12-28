@@ -2486,6 +2486,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
   });
 
   test('Play: ATTACK', async ({ browser }) => {
+    test.setTimeout(60000);
+
     const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const page1 = await context1.newPage();
@@ -2538,6 +2540,107 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify 2 turns remaining
     await expect(findTurnArea(page2)).toContainText("You have been attacked! You must take 2 more turns");
+  });
+
+  test('Play: ATTACK vs. EXPLODING and UPGRADE CLUSTER', async ({ browser }) => {
+    test.setTimeout(60000);
+
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+
+    // Verify hands
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+
+    // Safe draws to get past the first part of the fixed DEVMODE deck
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page1);
+    await drawCard(page2);
+
+    // P1 plays ATTACK
+    const p1Attack = findHandCardsByClass(page1, CardClass.Attack);
+    await expect(p1Attack).toHaveCount(1);
+    await playCard(page1, p1Attack);
+
+    // Verify P2 turn bar says "2 turns"
+    await expect(findTurnArea(page2)).toContainText("You have been attacked! You must take 2 turns");
+
+    // P2 draws, explodes, debugs, inserts at 20
+    const p2DrawPile = findDrawPile(page2);
+    await p2DrawPile.click();
+
+    // Handle Exploding Cluster
+    const p2Overlay = findOverlay(page2, "inspect-card");
+    await expect(p2Overlay).toBeVisible();
+    await p2Overlay.click(); // Dismiss
+    await expect(p2Overlay).toBeHidden();
+
+    // P2 plays DEBUG
+    const p2Debug = findHandCardsByClass(page2, CardClass.Debug).first();
+    await playCard(page2, p2Debug);
+
+    // Verify insertion modal
+    const p2InsertModal = findModal(page2, "exploding-reinsert");
+    await expect(p2InsertModal).toBeVisible();
+    await p2InsertModal.locator('input[type="number"]').fill("20");
+    await p2InsertModal.getByRole('button', { name: 'OK', exact: true }).click();
+
+    // Verify P2 turn bar says "1 more turn"
+    await expect(findTurnArea(page2)).toContainText("You have been attacked! You must take 1 more turn");
+
+    // P2 draws second turn
+    await drawCard(page2);
+
+    // P1 turn
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+
+    // Sequence of safe draws
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page1);
+
+    // P2 plays ATTACK
+    const p2Attack = findHandCardsByClass(page2, CardClass.Attack);
+    await expect(p2Attack).toHaveCount(1);
+    await playCard(page2, p2Attack);
+
+    // Verify P1 turn bar says "2 turns"
+    await expect(findTurnArea(page1)).toContainText("You have been attacked! You must take 2 turns");
+
+    // P1 draws, safe
+    await drawCard(page1);
+    await expect(findTurnArea(page1)).toContainText("You have been attacked! You must take 1 more turn");
+
+    // P1 draws UPGRADE CLUSTER, insert at 1
+    const p1DrawPile = findDrawPile(page1);
+    await p1DrawPile.click();
+
+    // Handle Upgrade Cluster
+    const p1Overlay = findOverlay(page1, "inspect-card");
+    await expect(p1Overlay).toBeVisible();
+    await p1Overlay.click(); // Dismiss
+    await expect(p1Overlay).toBeHidden();
+
+    const p1UpgradeModal = findModal(page1, "upgrade-reinsert");
+    await expect(p1UpgradeModal).toBeVisible();
+    await p1UpgradeModal.locator('input[type="number"]').fill("0");
+    await p1UpgradeModal.getByRole('button', { name: 'OK', exact: true }).click();
+
+    // Verify P2 turn 
+    await expect(findTurnArea(page2)).toContainText(`It's your turn`);
+    await expect(p2DrawPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
   });
 
   test('Draw: EXPLODING CLUSTER', async ({ browser }) => {
