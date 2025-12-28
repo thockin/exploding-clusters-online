@@ -76,7 +76,7 @@ async function playCard(page: Page, card: Locator) {
 
 // Helper to draw a card.
 async function drawCard(page: Page) {
-  await expect(findTurnArea(page)).toContainText(`It's your turn`);
+  await expect(findTurnArea(page)).toContainText(/^(It's your turn|You have been attacked)/);
   const drawPile = findDrawPile(page);
   const initialCount = await drawPile.getAttribute('data-drawcount');
   const count = parseInt(initialCount || '0', 10);
@@ -1620,7 +1620,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Move a bit to start drag
     await page2.mouse.move(p2SrcBox.x + p2SrcBox.width / 2 + 20, p2SrcBox.y + p2SrcBox.height / 2 + 20);
 
-    // P3 Plays NAK, restart reaction phase, updates nonce to N2
+    // P3 plays NAK, restart reaction phase, updates nonce to N2
     await playCard(page3, p3Nak);
     await expect(findLogArea(page2)).toContainText('P3 played NAK');
 
@@ -2476,13 +2476,68 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await drawCard(page2);
     await drawCard(page1);
 
-    // P2 Plays SKIP
+    // P2 plays SKIP
     const p2Skip = findHandCardsByClass(page2, CardClass.Skip);
     await expect(p2Skip).toHaveCount(1);
     await playCard(page2, p2Skip);
 
     // Turn should change to P1 without a draw.
     await expect(findTurnArea(page1)).toContainText("It's your turn");
+  });
+
+  test('Play: ATTACK', async ({ browser }) => {
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await context1.newPage();
+    const page2 = await context2.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+
+    // Verify hands
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+    await expect(findAllHandCards(page2)).toHaveCount(8);
+
+    // Safe draws to get past the first part of the fixed DEVMODE deck
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page1);
+
+    // P2 plays ATTACK
+    const p2Attack = findHandCardsByClass(page2, CardClass.Attack);
+    await expect(p2Attack).toHaveCount(1);
+    await playCard(page2, p2Attack);
+
+    // Wait for P1 turn and verify 2 turns
+    await expect(findTurnArea(page1)).toContainText("You have been attacked! You must take 2 turns");
+
+    // P1 plays ATTACK, stacking
+    const p1Attack = findHandCardsByClass(page1, CardClass.Attack);
+    await expect(p1Attack).toHaveCount(1);
+    await playCard(page1, p1Attack);
+
+    // Wait for P2 turn and verify 4 turns
+    await expect(findTurnArea(page2)).toContainText("You have been attacked! You must take 4 turns");
+
+    // P2 plays SKIP, consuming 1 turn
+    const p2Skip = findHandCardsByClass(page2, CardClass.Skip);
+    await expect(p2Skip).toHaveCount(1);
+    await playCard(page2, p2Skip);
+
+    // Wait for reaction/execution and verify 3 turns remaining
+    // Since it's still P2's turn, we wait for the text update
+    await expect(findTurnArea(page2)).toContainText("You have been attacked! You must take 3 more turns");
+
+    // P2 Draws
+    await drawCard(page2);
+
+    // Verify 2 turns remaining
+    await expect(findTurnArea(page2)).toContainText("You have been attacked! You must take 2 more turns");
   });
 
   test('Draw: EXPLODING CLUSTER', async ({ browser }) => {
