@@ -205,7 +205,7 @@ export default function GameScreen() {
 
     const onSeeTheFutureData = (data: { cards: Card[], maxDuration?: number }) => {
       setSeeTheFutureCards(data.cards);
-      // The server SHOULD tell us the max duration we can delay the game, 
+      // The server SHOULD tell us the max duration we can delay the game,
       const maxDuration = data.maxDuration || 2000;
       setTimeout(() => {
         setSeeTheFutureCards(null);

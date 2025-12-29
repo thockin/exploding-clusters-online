@@ -1280,7 +1280,7 @@ export class GameManager {
             // Regular card
             this.msgToAllPlayers(game.code, `${player.name} drew a card.`);
             currentPlayer.hand.push(card!);
-            
+
             if (currentGame.attackTurns > 0) {
               currentGame.attackTurns--;
               currentGame.attackTurnsTaken++;
@@ -1572,7 +1572,7 @@ export class GameManager {
            action: async (_g: Game) => {
              // Increment attack turns by 2 (stacking)
              _g.attackTurns += 2;
-             
+
              // Current player's turn ends immediately, pass to next player
              this.advanceTurn(_g);
              const targetPlayerId = _g.turnOrder[_g.currentTurnIndex];
@@ -2381,7 +2381,7 @@ export class GameManager {
     if (!game) {
       this.log(null, `insertExplodingCard event from ${socket.id}: no such game ${gameCode}`);
       return;
-    } 
+    }
 
     const player = game.players.find(p => p.socketId === socket.id);
     if (!player) {
