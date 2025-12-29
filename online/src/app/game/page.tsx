@@ -203,15 +203,16 @@ export default function GameScreen() {
           setReplayModal({ show: true, ...data });
         };
 
-    const onSeeTheFutureData = (data: { cards: Card[], duration?: number }) => {
+    const onSeeTheFutureData = (data: { cards: Card[], maxDuration?: number }) => {
       setSeeTheFutureCards(data.cards);
-      const duration = data.duration || (gameStateRef.current?.devMode ? 2000 : 10000);
+      // The server SHOULD tell us the max duration we can delay the game, 
+      const maxDuration = data.maxDuration || 2000;
       setTimeout(() => {
         setSeeTheFutureCards(null);
         if (socket && gameCode) {
           socket.emit(SocketEvent.DismissSeeTheFuture, gameCode); // Auto-dismiss triggers server dismiss
         }
-      }, duration);
+      }, maxDuration);
     };
 
     const onChooseFavorCard = (data: { show: boolean, stealerName?: string }) => {

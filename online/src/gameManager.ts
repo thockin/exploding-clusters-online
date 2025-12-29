@@ -35,6 +35,7 @@ interface Game {
   turnOrder: string[]; // Array of player IDs
   currentTurnIndex: number;
   turnPhase: TurnPhase;
+  prevTurnPhase?: TurnPhase;
   attackTurns: number; // Number of turns the current player must take (0 means normal 1 turn)
   attackTurnsTaken: number; // Number of turns already taken in this attack sequence
   timerDuration?: number; // active timer duration
@@ -342,6 +343,15 @@ export class GameManager {
     this.emitToSocket(socketId, SocketEvent.GameMessage, { message: msg });
   }
 
+  private setTurnPhase(game: Game, phase: TurnPhase) {
+    if (game.turnPhase === phase) {
+      // We should weed out redundant calls to this function
+      return
+    }
+    game.prevTurnPhase = game.turnPhase;
+    game.turnPhase = phase;
+  }
+
   private getGameUpdateData(game: Game): GameUpdatePayload {
     const topDiscardCard = game.discardPile.length > 0 ? game.discardPile[game.discardPile.length - 1] : undefined;
 
@@ -471,10 +481,7 @@ export class GameManager {
     }
 
     game.timerDuration = this.reactionTimerDuration;
-
-    // Transition Phase logic
-    // Always set to Reaction phase.
-    game.turnPhase = TurnPhase.Reaction;
+    this.setTurnPhase(game, TurnPhase.Reaction);
 
     this.emitToGame(game.code, SocketEvent.ReactionTimerUpdate, { duration: this.reactionTimerDuration, phase: game.turnPhase });
     if (this.verbose || game.devMode) {
@@ -510,7 +517,7 @@ export class GameManager {
     game.timerDuration = 0;
 
     // Transition to Executing phase to block further actions until operations are resolved.
-    game.turnPhase = TurnPhase.Executing;
+    this.setTurnPhase(game, TurnPhase.Executing);
     this.updateGameNonce(game); // Notify clients of phase change
 
     // Pop and execute all operations with timeout protection
@@ -549,7 +556,7 @@ export class GameManager {
     const finalGame = this.games.get(game.code);
     if (finalGame && finalGame.state !== GameState.Ended) {
       // Reset Phase to Action
-      finalGame.turnPhase = TurnPhase.Action;
+      this.setTurnPhase(finalGame, TurnPhase.Action);
       this.emitToGame(finalGame.code, SocketEvent.ReactionTimerUpdate, { duration: 0, phase: finalGame.turnPhase });
       this.updateGameNonce(finalGame); // Notify state change
     }
@@ -1197,7 +1204,7 @@ export class GameManager {
 
           // Check for EXPLODING CLUSTER
           if (card!.class === CardClass.ExplodingCluster) {
-            currentGame.turnPhase = TurnPhase.Exploding;
+            this.setTurnPhase(currentGame, TurnPhase.Exploding);
             currentGame.discardPile.push(card!); // Put on discard pile
             this.msgToAllPlayers(currentGame.code, `${currentPlayer.name} drew an EXPLODING CLUSTER!`);
 
@@ -1216,7 +1223,8 @@ export class GameManager {
               const popped = currentGame.discardPile.pop();
               if (popped) currentGame.removedPile.push(popped);
 
-              currentGame.turnPhase = TurnPhase.Action; // Reset phase for next player
+              // Reset phase for next player
+              this.setTurnPhase(currentGame, TurnPhase.Action);
 
               // Determine the winner (the last remaining active player)
               const activePlayersAfterExplosion = currentGame.players.filter(p => !p.isOut && !p.isDisconnected && p.id !== currentPlayer.id);
@@ -1249,7 +1257,7 @@ export class GameManager {
                 // Move UPGRADE CLUSTER to discard pile
                 currentGame.discardPile.push(card!);
 
-                currentGame.turnPhase = TurnPhase.Action; // Reset phase
+                this.setTurnPhase(currentGame, TurnPhase.Action); // Reset phase
 
                 // Determine winner
                 const activePlayersAfter = currentGame.players.filter(p => !p.isOut && !p.isDisconnected && p.id !== currentPlayer.id);
@@ -1263,7 +1271,7 @@ export class GameManager {
                 }
             } else {
                 // Face-down UPGRADE CLUSTER: Upgrading Phase
-                currentGame.turnPhase = TurnPhase.Upgrading;
+                this.setTurnPhase(currentGame, TurnPhase.Upgrading);
                 currentGame.discardPile.push(card!);
                 this.msgToAllPlayers(currentGame.code, `${currentPlayer.name} drew an UPGRADE CLUSTER!`);
                 this.updateGameNonce(currentGame, currentPlayer.name);
@@ -1634,7 +1642,7 @@ export class GameManager {
                  return;
              }
 
-             _g.turnPhase = TurnPhase.ChoosingFavorCard;
+             this.setTurnPhase(_g, TurnPhase.ChoosingFavorCard);
              this.updateGameNonce(_g, player.name);
 
              this.emitToSocket(currentVictim.socketId, SocketEvent.ChooseFavorCard, {stealerName: player.name});
@@ -1680,7 +1688,7 @@ export class GameManager {
                  this.msgToAllPlayers(_g.code, `${freshVictim.name} gave ${player.name} a card.`);
              }
 
-             _g.turnPhase = TurnPhase.Action;
+             this.setTurnPhase(_g, TurnPhase.Action);
              this.updateGameNonce(_g, player.name);
            }
          });
@@ -1691,15 +1699,18 @@ export class GameManager {
            action: async (_g: Game) => {
              // Retrieve top 3 cards without removing them
              const top3Cards = _g.drawPile.slice(Math.max(0, _g.drawPile.length - 3)).reverse();
-             const duration = config.goFast ? 1000 : 10000;
+             // This is the max that the player can delay the game.
+             const DELAY_TIMEOUT_MS = 10000;
+             const FAST_DELAY_TIMEOUT_MS = 1000;
+             const maxDuration = config.goFast ? FAST_DELAY_TIMEOUT_MS : DELAY_TIMEOUT_MS;
 
              // Send to player who played card
-             this.emitToSocket(player.socketId, SocketEvent.SeeTheFutureData, { cards: top3Cards, duration: duration });
+             this.emitToSocket(player.socketId, SocketEvent.SeeTheFutureData, { cards: top3Cards, maxDuration: maxDuration });
              this.log(_g, `player "${player.name}" saw the future`);
              this.msgToAllPlayers(_g.code, `${player.name} saw the future.`);
 
              // Set phase to SeeingTheFuture and block other players
-             _g.turnPhase = TurnPhase.SeeingTheFuture;
+             this.setTurnPhase(_g, TurnPhase.SeeingTheFuture);
              this.updateGameNonce(_g, player.name); // Notify clients of phase change
 
              // Wait for player to dismiss overlay or timeout
@@ -1712,11 +1723,11 @@ export class GameManager {
                    _g.seeTheFutureResolver = undefined;
                  }
                  _g.timer = null;
-               }, duration);
+               }, maxDuration);
              });
 
              // After resolution, reset phase
-             _g.turnPhase = TurnPhase.Action; // Reset phase
+             this.setTurnPhase(_g, TurnPhase.Action);
              this.updateGameNonce(_g, player.name); // Notify clients of phase change
            }
          });
@@ -1886,7 +1897,7 @@ export class GameManager {
                     return;
                 }
 
-                _g.turnPhase = TurnPhase.ChoosingDeveloperCard;
+                this.setTurnPhase(_g, TurnPhase.ChoosingDeveloperCard);
                 this.updateGameNonce(_g, player.name);
 
                 // Ask requester to choose index
@@ -1930,7 +1941,7 @@ export class GameManager {
                 this.log(_g, `player "${player.name}" stole "${stolenCard.class}" from "${freshVictim.name}"`);
                 this.msgToAllPlayers(_g.code, `${player.name} stole a card from ${freshVictim.name}.`);
 
-                _g.turnPhase = TurnPhase.Action;
+                this.setTurnPhase(_g, TurnPhase.Action);
                 this.updateGameNonce(_g, player.name);
             }
           });
@@ -2027,7 +2038,7 @@ export class GameManager {
                  this.log(game, `re-inserted ${card.name} (${card.class}) from discard at index ${insertIndex} due to disconnect`);
              }
              // Reset phase
-             game.turnPhase = TurnPhase.Action;
+             this.setTurnPhase(game, TurnPhase.Action);
         }
         // Handle Upgrade Cluster in discard on disconnect
         else if (game.turnPhase === TurnPhase.Upgrading) {
@@ -2045,7 +2056,7 @@ export class GameManager {
                  game.drawPile.splice(insertIndex, 0, card);
                  this.log(game, `re-inserted ${card.name} (${card.class}) from discard (face-up) at index ${insertIndex} due to disconnect`);
              }
-             game.turnPhase = TurnPhase.Action; // Reset phase
+             this.setTurnPhase(game, TurnPhase.Action); // Reset phase
         }
 
         // Move remaining hand to removedPile
@@ -2208,6 +2219,8 @@ export class GameManager {
       attempts++;
     }
 
+    game.prevTurnPhase = undefined;
+    game.turnPhase = TurnPhase.Action;
     game.currentTurnIndex = nextIndex;
   }
 
@@ -2279,7 +2292,7 @@ export class GameManager {
     this.log(game, `player "${player.name}" re-inserted UPGRADE CLUSTER (face-up) at index ${insertIndex} (user input ${index})`);
 
     // Reset phase to Action (for next player or current player if more turns)
-    game.turnPhase = TurnPhase.Action;
+    this.setTurnPhase(game, TurnPhase.Action);
 
     if (game.attackTurns > 0) {
       game.attackTurns--;
@@ -2302,9 +2315,19 @@ export class GameManager {
     const player = game.players.find(p => p.socketId === socket.id);
     if (!player) return; // Only player who played card can dismiss
 
-    // Only allow dismissal if in SeeingTheFuture phase and it's their turn
-    if (game.turnPhase !== TurnPhase.SeeingTheFuture || !this.isPlayerTurn(game, player)) {
-        this.log(game, `player "${player.name}" tried to dismiss SeeTheFuture out of phase/turn`);
+    if (!this.isPlayerTurn(game, player)) {
+        this.log(game, `player "${player.name}" tried to dismiss SeeTheFuture out of turn`);
+        return;
+    }
+    // Only allow dismissal if we are or were recently in SeeingTheFuture
+    // phase. We track prevTurnPhase because time is involved and a client
+    // might be delayed in sending the dismissal.
+    let prev = game.turnPhase;
+    if (game.prevTurnPhase) {
+        prev = game.prevTurnPhase;
+    }
+    if (game.turnPhase !== TurnPhase.SeeingTheFuture && prev !== TurnPhase.SeeingTheFuture) {
+        this.log(game, `player "${player.name}" tried to dismiss SeeTheFuture out of phase (${game.turnPhase})`);
         return;
     }
 
@@ -2416,7 +2439,7 @@ export class GameManager {
     this.log(game, `player "${player.name}" re-inserted EXPLODING CLUSTER at index ${insertIndex} (user input ${index})`);
 
     // Reset phase to Action (for next player or current player if more turns)
-    game.turnPhase = TurnPhase.Action;
+    this.setTurnPhase(game, TurnPhase.Action);
 
     if (game.attackTurns > 0) {
       game.attackTurns--;
