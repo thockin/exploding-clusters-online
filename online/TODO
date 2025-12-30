@@ -3,6 +3,7 @@ Phase 5:
  - test flakes wrt timeouts
 * Most "durations" should be client-side, not sent by server
   - change DrawCardAnimation to take all draw state in the payload
+* get rid of "show" on most modals?
 
 tests
  - more helpers

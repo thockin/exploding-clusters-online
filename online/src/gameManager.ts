@@ -1184,7 +1184,7 @@ export class GameManager {
         });
       }
 
-      const finalizeDraw = () => {
+      const finishDrawCard = () => {
         game.timer = null;
 
         try {
@@ -1246,9 +1246,9 @@ export class GameManager {
               } else if (activePlayersAfterExplosion.length === 0) {
                 this.endGame(currentGame.code, "Nobody", WinType.Explosion); // All players exploded.
               } else {
-                 // Game continues if > 1 player remains after current player explodes and others didn't.
-                 this.advanceTurn(currentGame);
-                 this.updateGameNonce(currentGame, currentPlayer.name);
+                // Game continues if > 1 player remains after current player explodes and others didn't.
+                this.advanceTurn(currentGame);
+                this.updateGameNonce(currentGame, currentPlayer.name);
               }
             } else {
               // Has DEBUG card
@@ -1257,37 +1257,37 @@ export class GameManager {
             }
           } else if (card!.class === CardClass.UpgradeCluster) {
             if (card!.isFaceUp) {
-                // Face-up UPGRADE CLUSTER: Immediate Elimination
-                this.log(currentGame, `player "${currentPlayer.name}" drew face-up UPGRADE CLUSTER and is OUT`);
-                this.msgToAllPlayers(currentGame.code, `${currentPlayer.name}'s cluster was upgraded out of existence, they are out of the game.`);
+              // Face-up UPGRADE CLUSTER: Immediate Elimination
+              this.log(currentGame, `player "${currentPlayer.name}" drew face-up UPGRADE CLUSTER and is OUT`);
+              this.msgToAllPlayers(currentGame.code, `${currentPlayer.name}'s cluster was upgraded out of existence, they are out of the game.`);
 
-                // Remove player hand
-                const hand = currentPlayer.hand;
-                currentGame.removedPile.push(...hand);
-                currentPlayer.hand = [];
-                currentPlayer.isOut = true;
+              // Remove player hand
+              const hand = currentPlayer.hand;
+              currentGame.removedPile.push(...hand);
+              currentPlayer.hand = [];
+              currentPlayer.isOut = true;
 
-                // Move UPGRADE CLUSTER to discard pile
-                currentGame.discardPile.push(card!);
+              // Move UPGRADE CLUSTER to discard pile
+              currentGame.discardPile.push(card!);
 
-                this.setTurnPhase(currentGame, TurnPhase.Action); // Reset phase
+              this.setTurnPhase(currentGame, TurnPhase.Action); // Reset phase
 
-                // Determine winner
-                const activePlayersAfter = currentGame.players.filter(p => !p.isOut && !p.isDisconnected && p.id !== currentPlayer.id);
-                if (activePlayersAfter.length === 1) {
-                    this.handleWin(currentGame, activePlayersAfter[0], WinType.Explosion);
-                } else if (activePlayersAfter.length === 0) {
-                    this.endGame(currentGame.code, "Nobody", WinType.Explosion);
-                } else {
-                    this.advanceTurn(currentGame);
-                    this.updateGameNonce(currentGame, currentPlayer.name);
-                }
-            } else {
-                // Face-down UPGRADE CLUSTER: Upgrading Phase
-                this.setTurnPhase(currentGame, TurnPhase.Upgrading);
-                currentGame.discardPile.push(card!);
-                this.msgToAllPlayers(currentGame.code, `${currentPlayer.name} drew an UPGRADE CLUSTER!`);
+              // Determine winner
+              const activePlayersAfter = currentGame.players.filter(p => !p.isOut && !p.isDisconnected && p.id !== currentPlayer.id);
+              if (activePlayersAfter.length === 1) {
+                this.handleWin(currentGame, activePlayersAfter[0], WinType.Explosion);
+              } else if (activePlayersAfter.length === 0) {
+                this.endGame(currentGame.code, "Nobody", WinType.Explosion);
+              } else {
+                this.advanceTurn(currentGame);
                 this.updateGameNonce(currentGame, currentPlayer.name);
+              }
+            } else {
+              // Face-down UPGRADE CLUSTER: Upgrading Phase
+              this.setTurnPhase(currentGame, TurnPhase.Upgrading);
+              currentGame.discardPile.push(card!);
+              this.msgToAllPlayers(currentGame.code, `${currentPlayer.name} drew an UPGRADE CLUSTER!`);
+              this.updateGameNonce(currentGame, currentPlayer.name);
             }
           } else {
             // Regular card
@@ -1300,11 +1300,11 @@ export class GameManager {
             }
 
             if (currentGame.attackTurns > 0) {
-               // Player must take more turns
-               this.updateGameNonce(currentGame, currentPlayer.name);
+             // Player must take more turns
+             this.updateGameNonce(currentGame, currentPlayer.name);
             } else {
-               this.advanceTurn(currentGame);
-               this.updateGameNonce(currentGame, currentPlayer.name);
+             this.advanceTurn(currentGame);
+             this.updateGameNonce(currentGame, currentPlayer.name);
             }
           }
         } catch (error) {
@@ -1319,8 +1319,7 @@ export class GameManager {
           }
         }
       };
-
-      game.timer = setTimeout(finalizeDraw, animDuration);
+      game.timer = setTimeout(finishDrawCard, animDuration);
     } catch (error) {
       // Handle any errors that occur before or during setTimeout setup
       this.log(game, `drawCard error: ${error}`);

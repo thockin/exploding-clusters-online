@@ -83,7 +83,7 @@ async function drawCard(page: Page) {
   await drawPile.click();
   await expect(drawPile).toHaveAttribute('data-drawcount', String(count + 1));
   await expect(findOverlay(page, "inspect-card")).toBeVisible();
-  await page.waitForTimeout(250); // empirical: deflake tests
+  await page.waitForTimeout(200); // empirical: deflake tests
   await page.keyboard.press('Escape');
 }
 

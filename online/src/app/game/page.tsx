@@ -1401,7 +1401,7 @@ export default function GameScreen() {
               data-areaname="timer"
               data-turnphase={gameState.turnPhase}
             >
-              {(gameState.turnPhase === TurnPhase.Reaction) && reactionCountdown > 0 && (
+              {(gameState.turnPhase === TurnPhase.Reaction) && reactionCountdown >= 0 && (
                 <>
                   {(gameState.lastActorName && me?.name === gameState.lastActorName) ? (
                     <h4 className="text-success">Waiting for other players to react</h4>
