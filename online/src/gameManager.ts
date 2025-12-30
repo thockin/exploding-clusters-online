@@ -1176,7 +1176,6 @@ export class GameManager {
           });
         }
       }
-      // Spectators
       for (const s of game.spectators) {
         this.emitToSocket(s.socketId, SocketEvent.DrawCardAnimation, {
           drawingPlayerId: player.id,

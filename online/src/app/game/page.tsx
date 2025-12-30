@@ -17,6 +17,9 @@ const CARD_MARGIN_X_PX = 4; // m-1 means 0.25rem, assuming 1rem=16px, so 4px on 
 const CARD_FULL_WIDTH_PX = CARD_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
 const CARD_SMALL_FULL_WIDTH_PX = CARD_SMALL_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
 
+// How long a card is displayed after being drawn or stolen.
+const CARD_DISMISS_TIMEOUT_MS = 3000;
+
 export default function GameScreen() {
   const router = useRouter();
   const { socket, gameCode, gameState, playerName, playerId, myHand, setMyHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
@@ -221,7 +224,7 @@ export default function GameScreen() {
 
     const onFavorResult = (data: { card: Card }) => {
       setFavorResultCardOverlay(data.card);
-      setTimeout(() => setFavorResultCardOverlay(null), 3000);
+      setTimeout(() => setFavorResultCardOverlay(null), CARD_DISMISS_TIMEOUT_MS);
     };
 
     const onChooseStealCard = (data: { victimName: string, handCount: number }) => {
@@ -230,7 +233,7 @@ export default function GameScreen() {
 
     const onStealResult = (data: { card: Card }) => {
         setStealCardResultOverlay(data.card);
-        setTimeout(() => setStealCardResultOverlay(null), 3000);
+        setTimeout(() => setStealCardResultOverlay(null), CARD_DISMISS_TIMEOUT_MS);
     };
 
     const onReactionTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
@@ -706,27 +709,27 @@ export default function GameScreen() {
     const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: Card, duration: number, nextCardImageUrl?: string }) => {
       console.debug(SocketEvent.DrawCardAnimation, data);
       const currentPileImageUrl = gameStateRef.current?.drawPileImage || "/art/back.png";
+
+      // Start the animation to run for duration
       setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId, duration: data.duration, nextCardImageUrl: data.nextCardImageUrl, currentPileImageUrl });
-
-      // Show overlay slightly before animation ends to avoid gap/flicker
-      setTimeout(() => {
-        // If there is a card to overlay (e.g. EXPLODING CLUSTER), that uses
-        // the same duration, but starts when the animation ends.
-        if (data.card) {
-          setInspectCardOverlay(data.card);
-
-          // If this is too short, tests flake.
-          let dismissDelay = Math.max(data.duration, 1000);
-          setTimeout(() => {
-            setInspectCardOverlay(null);
-          }, dismissDelay);
-        }
-      }, Math.max(50, data.duration - 300));
 
       // Clear animation after duration
       setTimeout(() => {
         setDrawingAnimation(null);
       }, data.duration);
+
+      // If there is a card to overlay (e.g. EXPLODING CLUSTER), that starts
+      // when the animation ends.
+      if (data.card) {
+        setTimeout(() => {
+          setInspectCardOverlay(data.card);
+
+          setTimeout(() => {
+            setInspectCardOverlay(null);
+          }, CARD_DISMISS_TIMEOUT_MS);
+        }, Math.max(500, data.duration - 500)); // show early to avoid flicker
+      }
+
     };
 
     socket.on(SocketEvent.DrawCardAnimation, onDrawCardAnimation);

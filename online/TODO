@@ -1,9 +1,6 @@
 Phase 5:
- - gameManager redundant `setTurnPhase(..., TurnPhase.Action); // Reset phase`
- - helper func for gameManager discard
  - reduce REACTION timoueout in tests
  - test flakes wrt timeouts
-   - make overlays last longer and explicitly dismiss them
 * Most "durations" should be client-side, not sent by server
   - change DrawCardAnimation to take all draw state in the payload
 
