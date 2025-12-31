@@ -359,7 +359,7 @@ export default function GameScreen() {
   const handleInsertConfirm = useCallback(() => {
     if (!socket || !gameCode || !gameState) return;
     const index = typeof reinsertIndex === 'string' ? parseInt(reinsertIndex, 10) : reinsertIndex;
-    socket.emit(SocketEvent.InsertExplodingCard, { gameCode, index, nonce: gameState.nonce });
+    socket.emit(SocketEvent.ReinsertExplodingCard, { gameCode, index, nonce: gameState.nonce });
     setExplodingReinsertModal(null);
   }, [socket, gameCode, gameState, reinsertIndex]);
 

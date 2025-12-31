@@ -114,7 +114,7 @@ describe('Exploding Stack Logic', () => {
     expect(p2.hand.find(c => c.id === debugCard.id)).toBeUndefined();
 
     // P2 re-inserts EXPLODING CLUSTER
-    p2Socket.trigger(SocketEvent.InsertExplodingCard, { gameCode, index: 0, nonce: game.nonce });
+    p2Socket.trigger(SocketEvent.ReinsertExplodingCard, { gameCode, index: 0, nonce: game.nonce });
     await flushPromises();
 
     // Verify state:
