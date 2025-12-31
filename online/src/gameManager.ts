@@ -2018,14 +2018,14 @@ export class GameManager {
         this.log(game, `current player "${player.name}" has left, advancing turn`);
 
         // Check for pending Exploding/Upgrade Cluster cards in hand (just drawn)
-        // "If the player has just drawn an EXPLODING CLUSTER card, it is re-inserted at a random position..."
+        // "If the player has just drawn an EXPLODING CLUSTER card, it is reinserted at a random position..."
         const specialCards = player.hand.filter(c => c.class === CardClass.ExplodingCluster || c.class === CardClass.UpgradeCluster);
         const remainingHand = player.hand.filter(c => c.class !== CardClass.ExplodingCluster && c.class !== CardClass.UpgradeCluster);
 
         specialCards.forEach(card => {
           const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
           game.drawPile.splice(insertIndex, 0, card);
-          this.log(game, `re-inserted ${card.name} (${card.class}) at index ${insertIndex} due to disconnect`);
+          this.log(game, `reinserted ${card.name} (${card.class}) at index ${insertIndex} due to disconnect`);
         });
 
         // Also check discard pile if we are in Exploding phase (since we moved the card there)
@@ -2042,7 +2042,7 @@ export class GameManager {
                  const [card] = game.discardPile.splice(explodingIndex, 1);
                  const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
                  game.drawPile.splice(insertIndex, 0, card);
-                 this.log(game, `re-inserted ${card.name} (${card.class}) from discard at index ${insertIndex} due to disconnect`);
+                 this.log(game, `reinserted ${card.name} (${card.class}) from discard at index ${insertIndex} due to disconnect`);
              }
              // Reset phase
              this.setTurnPhase(game, TurnPhase.Action);
@@ -2061,7 +2061,7 @@ export class GameManager {
                  card.isFaceUp = true; // Re-insert face-up
                  const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
                  game.drawPile.splice(insertIndex, 0, card);
-                 this.log(game, `re-inserted ${card.name} (${card.class}) from discard (face-up) at index ${insertIndex} due to disconnect`);
+                 this.log(game, `reinserted ${card.name} (${card.class}) from discard (face-up) at index ${insertIndex} due to disconnect`);
              }
              this.setTurnPhase(game, TurnPhase.Action); // Reset phase
         }
@@ -2296,7 +2296,7 @@ export class GameManager {
       game.drawPile.splice(insertIndex, 0, card);
     }
 
-    this.log(game, `player "${player.name}" re-inserted UPGRADE CLUSTER (face-up) at index ${insertIndex} (user input ${index})`);
+    this.log(game, `player "${player.name}" reinserted UPGRADE CLUSTER (face-up) at index ${insertIndex} (user input ${index})`);
 
     // Reset phase to Action (for next player or current player if more turns)
     this.setTurnPhase(game, TurnPhase.Action);
@@ -2443,7 +2443,7 @@ export class GameManager {
       game.drawPile.splice(insertIndex, 0, card);
     }
 
-    this.log(game, `player "${player.name}" re-inserted EXPLODING CLUSTER at index ${insertIndex} (user input ${index})`);
+    this.log(game, `player "${player.name}" reinserted EXPLODING CLUSTER at index ${insertIndex} (user input ${index})`);
 
     // Reset phase to Action (for next player or current player if more turns)
     this.setTurnPhase(game, TurnPhase.Action);

@@ -214,7 +214,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     socketIo.on(SocketEvent.GameUpdate, (data: GameUpdatePayload) => {
-      console.debug(`received event: ${SocketEvent.GameUpdate}`);
+      console.debug(`received event: ${SocketEvent.GameUpdate}: player ${data.currentTurnIndex} (${data.turnPhase})`);
       setGameState(() => {
         // We can just use data directly as it matches the interface
         return data;
@@ -224,7 +224,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     socketIo.on(SocketEvent.GameMessage, (data: { message: string }) => {
-      console.debug(`received event: ${SocketEvent.GameMessage}`);
+      console.debug(`received event: ${SocketEvent.GameMessage}: "${data.message}"`);
       setGameMessages(prev => [...prev, data.message]);
     });
 

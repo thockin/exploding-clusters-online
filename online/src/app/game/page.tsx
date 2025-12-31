@@ -707,7 +707,7 @@ export default function GameScreen() {
     if (!socket) return;
 
     const onCardDrawn = (data: { drawingPlayerId: string, card?: Card, duration: number, nextCardImageUrl?: string }) => {
-      console.debug(SocketEvent.CardDrawn, data);
+      console.debug(`received event: ${SocketEvent.CardDrawn}: ${data.card ? data.card.id : 'by another player'}`);
       const currentPileImageUrl = gameStateRef.current?.drawPileImage || "/art/back.png";
 
       // Start the animation to run for duration
