@@ -58,7 +58,7 @@ export enum SocketEvent {
   ReinsertUpgradeCard = 'reinsertUpgradeCard',
   LeaveGame = 'leaveGame',
   DismissSeeTheFuture = 'dismissSeeTheFuture',
-  ResolveFavorCard = 'resolveFavorCard',
+  GiveFavorCard = 'giveFavorCard',
   ResolveDeveloperCard = 'resolveDeveloperCard',
 
   // server -> client

@@ -167,8 +167,8 @@ export class GameManager {
         this.dismissSeeTheFuture(socket, gameCode);
       });
 
-      socket.on(SocketEvent.ResolveFavorCard, (data: { gameCode: string; cardId: string }) => {
-        this.resolveFavorCard(socket, data.gameCode, data.cardId);
+      socket.on(SocketEvent.GiveFavorCard, (data: { gameCode: string; cardId: string }) => {
+        this.giveFavorCard(socket, data.gameCode, data.cardId);
       });
 
       socket.on(SocketEvent.ResolveDeveloperCard, (data: { gameCode: string; index: number }) => {
@@ -2349,7 +2349,7 @@ export class GameManager {
     }
   }
 
-  private resolveFavorCard(socket: Socket, gameCode: string, cardId: string) {
+  private giveFavorCard(socket: Socket, gameCode: string, cardId: string) {
     const game = this.games.get(gameCode);
     if (!game) return;
 

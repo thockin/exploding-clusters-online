@@ -1819,7 +1819,7 @@ export default function GameScreen() {
                   key={index}
                   onClick={() => {
                       if (gameCode) {
-                          socket?.emit(SocketEvent.ResolveFavorCard, { gameCode, cardId: card.id });
+                          socket?.emit(SocketEvent.GiveFavorCard, { gameCode, cardId: card.id });
                           setFavorCardChoiceModal(null);
                       }
                   }}
