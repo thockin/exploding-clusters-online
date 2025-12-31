@@ -155,12 +155,12 @@ export class GameManager {
         this.drawCard(socket, gameCode);
       });
 
-      socket.on(SocketEvent.ReinsertExplodingCard, (payload: { gameCode: string, index: number, nonce: string }) => {
-        this.reinsertExplodingCard(socket, payload.gameCode, payload.index, payload.nonce);
+      socket.on(SocketEvent.ReinsertExplodingCard, (data: { gameCode: string, index: number, nonce: string }) => {
+        this.reinsertExplodingCard(socket, data.gameCode, data.index, data.nonce);
       });
 
-      socket.on(SocketEvent.ReinsertUpgradeCard, (payload: { gameCode: string, index: number, nonce: string }) => {
-        this.reinsertUpgradeCard(socket, payload.gameCode, payload.index, payload.nonce);
+      socket.on(SocketEvent.ReinsertUpgradeCard, (data: { gameCode: string, index: number, nonce: string }) => {
+        this.reinsertUpgradeCard(socket, data.gameCode, data.index, data.nonce);
       });
 
       socket.on(SocketEvent.DismissSeeTheFuture, (gameCode: string) => {
