@@ -55,7 +55,7 @@ export enum SocketEvent {
   PlayCombo = 'playCombo',
   DrawCard = 'drawCard',
   ReinsertExplodingCard = 'reinsertExplodingCard',
-  InsertUpgradeCard = 'insertUpgradeCard',
+  ReinsertUpgradeCard = 'reinsertUpgradeCard',
   LeaveGame = 'leaveGame',
   DismissSeeTheFuture = 'dismissSeeTheFuture',
   ResolveFavorCard = 'resolveFavorCard',

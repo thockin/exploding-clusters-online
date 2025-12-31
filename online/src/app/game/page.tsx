@@ -347,7 +347,7 @@ export default function GameScreen() {
   const handleUpgradeInsertConfirm = useCallback(() => {
     if (!socket || !gameCode || !gameState) return;
     const index = typeof reinsertIndex === 'string' ? parseInt(reinsertIndex, 10) : reinsertIndex;
-    socket.emit(SocketEvent.InsertUpgradeCard, { gameCode, index, nonce: gameState.nonce });
+    socket.emit(SocketEvent.ReinsertUpgradeCard, { gameCode, index, nonce: gameState.nonce });
     setUpgradeReinsertModal(null);
   }, [socket, gameCode, gameState, reinsertIndex]);
 
