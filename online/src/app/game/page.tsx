@@ -1916,7 +1916,7 @@ export default function GameScreen() {
                     key={index}
                     onClick={() => {
                       if (gameCode) {
-                        socket?.emit(SocketEvent.ResolveDeveloperCard, { gameCode, index });
+                        socket?.emit(SocketEvent.StealCard, { gameCode, index });
                         setStealCardChoiceModal(null);
                       }
                     }}

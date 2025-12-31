@@ -171,8 +171,8 @@ export class GameManager {
         this.giveFavorCard(socket, data.gameCode, data.cardId);
       });
 
-      socket.on(SocketEvent.ResolveDeveloperCard, (data: { gameCode: string; index: number }) => {
-        this.resolveDeveloperCard(socket, data.gameCode, data.index);
+      socket.on(SocketEvent.StealCard, (data: { gameCode: string; index: number }) => {
+        this.stealCard(socket, data.gameCode, data.index);
       });
 
       // Handle voluntary leave
@@ -2369,7 +2369,7 @@ export class GameManager {
     }
   }
 
-  private resolveDeveloperCard(socket: Socket, gameCode: string, index: number) {
+  private stealCard(socket: Socket, gameCode: string, index: number) {
     const game = this.games.get(gameCode);
     if (!game) return;
 

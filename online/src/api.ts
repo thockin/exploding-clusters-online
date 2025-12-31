@@ -59,7 +59,7 @@ export enum SocketEvent {
   LeaveGame = 'leaveGame',
   DismissSeeTheFuture = 'dismissSeeTheFuture',
   GiveFavorCard = 'giveFavorCard',
-  ResolveDeveloperCard = 'resolveDeveloperCard',
+  StealCard = 'stealCard',
 
   // server -> client
   GameUpdate = 'gameUpdate',
