@@ -72,7 +72,7 @@ export enum SocketEvent {
   DeckData = 'deckData',
   RemovedData = 'removedData',
   PlayerExploding = 'playerExploding',
-  DrawCardAnimation = 'drawCardAnimation',
+  CardDrawn = 'cardDrawn',
   SeeTheFutureData = 'seeTheFutureData',
   ChooseFavorCard = 'chooseFavorCard',
   FavorResult = 'favorResult',

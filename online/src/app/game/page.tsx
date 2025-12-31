@@ -706,8 +706,8 @@ export default function GameScreen() {
   useEffect(() => {
     if (!socket) return;
 
-    const onDrawCardAnimation = (data: { drawingPlayerId: string, card?: Card, duration: number, nextCardImageUrl?: string }) => {
-      console.debug(SocketEvent.DrawCardAnimation, data);
+    const onCardDrawn = (data: { drawingPlayerId: string, card?: Card, duration: number, nextCardImageUrl?: string }) => {
+      console.debug(SocketEvent.CardDrawn, data);
       const currentPileImageUrl = gameStateRef.current?.drawPileImage || "/art/back.png";
 
       // Start the animation to run for duration
@@ -732,10 +732,10 @@ export default function GameScreen() {
 
     };
 
-    socket.on(SocketEvent.DrawCardAnimation, onDrawCardAnimation);
+    socket.on(SocketEvent.CardDrawn, onCardDrawn);
 
     return () => {
-      socket.off(SocketEvent.DrawCardAnimation, onDrawCardAnimation);
+      socket.off(SocketEvent.CardDrawn, onCardDrawn);
     };
   }, [socket]);
 

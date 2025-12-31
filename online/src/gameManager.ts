@@ -1159,7 +1159,7 @@ export class GameManager {
 
       // Start animation phase
       // Current player sees the card
-      this.emitToSocket(socket.id, SocketEvent.DrawCardAnimation, {
+      this.emitToSocket(socket.id, SocketEvent.CardDrawn, {
         drawingPlayerId: player.id,
         card: card, // They see the card
         duration: animDuration,
@@ -1169,7 +1169,7 @@ export class GameManager {
       // Others see "someone drew" (no card info)
       for (const p of game.players) {
         if (p.id !== player.id && p.socketId) {
-          this.emitToSocket(p.socketId, SocketEvent.DrawCardAnimation, {
+          this.emitToSocket(p.socketId, SocketEvent.CardDrawn, {
             drawingPlayerId: player.id,
             duration: animDuration,
             nextCardImageUrl
@@ -1177,7 +1177,7 @@ export class GameManager {
         }
       }
       for (const s of game.spectators) {
-        this.emitToSocket(s.socketId, SocketEvent.DrawCardAnimation, {
+        this.emitToSocket(s.socketId, SocketEvent.CardDrawn, {
           drawingPlayerId: player.id,
           duration: animDuration,
           nextCardImageUrl

@@ -169,8 +169,8 @@ describe('Executing Phase Blocking', () => {
     const lastMsg = msgs[msgs.length - 1] as any;
     expect(lastMsg.message).toMatch(/wait for reactions/i); // "You cannot draw right now (wait for reactions)."
     
-    // Verify no card drawn (Action phase would emit DrawCardAnimation)
-    expect(host.emitted[SocketEvent.DrawCardAnimation]).toBeUndefined();
+    // Verify no card drawn (Action phase would emit CardDrawn)
+    expect(host.emitted[SocketEvent.CardDrawn]).toBeUndefined();
   });
 
   test('Cannot play card during Executing phase', () => {
