@@ -41,6 +41,7 @@ export default function GameScreen() {
   const choiceTimeoutSeconds = 15; // for client-side choice dialogs
   const [choiceCountdown, setChoiceCountdown] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [draggedCard, setDraggedCard] = useState<Card | null>(null);
   const isDraggingRef = useRef(false);
   const isDrawingRef = useRef(false);
   const clickStartPosRef = useRef({ x: 0, y: 0 });
@@ -744,6 +745,7 @@ export default function GameScreen() {
 
   const onDragEnd = (result: DropResult) => {
     setIsDragging(false);
+    setDraggedCard(null);
     setTimeout(() => { isDraggingRef.current = false; }, 1000);
     console.debug('onDragEnd', result);
     const { source, destination } = result;
@@ -996,6 +998,8 @@ export default function GameScreen() {
 
       if (!draggedCard) return;
 
+      setDraggedCard(draggedCard);
+
       // If Shift is held, try to add to selection (Combo)
       if (isShiftKeyPressed.current) {
         // If there is a single DEVELOPER card selected and the player
@@ -1103,7 +1107,16 @@ export default function GameScreen() {
   const renderDiscardPile = () => {
     return (
       <Droppable droppableId="discard-pile">
-        {(provided, snapshot) => (
+        {(provided, snapshot) => {
+          const isPlayable = draggedCard ? isCardPlayable(draggedCard) : false;
+          let borderColor = '2px dashed #FFA500'; // Default orange
+          if (gameState && gameState.topDiscardCard) {
+            borderColor = 'none';
+          } else if (snapshot.isDraggingOver) {
+             borderColor = isPlayable ? '2px dashed #00FF00' : '2px dashed #FF0000';
+          }
+
+          return (
           <div
             data-areaname="discard-pile"
             ref={provided.innerRef}
@@ -1111,10 +1124,8 @@ export default function GameScreen() {
             style={{
               width: getCardSize().width,
               height: getCardSize().height,
-              border: (gameState && gameState.topDiscardCard)
-                ? 'none'
-                : (snapshot.isDraggingOver ? '2px dashed #00FF00' : '2px dashed #FFA500'),
-              borderRadius: '25px',
+              border: borderColor,
+              borderRadius: '31px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1132,9 +1143,25 @@ export default function GameScreen() {
                 data-cardclass={gameState.topDiscardCard.class}
               />
             )}
+            {snapshot.isDraggingOver && !isPlayable && (
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '31px',
+                    zIndex: 10
+                }} />
+            )}
             {provided.placeholder}
           </div>
-        )}
+        );
+      }}
       </Droppable>
     );
   };
@@ -1212,7 +1239,7 @@ export default function GameScreen() {
                             width: `${cardWidth}px`,
                             height: `${cardWidth * 1.4}px`,
                             boxSizing: 'content-box',
-                            cursor: playable ? 'pointer' : 'default',
+                            cursor: 'grab',
                             position: 'relative',
                             opacity: shouldHide ? 0 : (playable ? 1 : 0.6),
                             ...providedDraggable.draggableProps.style,
@@ -1434,8 +1461,22 @@ export default function GameScreen() {
                   style={{
                     width: getCardSize().width,
                     height: getCardSize().height,
-                    cursor: 'pointer',
+                    cursor: (gameState?.players[gameState.currentPlayer]?.id === playerId && gameState?.turnPhase === TurnPhase.Action) ? (isDrawingRef.current ? 'grabbing' : 'pointer') : 'not-allowed',
                     borderRadius: '5px'
+                  }}
+                  onMouseDown={() => {
+                    isDrawingRef.current = true;
+                    setIsDragging(true); // force re-render
+                  }}
+                  onMouseUp={() => {
+                    isDrawingRef.current = false;
+                    setIsDragging(false); // force re-render
+                  }}
+                  onMouseLeave={() => {
+                    if (isDrawingRef.current) {
+                        isDrawingRef.current = false;
+                        setIsDragging(false);
+                    }
                   }}
                   onClick={handleDrawClick}
                 >
