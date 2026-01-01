@@ -198,9 +198,10 @@ export default function Home() {
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>Your Name</Form.Label>
+              <Form.Label htmlFor="create-game-player-name">Your Name</Form.Label>
               <Form.Control
                 type="text"
+                id="create-game-player-name"
                 placeholder="Enter your name (max 32 characters)"
                 value={inputPlayerName}
                 onChange={(e) => handlePlayerNameChange(e.target.value)}
@@ -235,9 +236,10 @@ export default function Home() {
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>Game Code</Form.Label>
+              <Form.Label htmlFor="join-game-code">Game Code</Form.Label>
               <Form.Control
                 type="text"
+                id="join-game-code"
                 placeholder="Enter 5-letter game code"
                 value={inputGameCode}
                 onChange={(e) => setInputGameCode(e.target.value.toUpperCase())}
@@ -247,9 +249,10 @@ export default function Home() {
               />
             </Form.Group>
             <Form.Group className="mb-3">
-              <Form.Label>Your Name</Form.Label>
+              <Form.Label htmlFor="join-game-player-name">Your Name</Form.Label>
               <Form.Control
                 type="text"
+                id="join-game-player-name"
                 placeholder="Enter your name (max 32 characters)"
                 value={inputPlayerName}
                 onChange={(e) => handlePlayerNameChange(e.target.value)}
@@ -283,9 +286,10 @@ export default function Home() {
         <Modal.Body>
           <Form>
             <Form.Group className="mb-3">
-              <Form.Label>Game Code</Form.Label>
+              <Form.Label htmlFor="watch-game-code">Game Code</Form.Label>
               <Form.Control
                 type="text"
+                id="watch-game-code"
                 placeholder="Enter 5-letter game code"
                 value={inputGameCode}
                 onChange={(e) => setInputGameCode(e.target.value.toUpperCase())}

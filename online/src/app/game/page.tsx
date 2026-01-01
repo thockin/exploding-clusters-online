@@ -1648,6 +1648,7 @@ export default function GameScreen() {
             <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} cards in the deck, where do you want to put the UPGRADE CLUSTER card?</p>
             <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} is the bottom.</p>
             <Form.Control
+              id="upgrade-reinsert-index"
               type="number"
               min={0}
               max={gameState?.drawPileCount || 50}
@@ -1693,6 +1694,7 @@ export default function GameScreen() {
             <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} cards in the deck, where do you want to hide the EXPLODING CLUSTER card?</p>
             <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} is the bottom.</p>
             <Form.Control
+              id="exploding-reinsert-index"
               type="number"
               min={0}
               max={explodingReinsertModal?.maxIndex}

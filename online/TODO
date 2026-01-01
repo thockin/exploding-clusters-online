@@ -15,6 +15,7 @@ tests
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
 
 Later:
+* Change mouse cursor when deck is not clickable (not your turn)
 * document state-machine
   * Rename TurnPhase to TurnState ?
 * Play-card animation (important when playing the same card)
