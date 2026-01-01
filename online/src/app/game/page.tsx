@@ -38,8 +38,8 @@ export default function GameScreen() {
   const [reactionCountdown, setReactionCountdown] = useState(0);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const choiceTimeoutSeconds = 15; // for choice dialogs
-  const [choiceCountdown, setChoiceCountdown] = useState(choiceTimeoutSeconds);
+  const choiceTimeoutSeconds = 15; // for client-side choice dialogs
+  const [choiceCountdown, setChoiceCountdown] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
   const isDrawingRef = useRef(false);
@@ -88,7 +88,7 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (favorCardChoiceModal?.show) {
-      setChoiceCountdown(choiceTimeoutSeconds);
+      // Don't set choiceCountdown here, use the value from the event handler
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
             if (prev <= 1) {
@@ -105,7 +105,7 @@ export default function GameScreen() {
 
   useEffect(() => {
     if (stealCardChoiceModal !== null) {
-      setChoiceCountdown(choiceTimeoutSeconds);
+      // Don't set choiceCountdown here, use the value from the event handler
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
             if (prev <= 1) {
@@ -120,6 +120,7 @@ export default function GameScreen() {
     }
   }, [stealCardChoiceModal]);
 
+  // This is a client-side countdown for the victim selection modals.
   useEffect(() => {
     if (favorVictimModalOpen || stealCardVictimModalOpen) {
       setChoiceCountdown(choiceTimeoutSeconds);
@@ -217,7 +218,8 @@ export default function GameScreen() {
       }, maxDuration);
     };
 
-    const onChooseFavorCard = (data: { show: boolean, stealerName?: string }) => {
+    const onChooseFavorCard = (data: { show: boolean, stealerName?: string, duration: number }) => {
+      setChoiceCountdown(Math.ceil(data.duration / 1000));
       setFavorCardChoiceModal({ show: true, stealerName: data.stealerName });
     };
 
@@ -226,7 +228,8 @@ export default function GameScreen() {
       setTimeout(() => setFavorResultCardOverlay(null), CARD_DISMISS_TIMEOUT_MS);
     };
 
-    const onChooseStealCard = (data: { victimName: string, handCount: number }) => {
+    const onChooseStealCard = (data: { victimName: string, handCount: number, duration: number }) => {
+        setChoiceCountdown(Math.ceil(data.duration / 1000));
         setStealCardChoiceModal({ show: true, handSize: data.handCount, victimName: data.victimName });
     };
 

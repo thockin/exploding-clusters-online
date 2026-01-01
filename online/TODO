@@ -1,5 +1,4 @@
 Phase 5:
-* Choice countdown timeout should be sent from server
 * change DrawCardAnimation to take all draw state in the payload
 * get rid of "show" on most modals?
 * Don't allow <escape> on hand-animation?

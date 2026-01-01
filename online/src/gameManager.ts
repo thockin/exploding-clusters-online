@@ -1691,7 +1691,8 @@ export class GameManager {
 
       this.setTurnPhase(_g, TurnPhase.ChoosingFavorCard);
       this.updateGameNonce(_g, player.name); // Notify clients of phase change
-      this.emitToSocket(currentVictim.socketId, SocketEvent.ChooseFavorCard, {stealerName: player.name});
+      const duration = config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS;
+      this.emitToSocket(currentVictim.socketId, SocketEvent.ChooseFavorCard, {stealerName: player.name, duration: duration});
 
       const cardId = await Promise.race([
         new Promise<string>(resolve => {
@@ -1708,7 +1709,7 @@ export class GameManager {
             } else {
               resolve("");
             }
-          }, config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS);
+          }, duration);
         })
       ]);
       _g.favorResolver = undefined;
@@ -1945,7 +1946,8 @@ export class GameManager {
       this.updateGameNonce(_g, player.name); // Notify clients of phase change
 
       // Ask requester to choose index
-      this.emitToSocket(player.socketId, SocketEvent.ChooseStealCard, { victimName: currentVictim.name, handCount: currentVictim.hand.length });
+      const duration = config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS;
+      this.emitToSocket(player.socketId, SocketEvent.ChooseStealCard, { victimName: currentVictim.name, handCount: currentVictim.hand.length, duration: duration });
 
       // Wait for response (index)
       let timeoutHandle: NodeJS.Timeout;
@@ -1960,7 +1962,7 @@ export class GameManager {
                 } else {
                   resolve(-1);
                 }
-              }, config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS);
+              }, duration);
           })
       ]);
       clearTimeout(timeoutHandle!);
