@@ -1,7 +1,7 @@
 Phase 5:
-* change DrawCardAnimation to take all draw state in the payload
 * s/duration/timeout for server-side implemented timeouts
-* get rid of "show" on most modals?
+* get rid of "show" or "active" on most modals?
+* rename game timer/timerDuration - is it only reactionTimer?
 
 tests
  - more helpers

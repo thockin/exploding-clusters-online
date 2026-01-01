@@ -116,7 +116,7 @@ export interface GameUpdatePayload {
   attackTurnsTaken: number;
   lastActorName?: string;
   overlayCard?: Card;        // If an overlay needs to be shown
-  timerDuration?: number;    // Seconds remaining (or total duration for animation)
+  timerDuration?: number;    // Seconds remaining on the timer
   topDiscardCard?: Card;     // optional (may be no discarded cards)
   drawPileImage?: string;    // Image to show for the draw pile
   topDrawPileCard?: Card;    // If the top card is face-up, this is the card, else nothing

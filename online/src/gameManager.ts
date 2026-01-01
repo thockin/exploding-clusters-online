@@ -1139,7 +1139,7 @@ export class GameManager {
     }
 
     // Set playing flag to prevent concurrent operations
-    // This flag will be cleared when the draw animation completes (after 3 seconds)
+    // This flag will be cleared when the draw operation completes
     player.isPlaying = true;
 
     let card: Card | undefined;
@@ -1155,18 +1155,17 @@ export class GameManager {
       this.log(game, `player "${player.name}" drew ${card.class} ("${card.name}"), draw=${game.drawCount}`);
 
       // Empirical - not too fast, not too slow
-      const animDuration = config.goFast ? 500 : 2000;
+      const duration = config.goFast ? 500 : 2000;
 
-      // Determine next card image (for animation background)
+      // Determine next card image (for client-side use)
       const nextCard = game.drawPile.length > 0 ? game.drawPile[game.drawPile.length - 1] : undefined;
       const nextCardImageUrl = (nextCard && nextCard.isFaceUp) ? nextCard.imageUrl : "/art/back.png";
 
-      // Start animation phase
-      // Current player sees the card
+      // Current player gets to know the card being drawn
       this.emitToSocket(socket.id, SocketEvent.CardDrawn, {
         drawingPlayerId: player.id,
         card: card, // They see the card
-        duration: animDuration,
+        duration: duration,
         nextCardImageUrl
       });
 
@@ -1175,7 +1174,7 @@ export class GameManager {
         if (p.id !== player.id && p.socketId) {
           this.emitToSocket(p.socketId, SocketEvent.CardDrawn, {
             drawingPlayerId: player.id,
-            duration: animDuration,
+            duration: duration,
             nextCardImageUrl
           });
         }
@@ -1183,7 +1182,7 @@ export class GameManager {
       for (const s of game.spectators) {
         this.emitToSocket(s.socketId, SocketEvent.CardDrawn, {
           drawingPlayerId: player.id,
-          duration: animDuration,
+          duration: duration,
           nextCardImageUrl
         });
       }
@@ -1323,7 +1322,7 @@ export class GameManager {
           }
         }
       };
-      game.timer = setTimeout(finishDrawCard, animDuration);
+      game.timer = setTimeout(finishDrawCard, duration);
     } catch (error) {
       // Handle any errors that occur before or during setTimeout setup
       this.log(game, `drawCard error: ${error}`);
