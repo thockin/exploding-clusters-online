@@ -33,6 +33,7 @@ export enum TurnPhase {
   Reaction = 'REACTION',
   Executing = 'EXECUTING',
   Exploding = 'EXPLODING',
+  ExplodingReinserting = 'EXPLODING_REINSERTING',
   Upgrading = 'UPGRADING',
   SeeingTheFuture = 'SEEING_THE_FUTURE',
   ChoosingFavorCard = 'CHOOSING_FAVOR_CARD',

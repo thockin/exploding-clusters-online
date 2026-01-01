@@ -153,6 +153,13 @@ function findModal(page: Page, name: string): Locator {
   return page.locator(`div[data-modalname="${name}"]`);
 }
 
+// Helper to capture browser console messages
+function catchConsoleLogs(page: Page, prefix: string) {
+  page.on('console', (msg: ConsoleMessage) => {
+    console.log(`${prefix} ${msg.type()}: ${msg.text()}`);
+  });
+}
+
 test.describe('UI Tests with DEVMODE=1', () => {
 
   test('Game screen loads: 2 players + observer', async ({ browser }) => {

@@ -214,7 +214,13 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     socketIo.on(SocketEvent.GameUpdate, (data: GameUpdatePayload) => {
-      console.debug(`received event: ${SocketEvent.GameUpdate}: player ${data.currentTurnIndex} (${data.turnPhase})`);
+      const nextPlayerId = data.turnOrder[data.currentTurnIndex];
+      const nextPlayer = data.players.find(p => p.id === nextPlayerId);
+      if (nextPlayer) {
+        console.debug(`received event: ${SocketEvent.GameUpdate}: player "${nextPlayer.name}", ${data.turnPhase}`);
+      } else {
+        console.debug(`received event: ${SocketEvent.GameUpdate}`);
+      }
       setGameState(() => {
         // We can just use data directly as it matches the interface
         return data;

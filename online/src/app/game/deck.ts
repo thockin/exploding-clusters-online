@@ -401,13 +401,14 @@ const cardDefinitions = [
   },
 ];
 
-const generateDeck = (): Card[] => {
+// Every game gets a distinct set of cards. They are mutable so they can't be
+// shared across games.
+export const generateDeck = (): Card[] => {
   const deck: Card[] = [];
 
   const createCard = (def: typeof cardDefinitions[0], ordinal: number) => ({
     // Unique ID is tuple of {class}, {idname}, {ordinal}.
     id: `${def.class}-${def.idname}-${ordinal}`,
-    // We could also add a semantic ID field if needed
     class: def.class,
     name: def.title,
     imageUrl: `/art/${def.image}`,
@@ -432,5 +433,3 @@ export const shuffleDeck = <T>(deck: T[], randomFunc: () => number = () => Math.
   }
   return shuffled;
 };
-
-export const fullDeck = generateDeck();

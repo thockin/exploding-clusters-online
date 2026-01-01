@@ -3,7 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { IncomingMessage, ServerResponse } from 'http';
-import { fullDeck, shuffleDeck } from './app/game/deck';
+import { generateDeck, shuffleDeck } from './app/game/deck';
 import { PseudoRandom, RandomSource, SecureRandom } from './utils/PseudoRandom';
 import { Card, CardClass, GameState, GameUpdatePayload, SocketEvent, TurnPhase, WinType } from './api';
 import { validatePlayerName, sanitizePlayerName, normalizeNameForComparison, escapeHtml } from './utils/nameValidation';
@@ -57,13 +57,17 @@ interface Game {
   devMode: boolean;
 }
 
-// Used by FAVOR card and DEVELOPER combo plays.
+// Used by FAVOR card and DEVELOPER combo plays. Most tests should very quickly
+// make a choice, but some will wait for auto-timeout, so we need both fast and
+// normal values.
 const CHOOSE_CARD_TIMEOUT_MS = 15000;
-const FAST_CHOOSE_CARD_TIMEOUT_MS = 1000;
+const FAST_CHOOSE_CARD_TIMEOUT_MS = 3000;
 
-// How long a player is able to SEE THE FUTURE.
+// How long a player is able to SEE THE FUTURE. Most tests should very quickly
+// dismiss the view, but some will wait for auto-timeout, so we need both fast
+// and normal values.
 const DELAY_TIMEOUT_MS = 10000;
-const FAST_DELAY_TIMEOUT_MS = 1000;
+const FAST_DELAY_TIMEOUT_MS = 3000;
 
 // How long each card operation may take (must be greater than the above
 // timeouts).
@@ -381,7 +385,7 @@ export class GameManager {
     }
 
     let overlayCard: Card | undefined;
-    if (game.turnPhase === TurnPhase.Exploding) {
+    if (game.turnPhase === TurnPhase.Exploding || game.turnPhase === TurnPhase.ExplodingReinserting) {
       // Find the most recent EXPLODING_CLUSTER in discard pile (it might be under a DEBUG card)
       // Search from end (top)
       for (let i = game.discardPile.length - 1; i >= 0; i--) {
@@ -779,7 +783,7 @@ export class GameManager {
     game.state = GameState.Started;
 
     // Initialize deck
-    let deck = [...fullDeck];
+    let deck = generateDeck()
     const explodingClusters = deck.filter(c => c.class === CardClass.ExplodingCluster);
     const upgradeClusters = deck.filter(c => c.class === CardClass.UpgradeCluster);
     const debugCards = deck.filter(c => c.class === CardClass.Debug);
@@ -929,7 +933,7 @@ export class GameManager {
 
     // Collect distinct DEVELOPER card names
     const devCardNames: string[] = [];
-    const allDeveloperCards = fullDeck.filter(c => c.class === CardClass.Developer); // Use fullDeck to get all possible names
+    const allDeveloperCards = deck.filter(c => c.class === CardClass.Developer);
     for (const card of allDeveloperCards) {
       if (!devCardNames.includes(card.name)) {
         devCardNames.push(card.name);
@@ -938,7 +942,7 @@ export class GameManager {
 
     // Ensure we have enough distinct developer types for the scenario
     if (devCardNames.length < 4) {
-      this.log(game, `DEVMODE: Not enough distinct DEVELOPER card types in fullDeck for 3+ player setup. Found: ${devCardNames.length}`);
+      this.log(game, `DEVMODE: Not enough distinct DEVELOPER card types in deck for 3+ player setup. Found: ${devCardNames.length}`);
       // Fallback to default dealing if not enough distinct developer types, or simpler devmode hands.
       // For now, we proceed with available names, which might lead to non-ideal devmode hands.
     }
@@ -1606,6 +1610,7 @@ export class GameManager {
   }
 
   private playDebugCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+    this.setTurnPhase(game, TurnPhase.ExplodingReinserting);
     this.msgToAllPlayers(game.code, `${player.name}'s cluster almost exploded, but they debugged it!`);
     return undefined;
   }
@@ -1699,6 +1704,7 @@ export class GameManager {
             if (v && v.hand.length > 0) {
               const randIdx = Math.floor(this.prng.random() * v.hand.length);
               resolve(v.hand[randIdx].id);
+              this.msgToPlayer(v.socketId, "Too slow! A random card was chosen for you.");
             } else {
               resolve("");
             }
@@ -1947,9 +1953,13 @@ export class GameManager {
           new Promise<number>(resolve => { _g.developerResolver = resolve; }),
           new Promise<number>(resolve => {
               timeoutHandle = setTimeout(() => {
-                  const v = _g.players.find(p => p.id === victimId);
-                  if (v) resolve(Math.floor(this.prng.random() * v.hand.length));
-                  else resolve(-1);
+                const v = _g.players.find(p => p.id === victimId);
+                if (v) {
+                  resolve(Math.floor(this.prng.random() * v.hand.length));
+                  this.msgToPlayer(v.socketId, "Too slow! A random card was chosen for you.");
+                } else {
+                  resolve(-1);
+                }
               }, config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS);
           })
       ]);
@@ -2029,41 +2039,41 @@ export class GameManager {
         });
 
         // Also check discard pile if we are in Exploding phase (since we moved the card there)
-        if (game.turnPhase === TurnPhase.Exploding) {
-             // Find from end (most recent)
-             let explodingIndex = -1;
-             for (let i = game.discardPile.length - 1; i >= 0; i--) {
-                if (game.discardPile[i].class === CardClass.ExplodingCluster) {
-                    explodingIndex = i;
-                    break;
-                }
-             }
-             if (explodingIndex !== -1) {
-                 const [card] = game.discardPile.splice(explodingIndex, 1);
-                 const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
-                 game.drawPile.splice(insertIndex, 0, card);
-                 this.log(game, `reinserted ${card.name} (${card.class}) from discard at index ${insertIndex} due to disconnect`);
-             }
-             // Reset phase
-             this.setTurnPhase(game, TurnPhase.Action);
+        if (game.turnPhase === TurnPhase.Exploding || game.turnPhase === TurnPhase.ExplodingReinserting) {
+          // Find from end (most recent)
+          let explodingIndex = -1;
+          for (let i = game.discardPile.length - 1; i >= 0; i--) {
+            if (game.discardPile[i].class === CardClass.ExplodingCluster) {
+              explodingIndex = i;
+              break;
+            }
+          }
+          if (explodingIndex !== -1) {
+            const [card] = game.discardPile.splice(explodingIndex, 1);
+            const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
+            game.drawPile.splice(insertIndex, 0, card);
+            this.log(game, `reinserted ${card.name} (${card.class}) from discard at index ${insertIndex} due to disconnect`);
+          }
+          // Reset phase
+          this.setTurnPhase(game, TurnPhase.Action);
         }
         // Handle Upgrade Cluster in discard on disconnect
         else if (game.turnPhase === TurnPhase.Upgrading) {
-             let upgradeIndex = -1;
-             for (let i = game.discardPile.length - 1; i >= 0; i--) {
-                if (game.discardPile[i].class === CardClass.UpgradeCluster) {
-                    upgradeIndex = i;
-                    break;
-                }
-             }
-             if (upgradeIndex !== -1) {
-                 const [card] = game.discardPile.splice(upgradeIndex, 1);
-                 card.isFaceUp = true; // Re-insert face-up
-                 const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
-                 game.drawPile.splice(insertIndex, 0, card);
-                 this.log(game, `reinserted ${card.name} (${card.class}) from discard (face-up) at index ${insertIndex} due to disconnect`);
-             }
-             this.setTurnPhase(game, TurnPhase.Action); // Reset phase
+          let upgradeIndex = -1;
+          for (let i = game.discardPile.length - 1; i >= 0; i--) {
+            if (game.discardPile[i].class === CardClass.UpgradeCluster) {
+              upgradeIndex = i;
+              break;
+            }
+          }
+          if (upgradeIndex !== -1) {
+            const [card] = game.discardPile.splice(upgradeIndex, 1);
+            card.isFaceUp = true; // Re-insert face-up
+            const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
+            game.drawPile.splice(insertIndex, 0, card);
+            this.log(game, `reinserted ${card.name} (${card.class}) from discard (face-up) at index ${insertIndex} due to disconnect`);
+          }
+          this.setTurnPhase(game, TurnPhase.Action); // Reset phase
         }
 
         // Move remaining hand to removedPile
@@ -2286,7 +2296,7 @@ export class GameManager {
       return;
     }
     const [card] = game.discardPile.splice(cardIndex, 1);
-    card.isFaceUp = true; // Mark as face up!
+    card.isFaceUp = true;
 
     // 0 is top (end of array), N is bottom (start of array)
     const insertIndex = game.drawPile.length - index;
@@ -2297,6 +2307,7 @@ export class GameManager {
     }
 
     this.log(game, `player "${player.name}" reinserted UPGRADE CLUSTER (face-up) at index ${insertIndex} (user input ${index})`);
+    this.msgToAllPlayers(game.code, `${player.name} has hidden the UPGRADE CLUSTER card in the deck.`);
 
     // Reset phase to Action (for next player or current player if more turns)
     this.setTurnPhase(game, TurnPhase.Action);
@@ -2402,9 +2413,9 @@ export class GameManager {
       return;
     }
 
-    if (game.turnPhase !== TurnPhase.Exploding) {
+    if (game.turnPhase !== TurnPhase.ExplodingReinserting) {
       this.log(game, `reinsertExplodingCard event from player "${player?.name}": wrong phase (${game.turnPhase})`);
-      this.msgToPlayer(socket.id, "Turn phase is not ${TurnPhase.Exploding}");
+      this.msgToPlayer(socket.id, `Turn phase is not ${TurnPhase.ExplodingReinserting}`);
       return;
     }
 
@@ -2444,6 +2455,7 @@ export class GameManager {
     }
 
     this.log(game, `player "${player.name}" reinserted EXPLODING CLUSTER at index ${insertIndex} (user input ${index})`);
+    this.msgToAllPlayers(game.code, `${player.name} has hidden the EXPLODING CLUSTER card in the deck.`);
 
     // Reset phase to Action (for next player or current player if more turns)
     this.setTurnPhase(game, TurnPhase.Action);

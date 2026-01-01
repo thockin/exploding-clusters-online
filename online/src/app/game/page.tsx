@@ -168,12 +168,11 @@ export default function GameScreen() {
   }, [explodingCard]);
 
   useEffect(() => {
-    // Detect if we are in Exploding phase and need to show Insertion Modal
-    if (gameState?.turnPhase === TurnPhase.Exploding) {
+    // Detect if we are in ExplodingReinserting phase and need to show Insertion Modal
+    if (gameState?.turnPhase === TurnPhase.ExplodingReinserting) {
       const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
       if (currentPlayerId === playerId) {
-        const hasDebug = myHand.some(c => c.class === CardClass.Debug);
-        if (!hasDebug && !explodingReinsertModal && !inspectCardOverlay) {
+        if (!explodingReinsertModal) {
            setExplodingReinsertModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
         }
       }
@@ -187,7 +186,7 @@ export default function GameScreen() {
     if (gameState?.turnPhase === TurnPhase.Upgrading) {
       const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
       if (currentPlayerId === playerId) {
-        if (!upgradeReinsertModal && !inspectCardOverlay) {
+        if (!upgradeReinsertModal) {
            setUpgradeReinsertModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
         }
       }
@@ -399,6 +398,8 @@ export default function GameScreen() {
         return false;
       case TurnPhase.Exploding:
         // Handled above (DEBUG only)
+        return false;
+      case TurnPhase.ExplodingReinserting:
         return false;
       case TurnPhase.SeeingTheFuture:
         // Block all players from playing cards while one player is seeing the future
@@ -1074,7 +1075,7 @@ export default function GameScreen() {
       const nextPlayer = gameState.players.find(p => p.id === nextPlayerId);
 
       if (me.id === currentPlayerId) {
-        if (gameState.turnPhase === TurnPhase.Exploding) {
+        if (gameState.turnPhase === TurnPhase.Exploding || gameState.turnPhase === TurnPhase.ExplodingReinserting) {
           turnStatus = `Your cluster is exploding - debug it!`;
           turnStatusBgColor = 'red';
           turnStatusColor = 'white';
@@ -1274,16 +1275,13 @@ export default function GameScreen() {
 
   // Determine which card to show in overlay: Drawing card takes precedence over inspection
   let activeOverlayCard = inspectCardOverlay;
-  if ((gameState?.turnPhase === TurnPhase.Exploding || gameState?.turnPhase === TurnPhase.Upgrading) && gameState?.overlayCard) {
+  if ((gameState?.turnPhase === TurnPhase.Exploding || gameState?.turnPhase === TurnPhase.ExplodingReinserting || gameState?.turnPhase === TurnPhase.Upgrading) && gameState?.overlayCard) {
     // Only show persistent overlay for players who are NOT the active player
     // AND suppress it if animation is active (so they see the animation instead)
     if (gameState.turnOrder[gameState.currentTurnIndex] !== playerId && !drawingAnimation?.active) {
       activeOverlayCard = gameState.overlayCard;
     }
   }
-
-  // Game play is paused - block dismiss if drawing
-  const isDrawingPause = !!drawingAnimation?.active;
 
   return (
     <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart} onDragUpdate={onDragUpdate}>
@@ -1299,11 +1297,8 @@ export default function GameScreen() {
               zIndex: 1000,
             }}
             onClick={() => {
-              if (isDrawingPause) {
-                setDrawingAnimation(null);
-              } else {
-                setInspectCardOverlay(null);
-              }
+              setDrawingAnimation(null);
+              setInspectCardOverlay(null);
             }}
           >
             <Image src={activeOverlayCard.imageUrl}
@@ -1640,7 +1635,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="upgrade-reinsert"
-          show={!!upgradeReinsertModal?.show}
+          show={!!upgradeReinsertModal?.show && !inspectCardOverlay}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
@@ -1685,7 +1680,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="exploding-reinsert"
-          show={!!explodingReinsertModal?.show}
+          show={!!explodingReinsertModal?.show && !inspectCardOverlay}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
