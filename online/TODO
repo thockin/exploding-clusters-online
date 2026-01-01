@@ -1,7 +1,7 @@
 Phase 5:
-* s/duration/timeout for server-side implemented timeouts
 * get rid of "show" or "active" on most modals?
 * rename game timer/timerDuration - is it only reactionTimer?
+* Change mouse cursor when deck is not clickable (not your turn)
 
 tests
  - more helpers
@@ -14,7 +14,6 @@ tests
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
 
 Later:
-* Change mouse cursor when deck is not clickable (not your turn)
 * document state-machine
   * Rename TurnPhase to TurnState ?
 * Play-card animation (important when playing the same card)

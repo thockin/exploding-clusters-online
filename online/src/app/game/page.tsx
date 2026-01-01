@@ -206,20 +206,20 @@ export default function GameScreen() {
           setReplayModal({ show: true, ...data });
         };
 
-    const onSeeTheFutureData = (data: { cards: Card[], maxDuration?: number }) => {
+    const onSeeTheFutureData = (data: { cards: Card[], timeout?: number }) => {
       setSeeTheFutureCards(data.cards);
-      // The server SHOULD tell us the max duration we can delay the game,
-      const maxDuration = data.maxDuration || 2000;
+      // The server SHOULD tell us the max time we can delay the game,
+      const timeout = data.timeout || 2000;
       setTimeout(() => {
         setSeeTheFutureCards(null);
         if (socket && gameCode) {
           socket.emit(SocketEvent.DismissSeeTheFuture, gameCode); // Auto-dismiss triggers server dismiss
         }
-      }, maxDuration);
+      }, timeout);
     };
 
-    const onChooseFavorCard = (data: { show: boolean, stealerName?: string, duration: number }) => {
-      setChoiceCountdown(Math.ceil(data.duration / 1000));
+    const onChooseFavorCard = (data: { show: boolean, stealerName?: string, timeout: number }) => {
+      setChoiceCountdown(Math.ceil(data.timeout / 1000));
       setFavorCardChoiceModal({ show: true, stealerName: data.stealerName });
     };
 
@@ -228,8 +228,8 @@ export default function GameScreen() {
       setTimeout(() => setFavorResultCardOverlay(null), CARD_DISMISS_TIMEOUT_MS);
     };
 
-    const onChooseStealCard = (data: { victimName: string, handCount: number, duration: number }) => {
-        setChoiceCountdown(Math.ceil(data.duration / 1000));
+    const onChooseStealCard = (data: { victimName: string, handCount: number, timeout: number }) => {
+        setChoiceCountdown(Math.ceil(data.timeout / 1000));
         setStealCardChoiceModal({ show: true, handSize: data.handCount, victimName: data.victimName });
     };
 

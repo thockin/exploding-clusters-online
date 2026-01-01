@@ -1154,7 +1154,8 @@ export class GameManager {
       game.drawCount++;
       this.log(game, `player "${player.name}" drew ${card.class} ("${card.name}"), draw=${game.drawCount}`);
 
-      // Empirical - not too fast, not too slow
+      // This duration gives clients a moment to do an animation before
+      // updating the "whose turn is it" indicator.
       const duration = config.goFast ? 500 : 2000;
 
       // Determine next card image (for client-side use)
@@ -1690,8 +1691,10 @@ export class GameManager {
 
       this.setTurnPhase(_g, TurnPhase.ChoosingFavorCard);
       this.updateGameNonce(_g, player.name); // Notify clients of phase change
-      const duration = config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS;
-      this.emitToSocket(currentVictim.socketId, SocketEvent.ChooseFavorCard, {stealerName: player.name, duration: duration});
+      // This timeout defines how long the victim has to choose a card before
+      // we choose one for them.
+      const timeout = config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS;
+      this.emitToSocket(currentVictim.socketId, SocketEvent.ChooseFavorCard, {stealerName: player.name, timeout: timeout});
 
       const cardId = await Promise.race([
         new Promise<string>(resolve => {
@@ -1708,7 +1711,7 @@ export class GameManager {
             } else {
               resolve("");
             }
-          }, duration);
+          }, timeout);
         })
       ]);
       _g.favorResolver = undefined;
@@ -1742,11 +1745,11 @@ export class GameManager {
       // Retrieve top 3 cards without removing them
       const top3Cards = _g.drawPile.slice(Math.max(0, _g.drawPile.length - 3)).reverse();
 
-      // This is the max that the player can delay the game.
-      const maxDuration = config.goFast ? FAST_DELAY_TIMEOUT_MS : DELAY_TIMEOUT_MS;
+      // This timeout is the max that the player can delay the game.
+      const timeout = config.goFast ? FAST_DELAY_TIMEOUT_MS : DELAY_TIMEOUT_MS;
 
       // Send to player who played card
-      this.emitToSocket(player.socketId, SocketEvent.SeeTheFutureData, { cards: top3Cards, maxDuration: maxDuration });
+      this.emitToSocket(player.socketId, SocketEvent.SeeTheFutureData, { cards: top3Cards, timeout: timeout });
       this.log(_g, `player "${player.name}" saw the future`);
       this.msgToAllPlayers(_g.code, `${player.name} saw the future.`);
 
@@ -1764,7 +1767,7 @@ export class GameManager {
             _g.seeTheFutureResolver = undefined;
           }
           _g.timer = null;
-        }, maxDuration);
+        }, timeout);
       });
     }
   }
@@ -1944,9 +1947,10 @@ export class GameManager {
       this.setTurnPhase(_g, TurnPhase.ChoosingDeveloperCard);
       this.updateGameNonce(_g, player.name); // Notify clients of phase change
 
-      // Ask requester to choose index
-      const duration = config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS;
-      this.emitToSocket(player.socketId, SocketEvent.ChooseStealCard, { victimName: currentVictim.name, handCount: currentVictim.hand.length, duration: duration });
+      // This timeout defines how long the requester has to choose a card before
+      // we choose one for them.
+      const timeout = config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS;
+      this.emitToSocket(player.socketId, SocketEvent.ChooseStealCard, { victimName: currentVictim.name, handCount: currentVictim.hand.length, timeout: timeout });
 
       // Wait for response (index)
       let timeoutHandle: NodeJS.Timeout;
@@ -1961,7 +1965,7 @@ export class GameManager {
                 } else {
                   resolve(-1);
                 }
-              }, duration);
+              }, timeout);
           })
       ]);
       clearTimeout(timeoutHandle!);
