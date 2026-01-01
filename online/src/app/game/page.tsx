@@ -304,8 +304,7 @@ export default function GameScreen() {
         setInspectCardOverlay(null);
         setDeckCardsOverlay(null);
         setRemovedCardsOverlay(null);
-        setDrawingAnimation(null); // Clear drawing animation on Escape
-        setSeeTheFutureCards(null); // Clear See The Future overlay on Escape
+        setSeeTheFutureCards(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -1300,7 +1299,7 @@ export default function GameScreen() {
               zIndex: 1000,
             }}
             onClick={() => {
-              setDrawingAnimation(null);
+              if (drawingAnimation?.active) return; // can't cancel the animation
               setInspectCardOverlay(null);
             }}
           >

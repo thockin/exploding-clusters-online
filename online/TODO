@@ -1,7 +1,7 @@
 Phase 5:
 * change DrawCardAnimation to take all draw state in the payload
+* s/duration/timeout for server-side implemented timeouts
 * get rid of "show" on most modals?
-* Don't allow <escape> on hand-animation?
 
 tests
  - more helpers
