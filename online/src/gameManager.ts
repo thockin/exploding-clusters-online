@@ -2271,7 +2271,7 @@ export class GameManager {
 
     if (game.turnPhase !== TurnPhase.Upgrading) {
       this.log(game, `reinsertUpgradeCard event from player "${player?.name}": wrong phase (${game.turnPhase})`);
-      this.msgToPlayer(socket.id, "Turn phase is not ${TurnPhase.Upgrading}");
+      this.msgToPlayer(socket.id, "Turn phase is not ${TurnPhase.Upgrading}!");
       return;
     }
 
@@ -2312,7 +2312,7 @@ export class GameManager {
     }
 
     this.log(game, `player "${player.name}" reinserted UPGRADE CLUSTER (face-up) at index ${insertIndex} (user input ${index})`);
-    this.msgToAllPlayers(game.code, `${player.name} has hidden the UPGRADE CLUSTER card in the deck.`);
+    this.msgToAllPlayers(game.code, `${player.name} has hidden the UPGRADE CLUSTER card back in the deck.`);
 
     // Reset phase to Action (for next player or current player if more turns)
     this.setTurnPhase(game, TurnPhase.Action);
@@ -2420,7 +2420,7 @@ export class GameManager {
 
     if (game.turnPhase !== TurnPhase.ExplodingReinserting) {
       this.log(game, `reinsertExplodingCard event from player "${player?.name}": wrong phase (${game.turnPhase})`);
-      this.msgToPlayer(socket.id, `Turn phase is not ${TurnPhase.ExplodingReinserting}`);
+      this.msgToPlayer(socket.id, `Turn phase is not ${TurnPhase.ExplodingReinserting}!`);
       return;
     }
 
@@ -2460,7 +2460,7 @@ export class GameManager {
     }
 
     this.log(game, `player "${player.name}" reinserted EXPLODING CLUSTER at index ${insertIndex} (user input ${index})`);
-    this.msgToAllPlayers(game.code, `${player.name} has hidden the EXPLODING CLUSTER card in the deck.`);
+    this.msgToAllPlayers(game.code, `${player.name} has hidden the EXPLODING CLUSTER card back in the deck.`);
 
     // Reset phase to Action (for next player or current player if more turns)
     this.setTurnPhase(game, TurnPhase.Action);
