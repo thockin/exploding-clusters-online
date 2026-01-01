@@ -46,18 +46,18 @@ export default function GameScreen() {
   const clickStartPosRef = useRef({ x: 0, y: 0 });
   const dragStartNonceRef = useRef<string>('');
   const isShiftKeyPressed = useRef(false);
-  const [drawingAnimation, setDrawingAnimation] = useState<{ active: boolean, card?: Card, playerId?: string, duration?: number, nextCardImageUrl?: string, currentPileImageUrl?: string } | null>(null);
-  const [replayModal, setReplayModal] = useState<{ show: boolean, reason: string, cardId?: string, cardIds?: string[] } | null>(null);
-  const [explodingReinsertModal, setExplodingReinsertModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
-  const [upgradeReinsertModal, setUpgradeReinsertModal] = useState<{ show: boolean, maxIndex: number } | null>(null);
+  const [drawingAnimation, setDrawingAnimation] = useState<{ card?: Card, playerId?: string, duration?: number, nextCardImageUrl?: string, currentPileImageUrl?: string } | null>(null);
+  const [replayModal, setReplayModal] = useState<{ reason: string, cardId?: string, cardIds?: string[] } | null>(null);
+  const [explodingReinsertModal, setExplodingReinsertModal] = useState<{ maxIndex: number } | null>(null);
+  const [upgradeReinsertModal, setUpgradeReinsertModal] = useState<{ boolean, maxIndex: number } | null>(null);
   const [reinsertIndex, setInsertionIndex] = useState<string | number>(0);
   const [seeTheFutureCards, setSeeTheFutureCards] = useState<Card[] | null>(null);
   const [favorVictimModalOpen, setFavorVictimModalOpen] = useState(false);
   const [favorVictimSelection, setFavorVictimSelection] = useState<string | null>(null);
-  const [favorCardChoiceModal, setFavorCardChoiceModal] = useState<{ show: boolean, stealerName?: string } | null>(null);
+  const [favorCardChoiceModal, setFavorCardChoiceModal] = useState<{ stealerName?: string } | null>(null);
   const [favorResultCardOverlay, setFavorResultCardOverlay] = useState<Card | null>(null);
   const [stealCardVictimModalOpen, setStealCardVictimModalOpen] = useState(false);
-  const [stealCardChoiceModal, setStealCardChoiceModal] = useState<{ show: boolean, handSize: number, victimName?: string } | null>(null);
+  const [stealCardChoiceModal, setStealCardChoiceModal] = useState<{ handSize: number, victimName?: string } | null>(null);
   const [stealCardResultOverlay, setStealCardResultOverlay] = useState<Card | null>(null);
   const [noPossibleVictimModalOpen, setNoPossibleVictimModalOpen] = useState(false);
   const [hostPromotionModal, setHostPromotionModal] = useState<string | null>(null);
@@ -87,7 +87,7 @@ export default function GameScreen() {
   }, []);
 
   useEffect(() => {
-    if (favorCardChoiceModal?.show) {
+    if (favorCardChoiceModal) {
       // Don't set choiceCountdown here, use the value from the event handler
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
@@ -174,7 +174,7 @@ export default function GameScreen() {
       const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
       if (currentPlayerId === playerId) {
         if (!explodingReinsertModal) {
-           setExplodingReinsertModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
+           setExplodingReinsertModal({ maxIndex: gameState.drawPileCount || 50 });
         }
       }
     } else {
@@ -188,7 +188,7 @@ export default function GameScreen() {
       const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
       if (currentPlayerId === playerId) {
         if (!upgradeReinsertModal) {
-           setUpgradeReinsertModal({ show: true, maxIndex: gameState.drawPileCount || 50 });
+           setUpgradeReinsertModal({ maxIndex: gameState.drawPileCount || 50 });
         }
       }
     } else {
@@ -203,7 +203,7 @@ export default function GameScreen() {
     const onRemovedData = ({ removedPile }: { removedPile: Card[] }) => setRemovedCardsOverlay(removedPile);
     const onPlayerExploding = ({ card }: { card: Card }) => setExplodingCard(card);
         const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
-          setReplayModal({ show: true, ...data });
+          setReplayModal(data); // use data directly
         };
 
     const onSeeTheFutureData = (data: { cards: Card[], timeout?: number }) => {
@@ -218,9 +218,9 @@ export default function GameScreen() {
       }, timeout);
     };
 
-    const onChooseFavorCard = (data: { show: boolean, stealerName?: string, timeout: number }) => {
+    const onChooseFavorCard = (data: { stealerName?: string, timeout: number }) => {
       setChoiceCountdown(Math.ceil(data.timeout / 1000));
-      setFavorCardChoiceModal({ show: true, stealerName: data.stealerName });
+      setFavorCardChoiceModal({ stealerName: data.stealerName });
     };
 
     const onFavorResult = (data: { card: Card }) => {
@@ -230,7 +230,7 @@ export default function GameScreen() {
 
     const onChooseStealCard = (data: { victimName: string, handCount: number, timeout: number }) => {
         setChoiceCountdown(Math.ceil(data.timeout / 1000));
-        setStealCardChoiceModal({ show: true, handSize: data.handCount, victimName: data.victimName });
+        setStealCardChoiceModal({ handSize: data.handCount, victimName: data.victimName });
     };
 
     const onStealResult = (data: { card: Card }) => {
@@ -687,7 +687,7 @@ export default function GameScreen() {
       return;
     }
 
-    if (drawingAnimation?.active) {
+    if (drawingAnimation) {
       console.debug("Cannot draw: animation is active");
       return;
     }
@@ -714,7 +714,7 @@ export default function GameScreen() {
       const currentPileImageUrl = gameStateRef.current?.drawPileImage || "/art/back.png";
 
       // Start the animation to run for duration
-      setDrawingAnimation({ active: true, card: data.card, playerId: data.drawingPlayerId, duration: data.duration, nextCardImageUrl: data.nextCardImageUrl, currentPileImageUrl });
+      setDrawingAnimation({ card: data.card, playerId: data.drawingPlayerId, duration: data.duration, nextCardImageUrl: data.nextCardImageUrl, currentPileImageUrl });
 
       // Clear animation after duration
       setTimeout(() => {
@@ -981,7 +981,7 @@ export default function GameScreen() {
   };
 
   const onDragStart = (start: DragStart) => {
-    if (drawingAnimation?.active) return;
+    if (drawingAnimation) return;
 
     isDraggingRef.current = true;
     setIsDragging(true);
@@ -1182,7 +1182,7 @@ export default function GameScreen() {
                 }}
               >
                 {rowCards.map((card, index) => (
-                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!!drawingAnimation?.active}>
+                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!!drawingAnimation}>
                     {(providedDraggable, snapshot) => {
                       const isSelected = selectedCards.some(sc => sc.id === card.id);
                       const shouldHide = isDragging && isSelected && !snapshot.isDragging;
@@ -1275,13 +1275,15 @@ export default function GameScreen() {
 
   const isSpectator = gameState && !gameState.players.some(p => p.id === playerId);
 
-  // Determine which card to show in overlay: Drawing card takes precedence over inspection
+  // Determine which card to show in overlay
   let activeOverlayCard = inspectCardOverlay;
-  if ((gameState?.turnPhase === TurnPhase.Exploding || gameState?.turnPhase === TurnPhase.ExplodingReinserting || gameState?.turnPhase === TurnPhase.Upgrading) && gameState?.overlayCard) {
-    // Only show persistent overlay for players who are NOT the active player
-    // AND suppress it if animation is active (so they see the animation instead)
-    if (gameState.turnOrder[gameState.currentTurnIndex] !== playerId && !drawingAnimation?.active) {
-      activeOverlayCard = gameState.overlayCard;
+  if (gameState?.turnPhase === TurnPhase.Exploding || gameState?.turnPhase === TurnPhase.ExplodingReinserting || gameState?.turnPhase === TurnPhase.Upgrading) {
+    if (gameState?.playBlockingCard) {
+      // Only show persistent overlay for players who are NOT the current player
+      // AND suppress it if animation is in progress (so they see the animation instead)
+      if (gameState.turnOrder[gameState.currentTurnIndex] !== playerId && !drawingAnimation) {
+        activeOverlayCard = gameState.playBlockingCard;
+      }
     }
   }
 
@@ -1299,7 +1301,7 @@ export default function GameScreen() {
               zIndex: 1000,
             }}
             onClick={() => {
-              if (drawingAnimation?.active) return; // can't cancel the animation
+              if (drawingAnimation) return; // can't cancel the animation
               setInspectCardOverlay(null);
             }}
           >
@@ -1439,13 +1441,13 @@ export default function GameScreen() {
                   onClick={handleDrawClick}
                 >
                   <Image
-                    src={(drawingAnimation?.active && drawingAnimation.nextCardImageUrl) || gameState?.drawPileImage || "/art/back.png"}
+                    src={drawingAnimation?.nextCardImageUrl || gameState?.drawPileImage || "/art/back.png"}
                     alt={`Draw Pile: ${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
                     data-cardclass={gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'UNKNOWN'}
                     width={getCardSize().width}
                     height={getCardSize().height} />
 
-                  {(drawingAnimation?.active) && (
+                  {drawingAnimation && (
                     <div className="static-card-vanish" style={{ animationDuration: `${drawingAnimation.duration}ms` }}>
                        <Image
                          src={drawingAnimation.currentPileImageUrl || "/art/back.png"}
@@ -1455,7 +1457,7 @@ export default function GameScreen() {
                     </div>
                   )}
 
-                  {(drawingAnimation?.active) && (
+                  {drawingAnimation && (
                     <div className="hand-animation" style={{
                       animation: `${drawingAnimation.card ? 'drawCardSelf' : 'drawCard'} ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 4}s ease-in-out forwards`,
                       transform: `translateX(-50%) ${drawingAnimation.card ? 'rotate(180deg)' : ''}`
@@ -1603,7 +1605,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="leave-game"
-          show={showLeaveGameModal}
+          show={!!showLeaveGameModal}
           onHide={() => setShowLeaveGameModal(false)}
         >
           <Modal.Header closeButton>
@@ -1620,7 +1622,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="retry-play"
-          show={!!replayModal?.show}
+          show={!!replayModal}
           onHide={() => setReplayModal(null)}
         >
           <Modal.Header closeButton>
@@ -1637,7 +1639,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="upgrade-reinsert"
-          show={!!upgradeReinsertModal?.show && !inspectCardOverlay}
+          show={!!upgradeReinsertModal && !inspectCardOverlay}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
@@ -1683,7 +1685,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="exploding-reinsert"
-          show={!!explodingReinsertModal?.show && !inspectCardOverlay}
+          show={!!explodingReinsertModal && !inspectCardOverlay}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
@@ -1757,7 +1759,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="favor-choose-victim"
-          show={favorVictimModalOpen}
+          show={!!favorVictimModalOpen}
           onHide={() => setFavorVictimModalOpen(false)}
           backdrop="static"
           keyboard={false}
@@ -1796,7 +1798,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="favor-choose-card"
-          show={!!favorCardChoiceModal?.show}
+          show={!!favorCardChoiceModal}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
@@ -1854,7 +1856,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="steal-choose-victim"
-          show={stealCardVictimModalOpen}
+          show={!!stealCardVictimModalOpen}
           onHide={() => setStealCardVictimModalOpen(false)}
           backdrop="static"
           keyboard={false}
@@ -1892,7 +1894,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="steal-choose-card"
-          show={!!stealCardChoiceModal?.show}
+          show={!!stealCardChoiceModal}
           onHide={() => {}}
           backdrop="static"
           keyboard={false}
@@ -1957,7 +1959,7 @@ export default function GameScreen() {
 
         <Modal
           data-modalname="victim-has-no-cards"
-          show={noPossibleVictimModalOpen}
+          show={!!noPossibleVictimModalOpen}
           onHide={() => setNoPossibleVictimModalOpen(false)}
           centered
         >

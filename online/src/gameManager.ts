@@ -384,13 +384,13 @@ export class GameManager {
       topDrawPileCard = topDrawCard;
     }
 
-    let overlayCard: Card | undefined;
+    let playBlockingCard: Card | undefined;
     if (game.turnPhase === TurnPhase.Exploding || game.turnPhase === TurnPhase.ExplodingReinserting) {
       // Find the most recent EXPLODING_CLUSTER in discard pile (it might be under a DEBUG card)
       // Search from end (top)
       for (let i = game.discardPile.length - 1; i >= 0; i--) {
         if (game.discardPile[i].class === CardClass.ExplodingCluster) {
-          overlayCard = game.discardPile[i];
+          playBlockingCard = game.discardPile[i];
           break;
         }
       }
@@ -398,7 +398,7 @@ export class GameManager {
       // Find the most recent UPGRADE_CLUSTER in discard pile
       for (let i = game.discardPile.length - 1; i >= 0; i--) {
         if (game.discardPile[i].class === CardClass.UpgradeCluster) {
-          overlayCard = game.discardPile[i];
+          playBlockingCard = game.discardPile[i];
           break;
         }
       }
@@ -420,7 +420,7 @@ export class GameManager {
       attackTurns: game.attackTurns,
       attackTurnsTaken: game.attackTurnsTaken,
       lastActorName: game.lastActorName,
-      overlayCard,
+      playBlockingCard,
       timerDuration: game.timerDuration,
       topDiscardCard: topDiscardCard, // Always send top card for rendering
       drawPileImage: drawPileImage,

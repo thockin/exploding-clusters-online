@@ -1,5 +1,4 @@
 Phase 5:
-* get rid of "show" or "active" on most modals?
 * rename game timer/timerDuration - is it only reactionTimer?
 * Change mouse cursor when deck is not clickable (not your turn)
 

@@ -115,7 +115,7 @@ export interface GameUpdatePayload {
   attackTurns: number;
   attackTurnsTaken: number;
   lastActorName?: string;
-  overlayCard?: Card;        // If an overlay needs to be shown
+  playBlockingCard?: Card;   // If play is blocked (e.g. EXPLODING)
   timerDuration?: number;    // Seconds remaining on the timer
   topDiscardCard?: Card;     // optional (may be no discarded cards)
   drawPileImage?: string;    // Image to show for the draw pile
