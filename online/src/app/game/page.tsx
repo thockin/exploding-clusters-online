@@ -171,8 +171,8 @@ export default function GameScreen() {
   useEffect(() => {
     // Detect if we are in ExplodingReinserting phase and need to show Insertion Modal
     if (gameState?.turnPhase === TurnPhase.ExplodingReinserting) {
-      const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
-      if (currentPlayerId === playerId) {
+      const currentPlayer = gameState.players[gameState.currentPlayer];
+      if (currentPlayer?.id === playerId) {
         if (!explodingReinsertModal) {
            setExplodingReinsertModal({ maxIndex: gameState.drawPileCount || 50 });
         }
@@ -185,8 +185,8 @@ export default function GameScreen() {
   useEffect(() => {
     // Detect if we are in Upgrading phase and need to show Insertion Modal
     if (gameState?.turnPhase === TurnPhase.Upgrading) {
-      const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
-      if (currentPlayerId === playerId) {
+      const currentPlayer = gameState.players[gameState.currentPlayer];
+      if (currentPlayer?.id === playerId) {
         if (!upgradeReinsertModal) {
            setUpgradeReinsertModal({ maxIndex: gameState.drawPileCount || 50 });
         }
@@ -366,8 +366,8 @@ export default function GameScreen() {
 
   const isCardPlayable = useCallback((card: Card) => {
     if (!gameState || !playerId) return false;
-    const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
-    const isMyTurn = currentPlayerId === playerId;
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    const isMyTurn = currentPlayer?.id === playerId;
     const isNowCard = !!card.now;
 
     // Developer Card Logic: Must have at least 2 identical cards to be playable (as a pair)
@@ -692,8 +692,8 @@ export default function GameScreen() {
       return;
     }
 
-    const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
-    if (currentPlayerId !== playerId) {
+    const currentPlayer = gameState.players[gameState.currentPlayer];
+    if (currentPlayer?.id !== playerId) {
       console.log("Cannot draw: not your turn");
       return;
     }
@@ -1027,8 +1027,7 @@ export default function GameScreen() {
   }
 
   const me = gameState.players.find(p => p.id === playerId);
-  const currentPlayerId = gameState.turnOrder[gameState.currentTurnIndex];
-  const currentPlayer = gameState.players.find(p => p.id === currentPlayerId);
+  const currentPlayer = gameState.players[gameState.currentPlayer];
 
   const getEnlargedCardSize = () => {
     const maxHeight = windowHeight * 0.9;
@@ -1044,7 +1043,7 @@ export default function GameScreen() {
 
   const getPlayerClassName = (player: Player) => {
     let className = '';
-    if (player.id === currentPlayerId) className += 'bg-success-subtle';
+    if (player.id === currentPlayer?.id) className += 'bg-success-subtle';
     if (player.isOut) className += ' text-decoration-line-through text-muted';
     if (player.isDisconnected) className += ' text-muted opacity-50';
     return className.trim();
@@ -1062,21 +1061,20 @@ export default function GameScreen() {
       turnStatusBgColor = 'lightcoral';
     } else {
       // Find the next VALID player (skip eliminated/disconnected)
-      let nextTurnIndex = (gameState.currentTurnIndex + 1) % gameState.turnOrder.length;
-      let nextPlayerId = gameState.turnOrder[nextTurnIndex];
+      let nextPlayerIndex = (gameState.currentPlayer + 1) % gameState.players.length;
+      let nextPlayer = gameState.players[nextPlayerIndex];
 
-      for (let i = 0; i < gameState.turnOrder.length; i++) {
-         const candidateId = gameState.turnOrder[nextTurnIndex];
-         const candidate = gameState.players.find(p => p.id === candidateId);
-         if (candidate && !candidate.isOut && !candidate.isDisconnected) {
-             nextPlayerId = candidateId;
+      let attempts = 0;
+      while (attempts < gameState.players.length) {
+         if (!nextPlayer.isOut && !nextPlayer.isDisconnected) {
              break;
          }
-         nextTurnIndex = (nextTurnIndex + 1) % gameState.turnOrder.length;
+         nextPlayerIndex = (nextPlayerIndex + 1) % gameState.players.length;
+         nextPlayer = gameState.players[nextPlayerIndex];
+         attempts++;
       }
-      const nextPlayer = gameState.players.find(p => p.id === nextPlayerId);
 
-      if (me.id === currentPlayerId) {
+      if (me.id === currentPlayer.id) {
         if (gameState.turnPhase === TurnPhase.Exploding || gameState.turnPhase === TurnPhase.ExplodingReinserting) {
           turnStatus = `Your cluster is exploding - debug it!`;
           turnStatusBgColor = 'red';
@@ -1092,7 +1090,7 @@ export default function GameScreen() {
           turnStatusBgColor = 'lightgreen';
           turnStatusColor = 'black'; // Default
         }
-      } else if (me.id === nextPlayerId) {
+      } else if (me.id === nextPlayer.id) {
         turnStatus = `It's ${currentPlayer.name}'s turn, your turn is next`;
         turnStatusBgColor = '#FFD580'; // light orange
       } else {
@@ -1277,11 +1275,12 @@ export default function GameScreen() {
 
   // Determine which card to show in overlay
   let activeOverlayCard = inspectCardOverlay;
-  if (gameState?.turnPhase === TurnPhase.Exploding || gameState?.turnPhase === TurnPhase.ExplodingReinserting || gameState?.turnPhase === TurnPhase.Upgrading) {
+  let turnPhase = gameState?.turnPhase;
+  if (turnPhase && (turnPhase === TurnPhase.Exploding || turnPhase === TurnPhase.ExplodingReinserting || turnPhase === TurnPhase.Upgrading)) {
     if (gameState?.playBlockingCard) {
       // Only show persistent overlay for players who are NOT the current player
       // AND suppress it if animation is in progress (so they see the animation instead)
-      if (gameState.turnOrder[gameState.currentTurnIndex] !== playerId && !drawingAnimation) {
+      if (gameState.players[gameState.currentPlayer]?.id !== playerId && !drawingAnimation) {
         activeOverlayCard = gameState.playBlockingCard;
       }
     }
@@ -1412,10 +1411,10 @@ export default function GameScreen() {
               )}
               {(gameState.turnPhase === TurnPhase.Exploding) && (
                  <>
-                   {playerId === gameState.turnOrder[gameState.currentTurnIndex] ? (
+                   {playerId === gameState.players[gameState.currentPlayer]?.id ? (
                      <h4 className="text-danger">PLAY A DEBUG CARD!</h4>
                    ) : (
-                     <h4 className="text-warning">Waiting for {gameState.players.find(p => p.id === gameState.turnOrder[gameState.currentTurnIndex])?.name} to debug their cluster...</h4>
+                     <h4 className="text-warning">Waiting for {gameState.players[gameState.currentPlayer]?.name} to debug their cluster...</h4>
                    )}
                  </>
               )}
@@ -1948,7 +1947,7 @@ export default function GameScreen() {
           >
             <h2>
               {
-                gameState?.turnOrder[gameState?.currentTurnIndex] == playerId
+                gameState?.players[gameState?.currentPlayer]?.id == playerId
                   ? "You stole:"
                   : `${gameState?.lastActorName || "<BUG!>"} stole your:`
               }

@@ -106,7 +106,7 @@ describe('Attack Phase Logic', () => {
     host.hand.push(attackCard);
     
     // Ensure it's Host's turn
-    game.currentTurnIndex = 0; // Host
+    game.currentPlayer = 0; // Host
     game.attackTurns = 0;
 
     hostSocket.trigger(SocketEvent.PlayCard, { gameCode, cardId: attackCard.id, nonce: game.nonce });
@@ -118,7 +118,7 @@ describe('Attack Phase Logic', () => {
     expect(game.attackTurns).toBe(2);
     
     // Verify turn passed to P2
-    expect(game.currentTurnIndex).toBe(1);
+    expect(game.currentPlayer).toBe(1);
   });
 
   it('should stack attacks: P2 attacks P3', async () => {
@@ -133,7 +133,7 @@ describe('Attack Phase Logic', () => {
     await flushPromises();
     
     expect(game.attackTurns).toBe(2);
-    expect(game.currentTurnIndex).toBe(1); // P2
+    expect(game.currentPlayer).toBe(1); // P2
 
     // P2 draws once (consumes 1 turn)
     p2Socket.trigger(SocketEvent.DrawCard, gameCode);
@@ -141,7 +141,7 @@ describe('Attack Phase Logic', () => {
     await flushPromises();
 
     expect(game.attackTurns).toBe(1);
-    expect(game.currentTurnIndex).toBe(1); // Still P2
+    expect(game.currentPlayer).toBe(1); // Still P2
 
     // P2 attacks P3
     const p2 = game.players[1];
@@ -155,7 +155,7 @@ describe('Attack Phase Logic', () => {
     expect(game.attackTurns).toBe(3);
     
     // Turn passes to P3
-    expect(game.currentTurnIndex).toBe(2); // P3
+    expect(game.currentPlayer).toBe(2); // P3
   });
 
   it('should decrement attackTurns on draw', async () => {
@@ -163,7 +163,7 @@ describe('Attack Phase Logic', () => {
     const game = (gameManager as any).games.get(gameCode);
     
     // Manually set state: P2's turn, attackTurns = 2
-    game.currentTurnIndex = 1;
+    game.currentPlayer = 1;
     game.attackTurns = 2;
     
     // P2 draws a card
@@ -172,7 +172,7 @@ describe('Attack Phase Logic', () => {
     await flushPromises();
     
     // Should still be P2's turn, but 1 attack turn left
-    expect(game.currentTurnIndex).toBe(1);
+    expect(game.currentPlayer).toBe(1);
     expect(game.attackTurns).toBe(1);
     
     // P2 draws again
@@ -181,7 +181,7 @@ describe('Attack Phase Logic', () => {
     await flushPromises();
     
     // Should now be P3's turn
-    expect(game.currentTurnIndex).toBe(2);
+    expect(game.currentPlayer).toBe(2);
     expect(game.attackTurns).toBe(0);
   });
 });

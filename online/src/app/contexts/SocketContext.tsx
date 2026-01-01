@@ -214,8 +214,11 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     socketIo.on(SocketEvent.GameUpdate, (data: GameUpdatePayload) => {
-      const nextPlayerId = data.turnOrder[data.currentTurnIndex];
-      const nextPlayer = data.players.find(p => p.id === nextPlayerId);
+      // Safely access current player if players array and index are valid
+      const nextPlayer = (data.players && data.currentPlayer !== undefined && data.currentPlayer >= 0 && data.currentPlayer < data.players.length)
+        ? data.players[data.currentPlayer]
+        : undefined;
+
       if (nextPlayer) {
         console.debug(`received event: ${SocketEvent.GameUpdate}: player "${nextPlayer.name}", ${data.turnPhase}`);
       } else {

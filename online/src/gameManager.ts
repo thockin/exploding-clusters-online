@@ -35,8 +35,7 @@ interface Game {
   players: Player[];
   spectators: { id: string; socketId: string }[];
   state: GameState;
-  turnOrder: string[]; // Array of player IDs
-  currentTurnIndex: number;
+  currentPlayer: number;
   turnPhase: TurnPhase;
   prevTurnPhase?: TurnPhase;
   attackTurns: number; // Number of turns the current player must take (0 means normal 1 turn)
@@ -225,34 +224,22 @@ export class GameManager {
           playerRemoved = true;
           const player = game.players[playerIndex];
 
-          // If game started, remove from turnOrder
-          if (game.state === GameState.Started) {
-            const turnIndex = game.turnOrder.indexOf(player.id);
-            if (turnIndex !== -1) {
-              game.turnOrder.splice(turnIndex, 1);
-              // Adjust currentTurnIndex to prevent out-of-bounds access
-              if (game.turnOrder.length === 0) {
-                // No players left, game should end (handled elsewhere)
-                game.currentTurnIndex = 0;
-              } else if (turnIndex < game.currentTurnIndex) {
-                // Removed player was before current turn, decrement index
-                game.currentTurnIndex--;
-              } else if (turnIndex === game.currentTurnIndex) {
-                // Current player left - next player shifts into this index
-                // If we were at the last position, wrap to 0
-                if (game.currentTurnIndex >= game.turnOrder.length) {
-                  game.currentTurnIndex = 0;
-                }
-                // Note: Turn advancement logic will be handled by game flow
-              }
-              // Ensure index is always valid
-              if (game.currentTurnIndex < 0) {
-                game.currentTurnIndex = 0;
-              }
-              if (game.currentTurnIndex >= game.turnOrder.length && game.turnOrder.length > 0) {
-                game.currentTurnIndex = game.turnOrder.length - 1;
-              }
-            }
+          // Adjust currentPlayer to prevent out-of-bounds access
+          if (game.players.length === 0) {
+             // No players left, handled below
+             game.currentPlayer = 0;
+          } else if (playerIndex < game.currentPlayer) {
+             // Removed player was before current turn, decrement index
+             game.currentPlayer--;
+          }
+          // If playerIndex === game.currentPlayer, the index now points to the *next* player (or OOB), which is correct for passing turn.
+
+          // Ensure index is always valid
+          if (game.currentPlayer < 0) {
+            game.currentPlayer = 0;
+          }
+          if (game.currentPlayer >= game.players.length && game.players.length > 0) {
+            game.currentPlayer = 0; // Wrap around if we were at the end
           }
 
           // Move player's hand to removedPile
@@ -407,15 +394,14 @@ export class GameManager {
     const baseData: GameUpdatePayload = {
       gameCode: game.code,
       nonce: game.nonce,
+      state: game.state,
+      devMode: game.devMode,
       players: game.players
         .filter(p => !p.isDisconnected)
         .map(p => ({ id: p.id, name: p.name, cards: p.hand.length, isOut: p.isOut, isDisconnected: p.isDisconnected })),
-      state: game.state,
+      currentPlayer: game.currentPlayer,
       gameOwnerId: game.gameOwnerId,
       spectators: game.spectators.map(s => ({ id: s.id })),
-      devMode: game.devMode,
-      turnOrder: game.turnOrder,
-      currentTurnIndex: game.currentTurnIndex,
       turnPhase: game.turnPhase,
       attackTurns: game.attackTurns,
       attackTurnsTaken: game.attackTurnsTaken,
@@ -605,8 +591,7 @@ export class GameManager {
       players: [player],
       spectators: [],
       state: GameState.Lobby,
-      turnOrder: [],
-      currentTurnIndex: -1,
+      currentPlayer: -1,
       turnPhase: TurnPhase.Action,
       attackTurns: 0,
       attackTurnsTaken: 0,
@@ -859,15 +844,14 @@ export class GameManager {
       this.setupDevModeDeck(game.drawPile);
     }
 
-    // Set turn order
-    game.turnOrder = game.players.map(p => p.id);
+    // Shuffle players to set turn order
     if (!game.devMode) {
-      for (let i = game.turnOrder.length - 1; i > 0; i--) {
+      for (let i = game.players.length - 1; i > 0; i--) {
         const j = Math.floor(this.prng.random() * (i + 1));
-        [game.turnOrder[i], game.turnOrder[j]] = [game.turnOrder[j], game.turnOrder[i]];
+        [game.players[i], game.players[j]] = [game.players[j], game.players[i]];
       }
     }
-    game.currentTurnIndex = 0;
+    game.currentPlayer = 0;
 
     this.log(game, `game started`);
     this.updateGameNonce(game);
@@ -1486,7 +1470,7 @@ export class GameManager {
   }
 
   private isPlayerTurn(game: Game, player: Player): boolean {
-    return game.turnOrder[game.currentTurnIndex] === player.id;
+    return game.players[game.currentPlayer].id === player.id;
   }
 
   private playCard(socket: Socket, gameCode: string, cardId: string, nonce?: string, victimId?: string) {
@@ -1639,13 +1623,12 @@ export class GameManager {
 
       // Current player's turn ends immediately, pass to next player
       this.advanceTurn(_g);
-      const targetPlayerId = _g.turnOrder[_g.currentTurnIndex];
-      const targetPlayer = _g.players.find(p => p.id === targetPlayerId);
+      const targetPlayer = _g.players[_g.currentPlayer];
       if (targetPlayer) {
         this.log(_g, `player "${player.name}" played ATTACK on "${targetPlayer.name}". attackTurns is now ${_g.attackTurns}.`);
         this.msgToAllPlayers(_g.code, `${player.name} attacked ${targetPlayer.name} for ${_g.attackTurns} turns!`);
       } else {
-        this.log(_g, `playAttackCard failed: target player not found (id: ${targetPlayerId})`);
+        this.log(_g, `playAttackCard failed: target player not found (index: ${_g.currentPlayer})`);
       }
     }
   }
@@ -2092,40 +2075,25 @@ export class GameManager {
         game.attackTurns = 0;
         game.attackTurnsTaken = 0;
 
-        // Remove from turnOrder
-        const turnIndex = game.turnOrder.indexOf(player.id);
-        if (turnIndex !== -1) {
-          game.turnOrder.splice(turnIndex, 1);
-          // Adjust currentTurnIndex to prevent out-of-bounds access
-          if (game.turnOrder.length === 0) {
-            // No players left, game should end (handled elsewhere)
-            game.currentTurnIndex = 0;
-          } else if (turnIndex < game.currentTurnIndex) {
-            // Removed player was before current turn, decrement index
-            game.currentTurnIndex--;
-          } else if (turnIndex === game.currentTurnIndex) {
-            // Current player disconnected - next player shifts into this index
-            // If we were at the last position, wrap to 0
-            if (game.currentTurnIndex >= game.turnOrder.length) {
-              game.currentTurnIndex = 0;
-            }
-          }
-          // Ensure index is always valid
-          if (game.currentTurnIndex < 0) {
-            game.currentTurnIndex = 0;
-          }
-          if (game.currentTurnIndex >= game.turnOrder.length && game.turnOrder.length > 0) {
-            game.currentTurnIndex = game.turnOrder.length - 1;
-          }
-        }
-
         // Remove from players list so they cannot rejoin
         // We must use the index we found earlier, but verify it hasn't shifted?
         // No, we haven't mutated players array yet in this function.
         game.players.splice(playerIndex, 1);
 
-        const nextPlayerId = game.turnOrder[game.currentTurnIndex];
-        const nextPlayer = game.players.find(p => p.id === nextPlayerId);
+        // Adjust currentPlayer if necessary
+        if (game.currentPlayer >= game.players.length) {
+            game.currentPlayer = 0;
+        }
+        // If the removed player was before the current player, decrement the index
+        if (playerIndex < game.currentPlayer) {
+            game.currentPlayer--;
+        }
+        // Ensure index is always valid
+        if (game.currentPlayer < 0) {
+            game.currentPlayer = 0;
+        }
+
+        const nextPlayer = game.players[game.currentPlayer];
         if (nextPlayer) {
           this.msgToAllPlayers(game.code, `${player.name} has abandoned their turn, it's ${nextPlayer.name}'s turn.`);
         }
@@ -2229,21 +2197,20 @@ export class GameManager {
 
   private advanceTurn(game: Game) {
     game.attackTurnsTaken = 0; // Reset attack turns counter when moving to next player
-    let nextIndex = (game.currentTurnIndex + 1) % game.turnOrder.length;
+    let nextIndex = (game.currentPlayer + 1) % game.players.length;
     let attempts = 0;
-    while (attempts < game.turnOrder.length) {
-      const nextPlayerId = game.turnOrder[nextIndex];
-      const nextPlayer = game.players.find(p => p.id === nextPlayerId);
+    while (attempts < game.players.length) {
+      const nextPlayer = game.players[nextIndex];
       if (nextPlayer && !nextPlayer.isOut && !nextPlayer.isDisconnected) {
         break;
       }
-      nextIndex = (nextIndex + 1) % game.turnOrder.length;
+      nextIndex = (nextIndex + 1) % game.players.length;
       attempts++;
     }
 
     game.prevTurnPhase = undefined;
     game.turnPhase = TurnPhase.Action;
-    game.currentTurnIndex = nextIndex;
+    game.currentPlayer = nextIndex;
   }
 
   private handleWin(game: Game, winner: Player, winType: WinType) {

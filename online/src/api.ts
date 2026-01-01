@@ -104,13 +104,12 @@ export interface Spectator {
 export interface GameUpdatePayload {
   gameCode: string;
   nonce: string;
-  players: Player[];
   state: GameState;
+  devMode: boolean;
+  players: Player[];
+  currentPlayer: number;     // Index into players[]
   gameOwnerId: string;
   spectators: Spectator[]; 
-  devMode: boolean;
-  turnOrder: string[];
-  currentTurnIndex: number;
   turnPhase: TurnPhase;
   attackTurns: number;
   attackTurnsTaken: number;

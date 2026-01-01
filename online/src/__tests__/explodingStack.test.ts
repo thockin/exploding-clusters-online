@@ -87,7 +87,7 @@ describe('Exploding Stack Logic', () => {
     const p2 = game.players[1];
 
     // Setup: P2 needs to take 2 turns
-    game.currentTurnIndex = 1; // P2
+    game.currentPlayer = 1; // P2
     game.attackTurns = 2;
     game.attackTurnsTaken = 0;
 
@@ -106,7 +106,7 @@ describe('Exploding Stack Logic', () => {
 
     // Verify state: Exploding Phase
     expect(game.turnPhase).toBe(TurnPhase.Exploding);
-    expect(game.turnOrder[game.currentTurnIndex]).toBe(p2.id);
+    expect(game.players[game.currentPlayer].id).toBe(p2.id);
 
     // P2 plays DEBUG
     p2Socket.trigger(SocketEvent.PlayCard, { gameCode, cardId: debugCard.id, nonce: game.nonce });
@@ -119,7 +119,7 @@ describe('Exploding Stack Logic', () => {
 
     // Verify state:
     // Should still be P2's turn
-    expect(game.turnOrder[game.currentTurnIndex]).toBe(p2.id);
+    expect(game.players[game.currentPlayer].id).toBe(p2.id);
     // Phase should be Action
     expect(game.turnPhase).toBe(TurnPhase.Action);
     // attackTurns should be decremented to 1
