@@ -1,25 +1,22 @@
 Phase 5:
- - reduce REACTION timoueout in tests
- - test flakes wrt timeouts
-* Most "durations" should be client-side, not sent by server
-  - change DrawCardAnimation to take all draw state in the payload
-* get rid of "show" on most modals?
-* document state-machine
-* Rename TurnPhase to TurnState ?
-* Don't allow escape on hand-animation?
-* Image with src "/art/debug_-_silence.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio.
 * Choice countdown timeout should be sent from server
+* change DrawCardAnimation to take all draw state in the payload
+* get rid of "show" on most modals?
+* Don't allow <escape> on hand-animation?
 
 tests
  - more helpers
  - better locator for all areas
  - remove unused locator consts
  - Add a prod test with cases which do not need DEVMODE
+ - Add tests for card choice auto-timeout
 
 
 `npm i baseline-browser-mapping@latest -D` error, but we are at latest
 
 Later:
+* document state-machine
+  * Rename TurnPhase to TurnState ?
 * Play-card animation (important when playing the same card)
 * Re-insert card animation
 * Hand animation is ugly
