@@ -162,7 +162,6 @@ export default function GameScreen() {
     if (!gameState && !isLoading && !gameEndData) {
       router.push('/');
     }
-    console.debug({ myHand, isSpectator: !gameState?.players.some(p => p.id === playerId), playerId, gameCode });
   }, [gameState, isLoading, router, gameEndData, myHand, playerId, gameCode]);
 
   useEffect(() => {
@@ -774,7 +773,9 @@ export default function GameScreen() {
   const onDragEnd = (result: DropResult) => {
     setIsDragging(false);
     setDraggedCard(null);
-    setTimeout(() => { isDraggingRef.current = false; }, 1000);
+    setTimeout(() => { // Debounce
+      isDraggingRef.current = false;
+    }, 100);
     console.debug('onDragEnd', result);
     const { source, destination } = result;
     if (!destination) {

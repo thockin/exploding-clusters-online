@@ -1,6 +1,7 @@
 Phase 5:
+* cursor not-allowed when dragging over discard
+* Don't autofill game codes
 * warning: Image with src "/art/favor_-_cut_paste.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio.
-* repeated hand updates in log
 * Navigate while targetted by a FAVOR or COMBO does not immedately give a card
   and does not indicate how long
 
@@ -40,6 +41,3 @@ Later:
    - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
 
 Bugs:
-* if non-current player plays NAK out of turn (8 cards->7), they get a
-  handUpdate to revert (to 8), but sometimes set hand AGAIN to 7. Hard to
-  repro, no other event received?

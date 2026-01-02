@@ -238,7 +238,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
 
     socketIo.on(SocketEvent.HandUpdate, (data: { hand: Card[] }) => {
-      console.debug(`received event: ${SocketEvent.HandUpdate}`);
+      console.debug(`received event: ${SocketEvent.HandUpdate}: ${data.hand.length} cards`);
       setMyHand(data.hand);
     });
 
