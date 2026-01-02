@@ -985,24 +985,24 @@ export default function GameScreen() {
           return;
         }
 
-        // Emit the appropriate event to the server
-        if (gameCode) {
-          if (cardsToPlay.length === 1) {
-            console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
-            socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id, nonce: dragStartNonceRef.current, victimId: victimIdToUse });
-          } else if (cardsToPlay.length === 2) {
-            console.debug('Emitting playCombo for DEVELOPER cards');
-            socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id), nonce: dragStartNonceRef.current, victimId: victimIdToUse });
-          }
-        } else {
-          console.error("Game code not found, cannot play card.");
-          return;
-        }
-
         // Optimistic update and clear selection for successful plays
         // Delay update to avoid "Unable to find drag handle" warning from dnd
         // library trying to restore focus to unmounted item.
         setTimeout(() => {
+          // Emit the appropriate event to the server
+          if (gameCode) {
+            if (cardsToPlay.length === 1) {
+              console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
+              socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id, nonce: dragStartNonceRef.current, victimId: victimIdToUse });
+            } else if (cardsToPlay.length === 2) {
+              console.debug('Emitting playCombo for DEVELOPER cards');
+              socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id), nonce: dragStartNonceRef.current, victimId: victimIdToUse });
+            }
+          } else {
+            console.error("Game code not found, cannot play card.");
+            return;
+          }
+
           setSelectedCards([]);
           setMyHand((prevHand: Card[]) => prevHand.filter(c => !cardsToPlay.some(pc => pc.id === c.id)));
         }, 50);
