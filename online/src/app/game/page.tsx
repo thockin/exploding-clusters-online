@@ -1368,9 +1368,14 @@ export default function GameScreen() {
               setInspectCardOverlay(null);
             }}
           >
-            <Image src={activeOverlayCard.imageUrl}
-              alt={`${activeOverlayCard.class}: ${activeOverlayCard.name}`}
-              width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
+            <div style={{ position: 'relative', width: getEnlargedCardSize().width, height: getEnlargedCardSize().height }}>
+              <Image src={activeOverlayCard.imageUrl}
+                alt={`${activeOverlayCard.class}: ${activeOverlayCard.name}`}
+                fill
+                sizes="(max-width: 768px) 90vw, 70vw" /* Large overlay image */
+                style={{ objectFit: 'contain' }}
+              />
+            </div>
           </div>
         )}
 
@@ -1821,14 +1826,24 @@ export default function GameScreen() {
             <h2 style={{ color: 'white', marginBottom: '20px' }}>See The Future</h2>
             <div className="d-flex flex-wrap justify-content-center" style={{ gap: '20px' }}>
               {seeTheFutureCards.map((card, index) => (
-                <Image
+                <div
                   key={index}
-                  src={card.imageUrl}
-                  alt={`${card.class}: ${card.name}`}
-                  width={getEnlargedCardSize().width * 0.5}
-                  height={getEnlargedCardSize().height * 0.5}
-                  style={{ minWidth: getCardSize().width, maxWidth: '40vw', objectFit: 'contain' }}
-                />
+                  style={{
+                    position: 'relative',
+                    width: getEnlargedCardSize().width * 0.5,
+                    height: getEnlargedCardSize().height * 0.5,
+                    minWidth: getCardSize().width,
+                    maxWidth: '40vw'
+                  }}
+                >
+                  <Image
+                    src={card.imageUrl}
+                    alt={`${card.class}: ${card.name}`}
+                    fill
+                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 20vw" /* See The Future cards in a flex wrap */
+                    style={{ objectFit: 'contain' }}
+                  />
+                </div>
               ))}
             </div>
           </div>
