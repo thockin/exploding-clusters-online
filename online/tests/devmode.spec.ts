@@ -128,11 +128,6 @@ function findTimerArea(page: Page): Locator {
   return page.locator(`div[data-areaname="timer"]`);
 }
 
-// Helper to find the message area.
-function findMessageArea(page: Page): Locator {
-  return page.locator(`div[data-areaname="message"]`);
-}
-
 // Helper to find the log area.
 function findLogArea(page: Page): Locator {
   return page.locator(`div[data-areaname="log"]`);
@@ -556,7 +551,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
   });
 
   test('Players leave game', async ({ browser }) => {
-    // Setup 3 players
+    // Setup 4 players
     const ctx1 = await browser.newContext();
     const page1 = await ctx1.newPage();
     const code = await createGame(page1, 'P1');
@@ -569,11 +564,16 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const page3 = await ctx3.newPage();
     await joinGame(page3, 'P3', code);
 
+    const ctx4 = await browser.newContext();
+    const page4 = await ctx4.newPage();
+    await joinGame(page4, 'P4', code);
+
     // Start Game
     await page1.click(Buttons.START_GAME);
     await waitForURL(page1, /game/);
     await waitForURL(page2, /game/);
     await waitForURL(page3, /game/);
+    await waitForURL(page4, /game/);
 
     // Verify P1 starts
     await expect(page1.locator('.list-group-item:has-text("P1")')).toHaveClass(/bg-success-subtle/);
@@ -587,14 +587,17 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify disconnected player disappears from list
     await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
     await expect(page3.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+    await expect(page4.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
 
     // Verify "abandoned turn" message
-    await expect(page2.locator(`text=P1 has abandoned their turn`)).toBeVisible();
-    await expect(page3.locator(`text=P1 has abandoned their turn`)).toBeVisible();
+    await expect(findLogArea(page2)).toContainText('P1 has abandoned their turn');
+    await expect(findLogArea(page3)).toContainText('P1 has abandoned their turn');
+    await expect(findLogArea(page4)).toContainText('P1 has abandoned their turn');
 
     // Verify turn passes to next player
     await expect(findTurnArea(page2)).toContainText("It's your turn");
     await expect(findTurnArea(page3)).toContainText("It's P2's turn, your turn is next");
+    await expect(findTurnArea(page4)).toContainText("It's P2's turn");
 
     // Reconnect attempt by disconnected player
     await page1.goBack();
@@ -607,15 +610,69 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify player does NOT reappear in list
     await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
     await expect(page3.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+    await expect(page4.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
 
-    // P2 leaves game voluntarily
+    // P3 (not current) disconnects
+    await page3.goto('about:blank');
+
+    // Verify disconnected player disappears from list
+    await expect(page2.locator(`.list-group-item:has-text("P3")`)).not.toBeVisible();
+    await expect(page4.locator(`.list-group-item:has-text("P3")`)).not.toBeVisible();
+
+    // Verify "abandoned turn" message
+    await expect(findLogArea(page2)).toContainText('P3 has disconnected');
+    await expect(findLogArea(page4)).toContainText('P3 has disconnected');
+
+    // Verify turn does not change, but next does
+    await expect(findTurnArea(page2)).toContainText("It's your turn");
+    await expect(findTurnArea(page4)).toContainText("It's P2's turn, your turn is next");
+
+    // Reconnect attempt by disconnected player
+    await page3.goBack();
+    await page3.waitForLoadState('networkidle');
+
+    // Verify player reappears in list
+    await expect(page2.locator(`.list-group-item:has-text("P3")`)).toBeVisible();
+    await expect(page3.locator(`.list-group-item:has-text("P3")`)).toBeVisible();
+    await expect(page4.locator(`.list-group-item:has-text("P3")`)).toBeVisible();
+
+    // Verify "rejoined" message
+    await expect(findLogArea(page2)).toContainText('P3 has rejoined the game');
+    await expect(findLogArea(page4)).toContainText('P3 has rejoined the game');
+
+    // Verify hand layout is correct (not 1 column)
+    // We expect 8 cards. If layout is broken (width 0), we get 8 rows.
+    // If layout is working, we get 1 or 2 rows.
+    await expect(findHand(page3)).toBeVisible();
+    await expect(findAllHandCards(page3)).toHaveCount(8);
+    const rowCount = await page3.locator('div[data-areaname="hand"] > div[data-rfd-droppable-id]').count();
+    expect(rowCount).toBeLessThan(8);
+    expect(rowCount).toBeGreaterThan(0);
+
+    // Verify turn changes
+    await expect(findTurnArea(page2)).toContainText("It's your turn");
+    await expect(findTurnArea(page3)).toContainText("It's P2's turn, your turn is next");
+    await expect(findTurnArea(page4)).toContainText("It's P2's turn");
+
+    // P2 (current) leaves game voluntarily
     await page2.click(Buttons.LEAVE_GAME);
     // Confirm modal
-    const leaveModal = findModal(page2, "leave-game");
-    await expect(leaveModal).toBeVisible();
-    await leaveModal.locator(' .modal-footer button.btn-danger').click();
+    const p2LeaveModal = findModal(page2, "leave-game");
+    await expect(p2LeaveModal).toBeVisible();
+    await p2LeaveModal.locator(' .modal-footer button.btn-danger').click();
 
-    // Winner should see Win Dialog
+    // Verify turn changes
+    await expect(findTurnArea(page3)).toContainText("It's your turn");
+    await expect(findTurnArea(page4)).toContainText("It's P3's turn, your turn is next");
+    //
+    // P4 (not current) leaves game voluntarily
+    await page4.click(Buttons.LEAVE_GAME);
+    // Confirm modal
+    const p4LeaveModal = findModal(page4, "leave-game");
+    await expect(p4LeaveModal).toBeVisible();
+    await p4LeaveModal.locator(' .modal-footer button.btn-danger').click();
+
+    // Winner should see win dialog
     const winModal = findModal(page3, "game-end");
     await expect(winModal).toBeVisible();
     await expect(winModal.locator(' .modal-title')).toContainText("You win!");

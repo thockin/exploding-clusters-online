@@ -345,7 +345,7 @@ export default function GameScreen() {
       observer.observe(handAreaRef.current);
       return () => observer.disconnect();
     }
-  }, []);
+  }, [gameState]);
 
   const handleUpgradeInsertConfirm = useCallback(() => {
     if (!socket || !gameCode || !gameState) return;
@@ -615,12 +615,18 @@ export default function GameScreen() {
     containerWidth: number
   ): { maxWidth: number, cardWidth: number, cols: number } => {
     if (numCards === 0) return { maxWidth: 0, cardWidth: CARD_WIDTH_PX, cols: 1 };
-    // Fallback to single column (vertical stack) if container width is not yet measured
-    // This prevents a huge single row from causing horizontal overflow initially
-    if (containerWidth === 0) return { maxWidth: CARD_FULL_WIDTH_PX + 2, cardWidth: CARD_WIDTH_PX, cols: 1 };
+
+    // Fallback to window width if container width is not yet measured (initially 0)
+    // This prevents a huge single row (vertical stack) from appearing initially
+    let effectiveWidth = containerWidth;
+    if (effectiveWidth === 0 && typeof window !== 'undefined') {
+        effectiveWidth = window.innerWidth;
+    }
+    // If still 0 (SSR), fallback to single column
+    if (effectiveWidth === 0) return { maxWidth: CARD_FULL_WIDTH_PX + 2, cardWidth: CARD_WIDTH_PX, cols: 1 };
 
     const getRowsAndCols = (cardFullWidth: number) => {
-      const maxColsPossible = Math.floor(containerWidth / cardFullWidth);
+      const maxColsPossible = Math.floor(effectiveWidth / cardFullWidth);
       if (maxColsPossible === 0) return { rows: numCards, cols: 1 };
 
       for (let r = 1; r <= numCards; r++) {

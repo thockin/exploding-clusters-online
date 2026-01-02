@@ -1,4 +1,6 @@
 Phase 5:
+* Navigate while targetted by a FAVOR or COMBO does not immedately give a card
+  and does not indicate how long
 * Occasional flake in "vs." test
 * Occasional flake in "exhaustive" test
 
