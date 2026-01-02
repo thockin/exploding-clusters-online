@@ -62,6 +62,7 @@ export default function GameScreen() {
   const [stealCardResultOverlay, setStealCardResultOverlay] = useState<Card | null>(null);
   const [noPossibleVictimModalOpen, setNoPossibleVictimModalOpen] = useState(false);
   const [hostPromotionModal, setHostPromotionModal] = useState<string | null>(null);
+  const [isHoveringDiscard, setIsHoveringDiscard] = useState(false);
 
   // DEVMODE states
   const [deckCardsOverlay, setDeckCardsOverlay] = useState<Card[] | null>(null);
@@ -1106,14 +1107,19 @@ export default function GameScreen() {
 
   const renderDiscardPile = () => {
     return (
-      <Droppable droppableId="discard-pile">
+      <Droppable droppableId="discard-pile" isDropDisabled={!!draggedCard && !isCardPlayable(draggedCard)}>
         {(provided, snapshot) => {
           const isPlayable = draggedCard ? isCardPlayable(draggedCard) : false;
           let borderColor = '2px dashed #FFA500'; // Default orange
-          if (gameState && gameState.topDiscardCard) {
-            borderColor = 'none';
-          } else if (snapshot.isDraggingOver) {
-             borderColor = isPlayable ? '2px dashed #00FF00' : '2px dashed #FF0000';
+
+          const showRed = isDragging && !isPlayable && isHoveringDiscard;
+          const showGreen = snapshot.isDraggingOver && isPlayable;
+
+          if (gameState?.topDiscardCard) {
+             borderColor = 'none';
+          } else {
+             if (showRed) borderColor = '2px dashed #FF0000';
+             else if (showGreen) borderColor = '2px dashed #00FF00';
           }
 
           return (
@@ -1121,6 +1127,8 @@ export default function GameScreen() {
             data-areaname="discard-pile"
             ref={provided.innerRef}
             {...provided.droppableProps}
+            onMouseEnter={() => setIsHoveringDiscard(true)}
+            onMouseLeave={() => setIsHoveringDiscard(false)}
             style={{
               width: getCardSize().width,
               height: getCardSize().height,
@@ -1143,20 +1151,20 @@ export default function GameScreen() {
                 data-cardclass={gameState.topDiscardCard.class}
               />
             )}
-            {snapshot.isDraggingOver && !isPlayable && (
+            {showRed && (
                 <div style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
                     width: '100%',
                     height: '100%',
-                    backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                    backgroundColor: 'rgba(255, 0, 0, 0.3)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     borderRadius: '31px',
                     zIndex: 10
-                }} />
+                }}/>
             )}
             {provided.placeholder}
           </div>

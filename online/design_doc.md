@@ -1816,10 +1816,6 @@ Implement the card action for SKIP.
 
 Implement the "watch game" logic.
 
-#### Phase 5: Everything else
-
-Implement the "watch game" logic.
-
 Implement anything else that was detailed in the design doc but not yet
 implemented, or which was not thought of during the design phase, but is
 actually needed.
