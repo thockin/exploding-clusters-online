@@ -1166,6 +1166,7 @@ export default function GameScreen() {
               alignItems: 'center',
               justifyContent: 'center',
               position: 'relative',
+              cursor: (draggedCard && !isPlayable && (isHoveringDiscard || snapshot.isDraggingOver)) ? 'not-allowed' : 'auto',
             }}
           >
             <h5 style={{ color: '#FFA500', position: 'absolute' }}>Discard Pile</h5>
