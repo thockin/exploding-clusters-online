@@ -198,6 +198,15 @@ export default function GameScreen() {
     }
   }, [gameState, playerId, upgradeReinsertModal, inspectCardOverlay]);
 
+  // Debugging for inspectCardOverlay changes
+  //useEffect(() => {
+  //  if (inspectCardOverlay) {
+  //    console.debug(`inspect-card overlay activated: ${inspectCardOverlay.id}`);
+  //  } else {
+  //    console.debug("inspect-card overlay deactivated");
+  //  }
+  //}, [inspectCardOverlay]);
+
   useEffect(() => {
     if (!socket) return;
 
@@ -227,7 +236,9 @@ export default function GameScreen() {
 
     const onFavorResult = (data: { card: Card }) => {
       setFavorResultCardOverlay(data.card);
-      setTimeout(() => setFavorResultCardOverlay(null), CARD_DISMISS_TIMEOUT_MS);
+      setTimeout(() => {
+        setFavorResultCardOverlay(null);
+      }, CARD_DISMISS_TIMEOUT_MS);
     };
 
     const onChooseStealCard = (data: { victimName: string, handCount: number, timeout: number }) => {
@@ -237,7 +248,9 @@ export default function GameScreen() {
 
     const onStealResult = (data: { card: Card }) => {
         setStealCardResultOverlay(data.card);
-        setTimeout(() => setStealCardResultOverlay(null), CARD_DISMISS_TIMEOUT_MS);
+        setTimeout(() => {
+          setStealCardResultOverlay(null);
+        }, CARD_DISMISS_TIMEOUT_MS);
     };
 
     const onReactionTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
@@ -303,6 +316,7 @@ export default function GameScreen() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        //console.debug("inspect-card overlay dismissed by escape");
         setInspectCardOverlay(null);
         setDeckCardsOverlay(null);
         setRemovedCardsOverlay(null);
@@ -733,10 +747,17 @@ export default function GameScreen() {
       // when the animation ends.
       if (data.card) {
         setTimeout(() => {
-          setInspectCardOverlay(data.card);
+          setInspectCardOverlay(data.card!);
 
           setTimeout(() => {
-            setInspectCardOverlay(null);
+            // React calls the passed function with the current value.
+            setInspectCardOverlay((current) => {
+              if (current && data.card && current.id === data.card.id) {
+                //console.debug("inspect-card overlay dismissed by timeout");
+                return null;
+              }
+              return current;
+            });
           }, CARD_DISMISS_TIMEOUT_MS);
         }, Math.max(500, data.duration - 500)); // show early to avoid flicker
       }
@@ -1342,6 +1363,7 @@ export default function GameScreen() {
             }}
             onClick={() => {
               if (drawingAnimation) return; // can't cancel the animation
+              //console.debug("inspect-card overlay dismissed by click");
               setInspectCardOverlay(null);
             }}
           >

@@ -1,8 +1,8 @@
 Phase 5:
+* warning: Image with src "/art/favor_-_cut_paste.png" has either width or height modified, but not the other. If you use CSS to change the size of your image, also include the styles 'width: "auto"' or 'height: "auto"' to maintain the aspect ratio.
+* repeated hand updates in log
 * Navigate while targetted by a FAVOR or COMBO does not immedately give a card
   and does not indicate how long
-* Occasional flake in "vs." test
-* Occasional flake in "exhaustive" test
 
 tests
  - more helpers

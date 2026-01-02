@@ -151,7 +151,7 @@ function findModal(page: Page, name: string): Locator {
 // Helper to capture browser console messages
 function catchConsoleLogs(page: Page, prefix: string) {
   page.on('console', (msg: ConsoleMessage) => {
-    console.log(`${prefix} ${msg.type()}: ${msg.text()}`);
+    console.log(`[${new Date().toISOString()}] ${prefix} ${msg.type()}: ${msg.text()}`);
   });
 }
 
