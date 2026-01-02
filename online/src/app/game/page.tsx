@@ -1503,7 +1503,9 @@ export default function GameScreen() {
                   style={{
                     width: getCardSize().width,
                     height: getCardSize().height,
-                    cursor: (gameState?.players[gameState.currentPlayer]?.id === playerId && gameState?.turnPhase === TurnPhase.Action) ? (isDrawingRef.current ? 'grabbing' : 'pointer') : 'not-allowed',
+                    cursor: draggedCard ? 'not-allowed' : (
+                      (gameState?.players[gameState.currentPlayer]?.id === playerId && gameState?.turnPhase === TurnPhase.Action) ? (isDrawingRef.current ? 'grabbing' : 'pointer') : 'not-allowed'
+                    ),
                     borderRadius: '5px'
                   }}
                   onMouseDown={() => {
