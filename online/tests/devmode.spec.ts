@@ -87,6 +87,34 @@ async function drawCard(page: Page) {
   await page.keyboard.press('Escape');
 }
 
+// Helper to find a matching pair of cards.
+async function findPair(cards: Locator): Promise<[Locator, Locator]> {
+    let idx1 = -1;
+    let idx2 = -1;
+    const count = await cards.count();
+    for (let i = 0; i < count; i++) {
+      const img1 = cards.nth(i).locator('img');
+      const src = await img1.getAttribute('src');
+      if (!src) continue;
+
+      for (let j = i + 1; j < count; j++) {
+        const img2 = cards.nth(j).locator('img');
+        const src2 = await img2.getAttribute('src');
+        if (!src2) continue;
+
+        if (src === src2) {
+          idx1 = i;
+          idx2 = j;
+          break;
+        }
+      }
+      if (idx1 !== -1) break;
+    }
+    expect(idx1).not.toBe(-1);
+
+    return [cards.nth(idx1), cards.nth(idx2)];
+}
+
 // Helper to find the player-list area.
 function findPlayerList(page: Page): Locator {
   return page.locator(`div[data-areaname="player-list"]`);
@@ -838,7 +866,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findOverlay(page1, "show-removed")).toBeHidden();
   });
 
-  test('Hand: card selection. deselection', async ({ browser }) => {
+  test('Hand: card selection, deselection', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     const code = await createGame(page, 'FocusTest');
@@ -855,27 +883,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const devCards = findHandCardsByClass(page, CardClass.Developer);
     const count = await devCards.count();
     expect(count).toEqual(3);
-
-    let firstPairIndex = -1;
-    let secondPairIndex = -1;
-
-    for (let i = 0; i < count; i++) {
-      const src = await devCards.nth(i).locator("img").getAttribute('src');
-      for (let j = i + 1; j < count; j++) {
-        const src2 = await devCards.nth(j).locator("img").getAttribute('src');
-        if (src === src2) {
-          firstPairIndex = i;
-          secondPairIndex = j;
-          break;
-        }
-      }
-      if (firstPairIndex !== -1) break;
-    }
-
-    expect(firstPairIndex).not.toBe(-1);
-    expect(secondPairIndex).not.toBe(-1);
-    const pair1 = devCards.nth(firstPairIndex);
-    const pair2 = devCards.nth(secondPairIndex);
+    const [ pair1, pair2 ] = await findPair(devCards);
 
     // Find another playable card
     const other = findHandCardsByClass(page, CardClass.Shuffle);
@@ -1060,29 +1068,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     const devCards = findHandCardsByClass(page1, CardClass.Developer);
     await expect(devCards).toHaveCount(3);
-
-    let firstPairIndex = -1;
-    let secondPairIndex = -1;
-    let pairSrc = '';
-
-    for (let i = 0; i < 8; i++) {
-      const src = await devCards.nth(i).locator("img").getAttribute('src');
-      for (let j = i + 1; j < 8; j++) {
-        const src2 = await devCards.nth(j).locator("img").getAttribute('src');
-        if (src === src2) {
-          firstPairIndex = i;
-          secondPairIndex = j;
-          pairSrc = src || '';
-          break;
-        }
-      }
-      if (firstPairIndex !== -1) break;
-    }
-
-    expect(firstPairIndex).not.toBe(-1);
-    expect(pairSrc).not.toBe("");
-    const card1 = devCards.nth(firstPairIndex);
-    const card2 = devCards.nth(secondPairIndex);
+    const [ card1, card2 ] = await findPair(devCards);
+    const pairSrc = await card1.locator('img').getAttribute('src');
 
     // Select first card
     await card1.click();
@@ -2182,27 +2169,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify P1 hand
     const devCards = findHandCardsByClass(page1, CardClass.Developer);
     await expect(devCards).toHaveCount(3);
-
-    // Find the pair
-    let firstPairIndex = -1;
-    let secondPairIndex = -1;
-    const count = await devCards.count();
-    for (let i = 0; i < count; i++) {
-      const src = await devCards.nth(i).getAttribute('src');
-      for (let j = i + 1; j < count; j++) {
-        const src2 = await devCards.nth(j).getAttribute('src');
-        if (src === src2) {
-          firstPairIndex = i;
-          secondPairIndex = j;
-          break;
-        }
-      }
-      if (firstPairIndex !== -1) break;
-    }
-    expect(firstPairIndex).not.toBe(-1);
-
-    const card1 = devCards.nth(firstPairIndex);
-    const card2 = devCards.nth(secondPairIndex);
+    const [ card1, card2 ] = await findPair(devCards);
 
     // Select Pair
     await card1.click();
@@ -2318,27 +2285,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify P1 hand
     const devCards = findHandCardsByClass(page1, CardClass.Developer);
     await expect(devCards).toHaveCount(3);
-
-    // Find the pair
-    let firstPairIndex = -1;
-    let secondPairIndex = -1;
-    const count = await devCards.count();
-    for (let i = 0; i < count; i++) {
-      const src = await devCards.nth(i).getAttribute('src');
-      for (let j = i + 1; j < count; j++) {
-        const src2 = await devCards.nth(j).getAttribute('src');
-        if (src === src2) {
-          firstPairIndex = i;
-          secondPairIndex = j;
-          break;
-        }
-      }
-      if (firstPairIndex !== -1) break;
-    }
-    expect(firstPairIndex).not.toBe(-1);
-
-    const card1 = devCards.nth(firstPairIndex);
-    const card2 = devCards.nth(secondPairIndex);
+    const [ card1, card2 ] = await findPair(devCards);
 
     // Make sure P3 has no cards
     for (let i = 0; i < 8; i++) {
