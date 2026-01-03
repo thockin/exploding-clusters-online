@@ -1138,67 +1138,55 @@ export default function GameScreen() {
       <Droppable droppableId="discard-pile" isDropDisabled={!!draggedCard && !isCardPlayable(draggedCard)}>
         {(provided, snapshot) => {
           const isPlayable = draggedCard ? isCardPlayable(draggedCard) : false;
-          let borderColor = '2px dashed #FFA500'; // Default orange
-
-          const showRed = isDragging && !isPlayable && isHoveringDiscard;
-          const showGreen = snapshot.isDraggingOver && isPlayable;
-
+          let border = '2px dashed #FFA500'; // Default orange
           if (gameState?.topDiscardCard) {
-             borderColor = 'none';
-          } else {
-             if (showRed) borderColor = '2px dashed #FF0000';
-             else if (showGreen) borderColor = '2px dashed #00FF00';
+            border = 'none';
+          } else if (snapshot.isDraggingOver) {
+             border = '2px dashed #00FF00';
+          }
+          let cursor = 'auto';
+          if (draggedCard) {
+            if (isPlayable) {
+              cursor = 'grabbing';
+            } else if (isHoveringDiscard || snapshot.isDraggingOver) {
+              cursor = 'not-allowed';
+            }
           }
 
           return (
-          <div
-            data-areaname="discard-pile"
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            onMouseEnter={() => setIsHoveringDiscard(true)}
-            onMouseLeave={() => setIsHoveringDiscard(false)}
-            style={{
-              width: getCardSize().width,
-              height: getCardSize().height,
-              border: borderColor,
-              borderRadius: '31px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative',
-              cursor: (draggedCard && !isPlayable && (isHoveringDiscard || snapshot.isDraggingOver)) ? 'not-allowed' : 'auto',
-            }}
-          >
-            <h5 style={{ color: '#FFA500', position: 'absolute' }}>Discard Pile</h5>
-            {gameState && gameState.topDiscardCard && (
-              <Image
-                src={gameState.topDiscardCard.imageUrl}
-                alt={`${gameState.topDiscardCard.class}: ${gameState.topDiscardCard.name}`}
-                fill
-                sizes="(max-width: 768px) 100px, 150px"
-                style={{ objectFit: 'contain', borderRadius: '10px' }}
-                data-cardclass={gameState.topDiscardCard.class}
-              />
-            )}
-            {showRed && (
-                <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: 'rgba(255, 0, 0, 0.3)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderRadius: '31px',
-                    zIndex: 10
-                }}/>
-            )}
-            {provided.placeholder}
-          </div>
-        );
-      }}
+            <div
+              data-areaname="discard-pile"
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              onMouseEnter={() => setIsHoveringDiscard(true)}
+              onMouseLeave={() => setIsHoveringDiscard(false)}
+              style={{
+                width: getCardSize().width,
+                height: getCardSize().height,
+                border: border,
+                cursor: cursor,
+                borderRadius: '31px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+              }}
+            >
+              <h5 style={{ color: '#FFA500', position: 'absolute' }}>Discard Pile</h5>
+              {gameState && gameState.topDiscardCard && (
+                <Image
+                  src={gameState.topDiscardCard.imageUrl}
+                  alt={`${gameState.topDiscardCard.class}: ${gameState.topDiscardCard.name}`}
+                  fill
+                  sizes="(max-width: 768px) 100px, 150px"
+                  style={{ objectFit: 'contain', borderRadius: '10px' }}
+                  data-cardclass={gameState.topDiscardCard.class}
+                />
+              )}
+              {provided.placeholder}
+            </div>
+          );
+        }}
       </Droppable>
     );
   };
