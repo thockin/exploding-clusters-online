@@ -246,6 +246,7 @@ export default function Home() {
                 maxLength={5}
                 onKeyDown={(e) => e.key === 'Enter' && handleJoinGame()}
                 autoFocus
+                autoComplete="off"
               />
             </Form.Group>
             <Form.Group className="mb-3">
@@ -296,6 +297,7 @@ export default function Home() {
                 maxLength={5}
                 onKeyDown={(e) => e.key === 'Enter' && handleWatchGame()}
                 autoFocus
+                autoComplete="off"
               />
             </Form.Group>
           </Form>
