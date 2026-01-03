@@ -1036,10 +1036,9 @@ export default function GameScreen() {
         if (selectedCards.length === 1) {
           const selected = selectedCards[0];
           if (selected.class === CardClass.Developer &&
-                      draggedCard.class === CardClass.Developer &&
-                      selected.name === draggedCard.name &&
-                      selected.id !== draggedCard.id) {
-
+              draggedCard.class === CardClass.Developer &&
+              selected.name === draggedCard.name &&
+              selected.id !== draggedCard.id) {
             // Add to selection
             setSelectedCards([selected, draggedCard]);
           }
@@ -1134,10 +1133,17 @@ export default function GameScreen() {
   }
 
   const renderDiscardPile = () => {
+    let isPlayable = false;
+    if (draggedCard) {
+      // Single DEVELOPER cards are playable in that they can be selected, but
+      // they cannot be played on the discard pile alone.
+      if (draggedCard.class !== CardClass.Developer || selectedCards.length > 1) {
+        isPlayable = isCardPlayable(draggedCard);
+      }
+    }
     return (
-      <Droppable droppableId="discard-pile" isDropDisabled={!!draggedCard && !isCardPlayable(draggedCard)}>
+      <Droppable droppableId="discard-pile" isDropDisabled={!isPlayable}>
         {(provided, snapshot) => {
-          const isPlayable = draggedCard ? isCardPlayable(draggedCard) : false;
           let border = '2px dashed #FFA500'; // Default orange
           if (gameState?.topDiscardCard) {
             border = 'none';
