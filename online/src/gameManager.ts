@@ -901,9 +901,6 @@ export class GameManager {
   }
 
   private dealDevModeHands(game: Game, deck: Card[]) {
-    // P1: 2 identical DEVELOPER, 1 other DEVELOPER, 2 NAK, 1 SHUFFLE, 1 FAVOR
-    // P2: 2 NAK, 1 SHUFFLE_NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER (one identical to P1's pair, one not)
-
     const findAndRemove = (criteria: (c: Card) => boolean, count: number): Card[] => {
       const found: Card[] = [];
       for (let i = 0; i < count; i++) {
@@ -931,10 +928,10 @@ export class GameManager {
       // For now, we proceed with available names, which might lead to non-ideal devmode hands.
     }
 
-    const nameA = devCardNames[0] || 'firefighter'; // Default fallback
+    const nameA = devCardNames[0] || 'firefighter';
     const nameB = devCardNames[1] || 'grumpy_greybeard';
     const nameC = devCardNames[2] || 'helper';
-    const nameD = devCardNames[3] || 'intern'; // Use fourth distinct name
+    const nameD = devCardNames[3] || 'intern';
 
     const p1 = game.players[0];
     const p2 = game.players.length > 1 ? game.players[1] : null;
@@ -947,7 +944,6 @@ export class GameManager {
     p1.hand.push(...findAndRemove(c => c.class === CardClass.Favor, 1));
 
     if (p2) {
-      // P2 Hand (1 NAK, 1 SKIP, 1 SHUFFLE_NOW, 1 ATTACK, 1 SEE FUTURE, 2 DEVELOPER) = 7 cards
       p2.hand.push(...findAndRemove(c => c.class === CardClass.Nak, 1));
       p2.hand.push(...findAndRemove(c => c.class === CardClass.Skip, 1));
       p2.hand.push(...findAndRemove(c => c.class === CardClass.ShuffleNow, 1));
@@ -958,7 +954,6 @@ export class GameManager {
     }
 
     if (p3) {
-      // P3 Hand: 1 NAK, 1 SKIP, 1 FAVOR, 1 ATTACK, 1 SEE THE FUTURE, 2 DEVELOPER (1x identical to P1's solo, 1x different)
       p3.hand.push(...findAndRemove(c => c.class === CardClass.Nak, 1));
       p3.hand.push(...findAndRemove(c => c.class === CardClass.Skip, 1));
       p3.hand.push(...findAndRemove(c => c.class === CardClass.Favor, 1));
