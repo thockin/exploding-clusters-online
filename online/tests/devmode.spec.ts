@@ -3041,7 +3041,36 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p2Modal).toContainText("P3 wins!");
   });
 
-  test('Disconnect before FAVOR', async ({ browser }) => {
+  test('Disconnect mid-draw', async ({ browser }) => {
+    // Setup game with 3 players
+    const ctx1 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+
+    // P1 clicks draw pile
+    await findDrawPile(page1).click();
+
+    // P1 disconnects immediately (mid-draw)
+    await page1.goto('about:blank');
+
+    // Verify P2 sees the specific log message
+    await expect(findLogArea(page2)).toContainText("P1 left the game mid-draw");
+  });
+
+  test('FAVOR: victim disconnects during reaction period', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3091,7 +3120,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test('Disconnect during FAVOR', async ({ browser }) => {
+  test('FAVOR: victim disconnects during card choice', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3145,7 +3174,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test('Leave before FAVOR', async ({ browser }) => {
+  test('FAVOR: victim leaves during reaction period', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3197,7 +3226,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test('Leave during FAVOR', async ({ browser }) => {
+  test('FAVOR: victim leaves during card choice', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3253,7 +3282,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test('Disconnect before DEVELOPER 2x combo', async ({ browser }) => {
+  test('DEVELOPER 2x combo: victim disconnects during reaction period', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3324,7 +3353,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test('Disconnect during DEVELOPER 2x combo', async ({ browser }) => {
+  test('DEVELOPER 2x combo: victim disconnects during card choice', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3399,7 +3428,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test('Leave before DEVELOPER 2x combo', async ({ browser }) => {
+  test('DEVELOPER 2x combo: victim leaves during reaction period', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3472,7 +3501,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test('Leave during DEVELOPER 2x combo', async ({ browser }) => {
+  test('DEVELOPER 2x combo: victim leaves during card choice', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });

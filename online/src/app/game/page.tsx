@@ -1728,8 +1728,8 @@ export default function GameScreen() {
           </Modal.Header>
           <Modal.Body>
             <p>You can put this card back into the deck anywhere you like.</p>
-            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} cards in the deck, where do you want to put the UPGRADE CLUSTER card?</p>
-            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} is the bottom.</p>
+            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG>'} cards in the deck, where do you want to put the UPGRADE CLUSTER card?</p>
+            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG>'} is the bottom.</p>
             <Form.Control
               id="upgrade-reinsert-index"
               type="number"
@@ -1774,8 +1774,8 @@ export default function GameScreen() {
           </Modal.Header>
           <Modal.Body>
             <p>You can put this card back into the deck anywhere you like.</p>
-            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} cards in the deck, where do you want to hide the EXPLODING CLUSTER card?</p>
-            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG!>'} is the bottom.</p>
+            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG>'} cards in the deck, where do you want to hide the EXPLODING CLUSTER card?</p>
+            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG>'} is the bottom.</p>
             <Form.Control
               id="exploding-reinsert-index"
               type="number"
@@ -1898,7 +1898,7 @@ export default function GameScreen() {
             <Modal.Title>Grant a Favor ({choiceCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body className="bg-light">
-            <p>{`Choose a card to give to ${favorCardChoiceModal?.stealerName ?? "<BUG!>"}`}:</p>
+            <p>{`Choose a card to give to ${favorCardChoiceModal?.stealerName ?? "<BUG>"}`}:</p>
             <div className="d-flex justify-content-center w-100">
             {(() => {
               const { cardWidth, cardHeight, containerWidth } = calculateAdaptiveLayout(myHand.length);
@@ -1994,7 +1994,7 @@ export default function GameScreen() {
             <Modal.Title>Choose a Card to Steal ({choiceCountdown}s)</Modal.Title>
           </Modal.Header>
           <Modal.Body className="bg-light">
-            <p>{`Pick a card from ${stealCardChoiceModal?.victimName ?? "<BUG!>"}'s hand`}:</p>
+            <p>{`Pick a card from ${stealCardChoiceModal?.victimName ?? "<BUG>"}'s hand`}:</p>
             <div className="d-flex justify-content-center w-100">
             {(() => {
                 const count = stealCardChoiceModal?.handSize || 0;
@@ -2039,7 +2039,7 @@ export default function GameScreen() {
               {
                 gameState?.players[gameState?.currentPlayer]?.id == playerId
                   ? "You stole:"
-                  : `${gameState?.lastActorName || "<BUG!>"} stole your:`
+                  : `${gameState?.lastActorName || "<BUG>"} stole your:`
               }
             </h2>
             <Image src={stealCardResultOverlay.imageUrl} alt={stealCardResultOverlay.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />
@@ -2088,7 +2088,7 @@ export default function GameScreen() {
                     ? "You have the last operational cluster."
                     : (gameEndData?.winType === WinType.Attrition
                       ? "Winning by attrition is still winning."
-                      : `<BUG!: ${gameEndData?.winType}>`))
+                      : `<BUG: ${gameEndData?.winType}>`))
                   : `${gameEndData?.winner} wins, with the last operational cluster.`
               }
             </p>

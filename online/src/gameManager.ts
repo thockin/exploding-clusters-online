@@ -1046,24 +1046,31 @@ export class GameManager {
           // Race condition protection: Check if game still exists and player is still in game
           const currentGame = this.games.get(gameCode);
           if (!currentGame) {
-            this.log(null, `drawCard finalize: game ${gameCode} no longer exists`);
+            this.log(null, `finishDrawCard: game ${gameCode} no longer exists`);
             return;
           }
 
           // Check if player still exists and is still connected
           const currentPlayer = currentGame.players.find(p => p.id === player.id);
           if (!currentPlayer || currentPlayer.isDisconnected) {
-            this.log(currentGame, `drawCard finalize: player "${player.name}" no longer in game or disconnected`);
-            // Card was already popped from deck, need to put it back or discard it
-            const insertIndex = Math.floor(this.prng.random() * (currentGame.drawPile.length + 1));
-            currentGame.drawPile.splice(insertIndex, 0, card!);
+            this.log(currentGame, `finishDrawCard: player "${player.name}" no longer in game or disconnected`);
+            this.msgToAllPlayers(currentGame.code, `${player.name} left the game mid-draw, that card has been removed from the game.`);
+            // Card was already popped from deck, need to remove it from the
+            // game.  Why remove it rather than put it back? The number of
+            // EXPLODING CLUSTER and DEBUG cards in the deck is critical to
+            // game balance.
+            game.removedPile.push(card!);
             if (currentPlayer) currentPlayer.isPlaying = false;
             return;
           }
 
           // Verify it's still this player's turn
           if (currentGame.state !== GameState.Started || !this.isPlayerTurn(currentGame, player)) {
-            this.log(currentGame, `drawCard finalize: turn changed`);
+            this.log(currentGame, `BUG: finishDrawCard: turn changed in the middle of draw`);
+            this.msgToAllPlayers(currentGame.code, `BUG: turn changed in the middle of player "${player.name}"'s draw.`);
+            // The player was already sent the card, but we can't remove it
+            // from the game because that would alter deck balance (e.g. number
+            // of EXPLODING CLUSTERS).  Randomly reinsert it.
             const insertIndex = Math.floor(this.prng.random() * (currentGame.drawPile.length + 1));
             currentGame.drawPile.splice(insertIndex, 0, card!);
             currentPlayer.isPlaying = false;
@@ -1163,7 +1170,7 @@ export class GameManager {
             }
           }
         } catch (error) {
-          this.log(null, `drawCard finalize error: ${error}`);
+          this.log(null, `finishDrawCard error: ${error}`);
         } finally {
           const currentGame = this.games.get(gameCode);
           if (currentGame) {

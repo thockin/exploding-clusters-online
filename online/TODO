@@ -1,7 +1,4 @@
 In progress:
-* test leave while drawing animation is running
-  - any card
-  - exploding and upgrading
 
 Test improvments
  - more helper funcs (e.g. almostExplode)
