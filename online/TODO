@@ -1,4 +1,5 @@
 In progress:
+* Revist LLM critique notes
 
 Test improvments
  - more helper funcs (e.g. almostExplode)
@@ -9,10 +10,11 @@ Test improvments
  - Add more stability and hand-wrap tests for different screen dimensions
 
 Before release:
+* make a docker image
 * edit README
 * license
 * `npm i baseline-browser-mapping@latest -D`
-* make a docker image
+* Copyright on SVGs
 
 Repeated:
 * `npm i baseline-browser-mapping@latest -D`
