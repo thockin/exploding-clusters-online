@@ -1127,8 +1127,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify each player has at least 1 DEBUG card
     await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
     await expect(findHandCardsByClass(page2, CardClass.Debug)).toHaveCount(1);
-
-    //TODO: verify playability of each card class (DEVMODE)
   });
 
   test('Game page: layout stability', async ({ browser }) => {
@@ -2484,8 +2482,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
   });
 
   test('Play: SKIP', async ({ browser }) => {
-    const context1 = await browser.newContext({ viewport: { width: 1200, height: 800 } });
-    const context2 = await browser.newContext({ viewport: { width: 1200, height: 800 } });
+    const context1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const context2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const page1 = await context1.newPage();
     const page2 = await context2.newPage();
 
@@ -3041,6 +3039,721 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const p2Modal = findModal(page2, "game-end");
     await expect(p2Modal).toBeVisible();
     await expect(p2Modal).toContainText("P3 wins!");
+  });
+
+  test('Disconnect before FAVOR', async ({ browser }) => {
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+
+    // Timer
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+
+    // Verify P1 has FAVOR (DEVMODE fixed hand)
+    const favorCard = findHandCardsByClass(page1, CardClass.Favor).first();
+
+    // P1 plays FAVOR
+    await playCard(page1, favorCard);
+
+    // P1 chooses P2 as victim
+    const favorModal = findModal(page1, "favor-choose-victim");
+    await expect(favorModal).toBeVisible();
+    await favorModal.locator('button', { hasText: 'P2' }).click();
+    await favorModal.locator('button.btn-primary', { hasText: 'Ask Favor' }).click();
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+
+    // P2 navigates away (disconnects) before seeing choice modal
+    await page2.goto('about:blank');
+
+    // Verify P1 gets a card
+    await expect(findLogArea(page1)).toContainText("P2's estate gave P1 a card");
+
+    // Verify turn is still P1 (Action phase resumes after Favor)
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+  });
+
+  test('Disconnect during FAVOR', async ({ browser }) => {
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+
+    // Timer
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+
+    // Verify P1 has FAVOR (DEVMODE fixed hand)
+    const favorCard = findHandCardsByClass(page1, CardClass.Favor).first();
+
+    // P1 plays FAVOR
+    await playCard(page1, favorCard);
+
+    // P1 chooses P2 as victim
+    const favorModal = findModal(page1, "favor-choose-victim");
+    await expect(favorModal).toBeVisible();
+    await favorModal.locator('button', { hasText: 'P2' }).click();
+    await favorModal.locator('button.btn-primary', { hasText: 'Ask Favor' }).click();
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+
+    // Verify P2 sees choice modal
+    const p2ChoiceModal = findModal(page2, "favor-choose-card");
+    await expect(p2ChoiceModal).toBeVisible();
+
+    // P2 navigates away (disconnects)
+    await page2.goto('about:blank');
+
+    // Verify P1 IMMEDIATELY gets a card, without waiting for timeout
+    await expect(findLogArea(page1)).toContainText('P2 gave P1 a card', { timeout: 1500 }); // Fast timeout to prove speed
+
+    // Verify turn is still P1 (Action phase resumes after Favor)
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+  });
+
+  test('Leave before FAVOR', async ({ browser }) => {
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+
+    // Timer
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+
+    // Verify P1 has FAVOR (DEVMODE fixed hand)
+    const favorCard = findHandCardsByClass(page1, CardClass.Favor).first();
+
+    // P1 plays FAVOR
+    await playCard(page1, favorCard);
+
+    // P1 chooses P2 as victim
+    const favorModal = findModal(page1, "favor-choose-victim");
+    await expect(favorModal).toBeVisible();
+    await favorModal.locator('button', { hasText: 'P2' }).click();
+    await favorModal.locator('button.btn-primary', { hasText: 'Ask Favor' }).click();
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+
+    // P2 leaves the game (Leave button)
+    await page2.click(Buttons.LEAVE_GAME);
+    const p2LeaveConfirm = findModal(page2, "leave-game");
+    await p2LeaveConfirm.locator('button.btn-danger').click();
+
+    // Verify P1 gets a card
+    await expect(findLogArea(page1)).toContainText("P2's estate gave P1 a card");
+
+    // Verify turn is still P1 (Action phase resumes after Favor)
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+  });
+
+  test('Leave during FAVOR', async ({ browser }) => {
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+
+    // Timer
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+
+    // Verify P1 has FAVOR (DEVMODE fixed hand)
+    const favorCard = findHandCardsByClass(page1, CardClass.Favor).first();
+
+    // P1 plays FAVOR
+    await playCard(page1, favorCard);
+
+    // P1 chooses P2 as victim
+    const favorModal = findModal(page1, "favor-choose-victim");
+    await expect(favorModal).toBeVisible();
+    await favorModal.locator('button', { hasText: 'P2' }).click();
+    await favorModal.locator('button.btn-primary', { hasText: 'Ask Favor' }).click();
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+
+    // Verify P2 sees choice modal
+    const p2ChoiceModal = findModal(page2, "favor-choose-card");
+    await expect(p2ChoiceModal).toBeVisible();
+
+    // P2 leaves the game (Leave button)
+    await page2.click(Buttons.LEAVE_GAME);
+    const p2LeaveConfirm = findModal(page2, "leave-game");
+    await p2LeaveConfirm.locator('button.btn-danger').click();
+
+    // Verify P1 IMMEDIATELY gets a card, without waiting for timeout
+    await expect(findLogArea(page1)).toContainText('P2 gave P1 a card', { timeout: 1500 }); // Fast timeout to prove speed
+
+    // Verify turn is still P1 (Action phase resumes after Favor)
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+  });
+
+  test('Disconnect before DEVELOPER 2x combo', async ({ browser }) => {
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+
+    // Timer
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+
+    // Verify P1 has DEVELOPER (DEVMODE fixed hand)
+    const devCards = findHandCardsByClass(page1, CardClass.Developer);
+    await expect(devCards).toHaveCount(3);
+    const [devCard1, devCard2] = await findPair(devCards);
+
+    // P1 plays DEVELOPER combo targeting P3
+    await devCard1.click();
+    await page1.keyboard.down('Shift');
+    await devCard2.click();
+    await page1.keyboard.up('Shift');
+    await playCard(page1, devCard1);
+
+    // P1 chooses P3 as victim
+    const stealModal = findModal(page1, "steal-choose-victim");
+    await expect(stealModal).toBeVisible();
+    await stealModal.locator('button', { hasText: 'P3' }).click();
+    await stealModal.locator('button.btn-primary', { hasText: 'Steal Card' }).click();
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+
+    // P3 navigates away (disconnects)
+    await page3.goto('about:blank');
+
+    // Now P1 should see "Choose a Card to Steal" modal
+    const p1ChoiceModal = findModal(page1, "steal-choose-card");
+    await expect(p1ChoiceModal).toBeVisible();
+
+    // Verify card backs (P3 has 8 cards)
+    await expect(p1ChoiceModal.locator('img')).toHaveCount(8);
+
+    // Verify P3 is gone from player list, but still P1's turn
+    await expect(page1.locator(`.list-group-item:has-text("P3")`)).not.toBeVisible();
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+
+    // P1 chooses a card (click index 0)
+    await p1ChoiceModal.locator('.modal-body div[style*="cursor: pointer"]').first().click();
+    await expect(p1ChoiceModal).toBeHidden();
+
+    // Verify P1 gets the card
+    await expect(findLogArea(page1)).toContainText('P1 stole a card from P3');
+
+    // Verify turn is still P1 (Action phase resumes after Favor)
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+  });
+
+  test('Disconnect during DEVELOPER 2x combo', async ({ browser }) => {
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+
+    // Timer
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+
+    // Verify P1 has DEVELOPER (DEVMODE fixed hand)
+    const devCards = findHandCardsByClass(page1, CardClass.Developer);
+    await expect(devCards).toHaveCount(3);
+    const [devCard1, devCard2] = await findPair(devCards);
+
+    // P1 plays DEVELOPER combo targeting P3
+    await devCard1.click();
+    await page1.keyboard.down('Shift');
+    await devCard2.click();
+    await page1.keyboard.up('Shift');
+    await playCard(page1, devCard1);
+
+    // P1 chooses P3 as victim
+    const stealModal = findModal(page1, "steal-choose-victim");
+    await expect(stealModal).toBeVisible();
+    await stealModal.locator('button', { hasText: 'P3' }).click();
+    await stealModal.locator('button.btn-primary', { hasText: 'Steal Card' }).click();
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+
+    // Now P1 should see "Choose a Card to Steal" modal
+    const p1ChoiceModal = findModal(page1, "steal-choose-card");
+    await expect(p1ChoiceModal).toBeVisible();
+
+    // Verify card backs (P3 has 8 cards)
+    await expect(p1ChoiceModal.locator('img')).toHaveCount(8);
+
+    // P3 navigates away (disconnects)
+    await page3.goto('about:blank');
+
+    // Verify P3 is gone from player list, but still P1's turn
+    await expect(page1.locator(`.list-group-item:has-text("P3")`)).not.toBeVisible();
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+
+    // P1 should STILL see the choice modal and be able to choose
+    await expect(p1ChoiceModal).toBeVisible();
+    await expect(p1ChoiceModal.locator('img')).toHaveCount(8);
+
+    // P1 chooses a card (click index 0)
+    await p1ChoiceModal.locator('.modal-body div[style*="cursor: pointer"]').first().click();
+    await expect(p1ChoiceModal).toBeHidden();
+
+    // Verify P1 gets the card
+    await expect(findLogArea(page1)).toContainText('P1 stole a card from P3');
+
+    // Verify turn is still P1 (Action phase resumes after Favor)
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+  });
+
+  test('Leave before DEVELOPER 2x combo', async ({ browser }) => {
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+
+    // Timer
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+
+    // Verify P1 has DEVELOPER (DEVMODE fixed hand)
+    const devCards = findHandCardsByClass(page1, CardClass.Developer);
+    await expect(devCards).toHaveCount(3);
+    const [devCard1, devCard2] = await findPair(devCards);
+
+    // P1 plays DEVELOPER combo targeting P3
+    await devCard1.click();
+    await page1.keyboard.down('Shift');
+    await devCard2.click();
+    await page1.keyboard.up('Shift');
+    await playCard(page1, devCard1);
+
+    // P1 chooses P3 as victim
+    const stealModal = findModal(page1, "steal-choose-victim");
+    await expect(stealModal).toBeVisible();
+    await stealModal.locator('button', { hasText: 'P3' }).click();
+    await stealModal.locator('button.btn-primary', { hasText: 'Steal Card' }).click();
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+
+    // P3 leaves the game (Leave button)
+    await page3.click(Buttons.LEAVE_GAME);
+    const p3LeaveConfirm = findModal(page3, "leave-game");
+    await p3LeaveConfirm.locator('button.btn-danger').click();
+
+    // Now P1 should see "Choose a Card to Steal" modal
+    const p1ChoiceModal = findModal(page1, "steal-choose-card");
+    await expect(p1ChoiceModal).toBeVisible();
+
+    // Verify card backs (P3 has 8 cards)
+    await expect(p1ChoiceModal.locator('img')).toHaveCount(8);
+
+    // Verify P3 is gone from player list, but still P1's turn
+    await expect(page1.locator(`.list-group-item:has-text("P3")`)).not.toBeVisible();
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+
+    // P1 chooses a card (click index 0)
+    await p1ChoiceModal.locator('.modal-body div[style*="cursor: pointer"]').first().click();
+    await expect(p1ChoiceModal).toBeHidden();
+
+    // Verify P1 gets the card
+    await expect(findLogArea(page1)).toContainText('P1 stole a card from P3');
+
+    // Verify turn is still P1 (Action phase resumes after Favor)
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+  });
+
+  test('Leave during DEVELOPER 2x combo', async ({ browser }) => {
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+
+    // Timer
+    const p1TimerArea = findTimerArea(page1);
+    await expect(p1TimerArea).toBeHidden();
+
+    // Verify P1 has DEVELOPER (DEVMODE fixed hand)
+    const devCards = findHandCardsByClass(page1, CardClass.Developer);
+    await expect(devCards).toHaveCount(3);
+    const [devCard1, devCard2] = await findPair(devCards);
+
+    // P1 plays DEVELOPER combo targeting P3
+    await devCard1.click();
+    await page1.keyboard.down('Shift');
+    await devCard2.click();
+    await page1.keyboard.up('Shift');
+    await playCard(page1, devCard1);
+
+    // P1 chooses P3 as victim
+    const stealModal = findModal(page1, "steal-choose-victim");
+    await expect(stealModal).toBeVisible();
+    await stealModal.locator('button', { hasText: 'P3' }).click();
+    await stealModal.locator('button.btn-primary', { hasText: 'Steal Card' }).click();
+
+    // Verify reaction phase
+    await expect(p1TimerArea).toBeVisible();
+    await expect(p1TimerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
+    await expect(p1TimerArea).toContainText('Waiting for other players to react');
+
+    // Now P1 should see "Choose a Card to Steal" modal
+    const p1ChoiceModal = findModal(page1, "steal-choose-card");
+    await expect(p1ChoiceModal).toBeVisible();
+
+    // Verify card backs (P3 has 8 cards)
+    await expect(p1ChoiceModal.locator('img')).toHaveCount(8);
+
+    // P3 leaves the game (Leave button)
+    await page3.click(Buttons.LEAVE_GAME);
+    const p3LeaveConfirm = findModal(page3, "leave-game");
+    await p3LeaveConfirm.locator('button.btn-danger').click();
+
+    // Verify P3 is gone from player list, but still P1's turn
+    await expect(page1.locator(`.list-group-item:has-text("P3")`)).not.toBeVisible();
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+
+    // P1 should STILL see the choice modal and be able to choose
+    await expect(p1ChoiceModal).toBeVisible();
+    await expect(p1ChoiceModal.locator('img')).toHaveCount(8);
+
+    // P1 chooses a card (click index 0)
+    await p1ChoiceModal.locator('.modal-body div[style*="cursor: pointer"]').first().click();
+    await expect(p1ChoiceModal).toBeHidden();
+
+    // Verify P1 gets the card
+    await expect(findLogArea(page1)).toContainText('P1 stole a card from P3');
+
+    // Verify turn is still P1 (Action phase resumes after Favor)
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+  });
+
+  test('Disconnect during EXPLODING CLUSTER', async ({ browser }) => {
+    // Setup game with 2 players
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page2, /game/);
+
+    // Draw safe cards
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+
+    // P1 draws EXPLODING CLUSTER
+    await drawCard(page1);
+
+    // Verify
+    await expect(findLogArea(page1)).toContainText(`P1 drew an EXPLODING CLUSTER!`);
+    await expect(findDiscardPile(page1).locator(`img`)).toHaveAttribute("data-cardclass", CardClass.ExplodingCluster);
+
+    // P1 navigates away (disconnects)
+    await page1.goto('about:blank');
+
+    // P1 should be marked disconnected/gone
+    await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+
+    // Message about reinsertion
+    await expect(findLogArea(page2)).toContainText('The EXPLODING CLUSTER card was hidden');
+
+    // Turn should advance to P2 (since P1 is gone)
+    await expect(findTurnArea(page2)).toContainText("It's your turn");
+  });
+
+  test('Leave during EXPLODING CLUSTER', async ({ browser }) => {
+    // Setup game with 2 players
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page2, /game/);
+
+    // Draw safe cards
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+
+    // P1 draws EXPLODING CLUSTER
+    await drawCard(page1);
+
+    // Verify
+    await expect(findLogArea(page1)).toContainText(`P1 drew an EXPLODING CLUSTER!`);
+    await expect(findDiscardPile(page1).locator(`img`)).toHaveAttribute("data-cardclass", CardClass.ExplodingCluster);
+
+    // P1 leaves the game (Leave button)
+    await page1.click(Buttons.LEAVE_GAME);
+    const p1LeaveConfirm = findModal(page1, "leave-game");
+    await p1LeaveConfirm.locator('button.btn-danger').click();
+
+    // P1 should be marked disconnected/gone
+    await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+
+    // Message about reinsertion
+    await expect(findLogArea(page2)).toContainText('The EXPLODING CLUSTER card was hidden');
+
+    // Turn should advance to P2 (since P1 is gone)
+    await expect(findTurnArea(page2)).toContainText("It's your turn");
+  });
+
+  test('Disconnect during UPGRADE CLUSTER', async ({ browser }) => {
+    test.setTimeout(60000);
+
+    // Define a helper to use below
+    const almostExplode = async (page: Page, hide: number) => {
+      // Draw a card
+      await drawCard(page);
+      const overlay = findOverlay(page, "inspect-card");
+      await expect(overlay).toBeHidden();
+
+      // Discard pile should show EXPLODING CLUSTER
+      const pile = findDiscardPile(page);
+      await expect(pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.ExplodingCluster);
+
+      // Verify we can play DEBUG
+      const debug = findHandCardsByClass(page, CardClass.Debug);
+      await expect(debug.first()).toBeVisible();
+      await expect(debug.first()).toHaveAttribute('data-playable', 'true');
+
+      // Play DEBUG card
+      await playCard(page, debug);
+
+      // Verify it was played and messages sent
+      await expect(pile.locator(`img`)).toHaveAttribute("data-cardclass", CardClass.Debug);
+
+      // Verify the insertion dialog
+      const insertModal = findModal(page, "exploding-reinsert");
+      await expect(insertModal).toBeVisible();
+      const input = insertModal.locator('input[type="number"]');
+      await expect(input).toBeVisible();
+
+      // Re-insert it
+      await input.fill(hide.toString());
+      await insertModal.getByRole('button', { name: 'OK', exact: true }).click();
+      await expect(findTurnArea(page3)).toContainText(`your turn is next`);
+    }
+
+    // Setup game with 2 players
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+    const page3 = await ctx3.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+    await joinGame(page3, 'P3', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page2, /game/);
+
+    // Draw safe cards
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+
+    // P1 draws, explodes, and debugs, puts card back near the bottom
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
+    await almostExplode(page1, 20);
+
+    // More safe draws
+    await drawCard(page2);
+    await drawCard(page3);
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page3);
+
+    // Give P1 another DEBUG card to test multiple DEBUGs
+    const debugBtn = page1.locator(Buttons.DEV_GIVE_DEBUG_CARD);
+    await expect(debugBtn).toBeVisible();
+    await expect(debugBtn).toBeEnabled();
+    await debugBtn.click();
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
+
+    // P1 draws, explodes, and debugs, puts card back near the bottom
+    await expect(findHandCardsByClass(page1, CardClass.Debug)).toHaveCount(1);
+    await almostExplode(page1, 20);
+
+    // P2 gets UPGRADE CLUSTER face-down
+    await drawCard(page2);
+
+    // Verify
+    await expect(findLogArea(page1)).toContainText(`P2 drew an UPGRADE CLUSTER!`);
+    await expect(findDiscardPile(page1).locator(`img`)).toHaveAttribute("data-cardclass", CardClass.UpgradeCluster);
+
+    // Verify the insertion dialog
+    const p2InsertModal = findModal(page2, "upgrade-reinsert");
+    await expect(p2InsertModal).toBeVisible();
+    const p2Input = p2InsertModal.locator('input[type="number"]');
+    await expect(p2Input).toBeVisible();
+
+    // P2 navigates away (disconnects)
+    await page2.goto('about:blank');
+
+    // P2 should be marked disconnected/gone
+    await expect(page1.locator(`.list-group-item:has-text("P2")`)).not.toBeVisible();
+
+    // Message about reinsertion
+    await expect(findLogArea(page1)).toContainText('The UPGRADE CLUSTER card was hidden');
+
+    // Turn should advance to P3 (since P2 is gone)
+    await expect(findTurnArea(page3)).toContainText("It's your turn");
   });
 
   test('Message log: cleared between games', async ({ browser }) => {

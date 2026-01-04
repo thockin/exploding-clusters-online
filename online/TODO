@@ -1,40 +1,52 @@
-Phase 5:
-* Navigate while targetted by a FAVOR or COMBO does not immedately give a card
-  and does not indicate how long
+In progress:
+* test leave while drawing animation is running
+  - any card
+  - exploding and upgrading
 
-tests
- - more helpers
- - better locator for all areas
+Test improvments
+ - more helper funcs (e.g. almostExplode)
+ - better locators (e.g. cards in a modal derives from the modal not the page)
  - remove unused locator consts
  - Add a prod test with cases which do not need DEVMODE
- - Add tests for card choice auto-timeout
+   - e.g. prove the animation
+ - Add more stability and hand-wrap tests for different screen dimensions
 
-
-`npm i baseline-browser-mapping@latest -D` error, but we are at latest
-
-Later:
-* document state-machine
-  * Rename TurnPhase to TurnState ?
-* Play-card animation (important when playing the same card)
-* Re-insert card animation
-* Hand animation is ugly
-  - need configurable skin colors?
-  - scale hand animations with cards
-  - center on deck
-* Shuffle animation
-* Scale cards up in size as they get closer to discard pile (drag)
-* Announce who is the first player
-* Announce the victim more visibly when FAVOR or combo is played
-* Reduce card spacing in hand or even overlap them?
+Before release:
 * copyrights on art and code
-* Capitalization and grammar/style in all buttons and labels
- - Modal dialog for "beat you to it"
-* colors for reaction timer text
-* Send card classes to logs and messages as `s/_/ /g`
-* Nonce updates in `finally` blocks (redundant updates?)
-* Better messages for NAK (e.g. "P2 NAK'ed the SHUFFLE")
+* `npm i baseline-browser-mapping@latest -D`
+* make a docker image
+
+Repeated:
+* `npm i baseline-browser-mapping@latest -D`
+
+Cleanup:
+* Unify PlayCard and PlayCombo events
+* document the turn state-machine
+  * Rename TurnPhase to TurnState ?
+  * Rename GameStater Started -> Playing
+* Reduce redundant game updates?
 * Fix dumb LLM comments like "Maybe we should" and "design doc says..." and "phase X"
- - send BIG messages when executing
-   - Eg "Tim's NAK cancels Bob's SHUFFLE" and "Shuffling the deck" as we pop ops
+
+UI:
+* Better messages for messages
+  - e.g. "P2 NAK'ed the SHUFFLE"
+* Capitalization and grammar/style in all buttons and labels
+  - Modal dialog for "beat you to it"
+* Colors for reaction timer text
+* Send card classes to logs and messages as `s/_/ /g`
+* Announce who is the first player at gamer start
+* Announce the victim more visibly when FAVOR or combo is played
+* Animations:
+  * Add a play-card animation (important when playing the same card)
+    - distinguish combo play from single-card
+  * Add a reinsert-card animation
+  * Current draw-card animation is ugly
+    - get rid of hand entirely?
+    - need configurable skin colors?
+    - scale hand animations with cards
+    - center hand on deck
+  * Add a shuffle-deck animation
+* Scale cards up in size as they get dragged to the discard pile
+* Reduce card spacing in hand or even overlap them?
 
 Bugs:

@@ -52,6 +52,7 @@ interface Game {
   timer: NodeJS.Timeout | null;
   seeTheFutureResolver?: () => void;
   favorResolver?: (cardId: string) => void;
+  favorVictimId?: string;
   developerResolver?: (index: number) => void;
   devMode: boolean;
 }
@@ -178,122 +179,8 @@ export class GameManager {
         this.stealCard(socket, data.gameCode, data.index);
       });
 
-      // Handle voluntary leave
       socket.on(SocketEvent.LeaveGame, (gameCode: string) => {
-        // Validate gameCode matches the socket's actual game (prevents leaving games you're not in)
-        const actualGameCode = this.playerToGameMap.get(socket.id);
-        if (!actualGameCode || actualGameCode !== gameCode) {
-          this.log(null, `socket ${socket.id} attempted to leave game ${gameCode} but is in game ${actualGameCode || 'none'}`);
-          return; // Silently ignore invalid leave attempts
-        }
-
-        const game = this.games.get(gameCode);
-        if (!game) {
-          // Game doesn't exist, but clean up the map entry anyway
-          this.playerToGameMap.delete(socket.id);
-          return;
-        }
-
-        // Idempotency check: If socket is already removed from both players and spectators, ignore
-        const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
-        const spectatorIndex = game.spectators.findIndex(s => s.socketId === socket.id);
-
-        if (playerIndex === -1 && spectatorIndex === -1) {
-          // Already processed, just clean up map entry
-          this.playerToGameMap.delete(socket.id);
-          return;
-        }
-
-        // Prevent concurrent processing: Check if player is already disconnected/being processed
-        if (playerIndex !== -1) {
-          const player = game.players[playerIndex];
-          if (player.isDisconnected) {
-            // Already being handled by disconnect handler, skip to avoid double-processing
-            this.log(game, `player "${player.name}" already disconnected, skipping leave processing`);
-            this.playerToGameMap.delete(socket.id);
-            return;
-          }
-        }
-
-        this.log(game, `player ${socket.id} voluntarily left the game`);
-        socket.leave(gameCode);
-
-        let playerRemoved = false;
-        // Remove player completely
-        if (playerIndex !== -1) {
-          playerRemoved = true;
-          const player = game.players[playerIndex];
-
-          // Adjust currentPlayer to prevent out-of-bounds access
-          if (game.players.length === 0) {
-             // No players left, handled below
-             game.currentPlayer = 0;
-          } else if (playerIndex < game.currentPlayer) {
-             // Removed player was before current turn, decrement index
-             game.currentPlayer--;
-          }
-          // If playerIndex === game.currentPlayer, the index now points to the *next* player (or OOB), which is correct for passing turn.
-
-          // Ensure index is always valid
-          if (game.currentPlayer < 0) {
-            game.currentPlayer = 0;
-          }
-          if (game.currentPlayer >= game.players.length && game.players.length > 0) {
-            game.currentPlayer = 0; // Wrap around if we were at the end
-          }
-
-          // Move player's hand to removedPile
-          game.removedPile.push(...player.hand);
-          player.hand = []; // Clear hand
-
-          game.players.splice(playerIndex, 1); // Remove from array
-          this.msgToAllPlayers(game.code, `${player.name} has left the game, what a chicken!`);
-
-          // Handle owner migration if needed
-          if (game.state === GameState.Lobby && game.gameOwnerId === player.id) {
-            if (game.players.length > 0) {
-              const connectedPlayers = game.players.filter(p => !p.isDisconnected);
-              // Prefer connected players, otherwise take any
-              const newGameOwner = connectedPlayers.length > 0 ? connectedPlayers[0] : game.players[0];
-              game.gameOwnerId = newGameOwner.id;
-              this.log(game, `game owner "${player.name}" left, new game owner is "${newGameOwner.name}"`);
-            }
-          }
-        }
-
-        // Remove from spectators
-        if (spectatorIndex !== -1) {
-          game.spectators.splice(spectatorIndex, 1);
-        }
-
-        // Clean up map entry before game end checks to prevent re-processing
-        this.playerToGameMap.delete(socket.id);
-
-        // Atomic game end check: Only end game if it's actually empty and hasn't already ended
-        if (game.state !== GameState.Ended) {
-          if (game.players.length === 0 && game.spectators.length === 0) {
-            this.log(game, `game is empty, purging`);
-            this.endGame(gameCode, "Nobody", WinType.Attrition); // No players or spectators left
-            return; // endGame handles cleanup, don't continue
-          } else if (game.state === GameState.Started && game.players.length < 2) {
-            const remainingPlayers = game.players.filter(p => !p.isOut && !p.isDisconnected);
-            if (remainingPlayers.length === 1) {
-              this.endGame(game.code, remainingPlayers[0].name, WinType.Attrition);
-            } else {
-              this.endGame(game.code, "Nobody", WinType.Attrition); // All players disconnected or out.
-            }
-            return;
-          }
-        }
-
-        // Update game state if game hasn't ended
-        if (game.state !== GameState.Ended) {
-          if (playerRemoved) {
-            this.updateGameNonce(game); // Triggers update for everyone else
-          } else {
-            this.emitGameUpdate(game); // Just update list (spectator left)
-          }
-        }
+        this.leaveGame(socket, gameCode);
       });
 
       socket.on('disconnect', () => {
@@ -399,7 +286,7 @@ export class GameManager {
       players: game.players
         .filter(p => !p.isDisconnected)
         .map(p => ({ id: p.id, name: p.name, cards: p.hand.length, isOut: p.isOut, isDisconnected: p.isDisconnected })),
-      currentPlayer: game.currentPlayer,
+      currentPlayer: this.getDensePlayerIndex(game, game.currentPlayer),
       gameOwnerId: game.gameOwnerId,
       spectators: game.spectators.map(s => ({ id: s.id })),
       turnPhase: game.turnPhase,
@@ -440,27 +327,27 @@ export class GameManager {
     if (actorName) {
       game.lastActorName = actorName;
     }
-    // Purge disconnected players whenever nonce changes
-    const initialPlayers = game.players; // Keep a reference to original players
-    game.players = game.players.filter(p => {
-      if (p.isDisconnected) {
-        game.removedPile.push(...p.hand);
-        p.hand = []; // Clear hand
-        this.log(game, `purged disconnected player "${p.name}" and removed their hand`);
-        return false; // Exclude disconnected player
+    // Mark disconnected players as permanently out
+    for (const p of game.players) {
+      if (p.isDisconnected && !p.isOut) {
+        p.isOut = true;
+        this.log(game, `marking disconnected player "${p.name}" as permanently OUT`);
       }
-      return true; // Keep connected player
-    });
-    if (game.players.length < initialPlayers.length) {
-      this.log(game, `purged ${initialPlayers.length - game.players.length} disconnected players`);
     }
 
-    // Check for attrition win after purge
-    if (game.state === GameState.Started && game.players.length === 1) {
-      const winner = game.players[0];
-      this.log(game, `game won by attrition: winner ${winner.name}`);
-      this.handleWin(game, winner, WinType.Attrition);
-      return; // Stop further updates
+    // Check for attrition win (count active players)
+    const activePlayers = game.players.filter(p => !p.isOut && !p.isDisconnected);
+    if (game.state === GameState.Started) {
+      if (activePlayers.length === 0) {
+        this.endGame(game.code, "Nobody", WinType.Attrition);
+        return;
+      }
+      if (activePlayers.length === 1) {
+        const winner = activePlayers[0];
+        this.log(game, `game won by attrition: winner ${winner.name}`);
+        this.handleWin(game, winner, WinType.Attrition);
+        return;
+      }
     }
 
     // New nonce, notify all clients
@@ -648,21 +535,6 @@ export class GameManager {
         existingPlayer.isPlaying = false; // Reset playing flag on reconnect
         this.playerToGameMap.set(socket.id, gameCode);
         socket.join(gameCode);
-        // If they were marked out, mark them back in?
-        // Logic says "isOut" means they are out of the game (exploded).
-        // But "disconnected" logic marks them isOut?
-        // "For now, we will mark them as out..." in handleDisconnect.
-        // If they reconnect, we should probably unmark them isOut IF they weren't really out?
-        // But we don't know if they were out due to game rules or disconnect.
-        // Use a separate flag? Or just assume if they reconnect they are back.
-        // But if they exploded, isOut is true.
-        // We need 'isConnected' vs 'isOut'.
-        // For now, leaving isOut logic as is, assuming isOut=true means "exploded".
-        // But handleDisconnect sets isOut=true. This is problematic for reconnection.
-
-        // Reverting handleDisconnect isOut logic might be needed later.
-        // For now, just fixing the lookup.
-
         this.log(game, `player "${sanitizedName}" (${existingPlayer.socketId}) rejoined the game`);
         this.msgToAllPlayers(game.code, `${sanitizedName} has rejoined the game, hoorah!`);
         this.emitGameUpdate(game); // Rejoining player does not change nonce
@@ -1465,7 +1337,17 @@ export class GameManager {
   }
 
   private isPlayerTurn(game: Game, player: Player): boolean {
-    return game.players[game.currentPlayer].id === player.id;
+    return game.currentPlayer !== -1 && game.players[game.currentPlayer] && game.players[game.currentPlayer].id === player.id;
+  }
+
+  private getDensePlayerIndex(game: Game, sparseIndex: number): number {
+    let denseIndex = 0;
+    for (let i = 0; i < sparseIndex; i++) {
+      if (!game.players[i].isDisconnected) {
+        denseIndex++;
+      }
+    }
+    return denseIndex;
   }
 
   private playCard(socket: Socket, gameCode: string, cardId: string, nonce?: string, victimId?: string) {
@@ -1661,60 +1543,89 @@ export class GameManager {
     return async (_g: Game) => {
       // Re-fetch victim, since time has passed
       const currentVictim = _g.players.find(p => p.id === victimId);
-      if (!currentVictim || currentVictim.isOut || currentVictim.hand.length === 0) {
-        this.log(_g, `FAVOR failed: victim "${currentVictim?.name}" unavailable or has empty hand`);
-        this.msgToAllPlayers(_g.code, `${player.name} asked ${currentVictim?.name || 'someone'} for a favor, but they have no cards left!`);
+      if (!currentVictim) {
+        this.log(_g, `BUG: FAVOR victim "${victimId}" was not found`);
+        this.msgToAllPlayers(_g.code, `BUG: FAVOR victim was not found!`);
+        return;
+      }
+      if (currentVictim.hand.length === 0) {
+        this.log(_g, `FAVOR failed: victim "${currentVictim?.name}" has empty hand`);
+        this.msgToAllPlayers(_g.code, `${player.name} asked ${currentVictim.name} for a favor, but they have no cards left!`);
         return;
       }
 
-      this.setTurnPhase(_g, TurnPhase.ChoosingFavorCard);
-      this.updateGameNonce(_g, player.name); // Notify clients of phase change
-      // This timeout defines how long the victim has to choose a card before
-      // we choose one for them.
-      const timeout = config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS;
-      this.emitToSocket(currentVictim.socketId, SocketEvent.ChooseFavorCard, {stealerName: player.name, timeout: timeout});
+      let stolenCardIndex = -1;
+      let finalVictim: Player | undefined = undefined;
+      if (currentVictim.isOut) {
+        stolenCardIndex = Math.floor(this.prng.random() * currentVictim.hand.length);
+        finalVictim = currentVictim;
+      } else {
+        this.setTurnPhase(_g, TurnPhase.ChoosingFavorCard);
+        game.favorVictimId = victimId; // for reference in async resolution
+        this.updateGameNonce(_g, player.name); // notify clients of phase change
+        // This timeout defines how long the victim has to choose a card before
+        // we choose one for them.
+        const timeout = config.goFast ? FAST_CHOOSE_CARD_TIMEOUT_MS : CHOOSE_CARD_TIMEOUT_MS;
+        this.emitToSocket(currentVictim.socketId, SocketEvent.ChooseFavorCard, {stealerName: player.name, timeout: timeout});
 
-      const cardId = await Promise.race([
-        new Promise<string>(resolve => {
-          _g.favorResolver = resolve;
-        }),
-        new Promise<string>(resolve => {
-          setTimeout(() => {
-            // Pick random card if timeout
-            const v = _g.players.find(p => p.id === victimId);
-            if (v && v.hand.length > 0) {
-              const randIdx = Math.floor(this.prng.random() * v.hand.length);
-              resolve(v.hand[randIdx].id);
-              this.msgToPlayer(v.socketId, "Too slow! A random card was chosen for you.");
-            } else {
-              resolve("");
-            }
-          }, timeout);
-        })
-      ]);
-      _g.favorResolver = undefined;
+        // This might be resolved by the victim choosing a card, by a timeout
+        // choosing a random card, or by the victim disconnecting.
+        const cardId = await Promise.race([
+          new Promise<string>(resolve => {
+            _g.favorResolver = resolve;
+          }),
+          new Promise<string>(resolve => {
+            setTimeout(() => {
+              // Pick random card if timeout
+              const v = _g.players.find(p => p.id === victimId);
+              if (v && v.hand.length > 0) {
+                const randIdx = Math.floor(this.prng.random() * v.hand.length);
+                resolve(v.hand[randIdx].id);
+                this.msgToPlayer(v.socketId, "Too slow! A random card was chosen for you.");
+              } else {
+                resolve("");
+              }
+            }, timeout);
+          })
+        ]);
+        _g.favorResolver = undefined;
+        _g.favorVictimId = undefined;
 
-      // Re-fetch victim AGAIN
-      const finalVictim = _g.players.find(p => p.id === victimId);
-      if (!finalVictim) {
-        this.log(_g, "FAVOR failed: victim not found after resolution");
-        return;
-      }
-
-      const stolenCardIndex = finalVictim.hand.findIndex(c => c.id === cardId);
-      if (stolenCardIndex !== -1) {
-        const [stolenCard] = finalVictim.hand.splice(stolenCardIndex, 1);
-        // Use ID to find fresh player object
-        const requester = _g.players.find(p => p.id === player.id);
-        if (requester) {
-          requester.hand.push(stolenCard);
-          this.emitToSocket(requester.socketId, SocketEvent.FavorResult, { card: stolenCard });
-          this.emitToSocket(requester.socketId, SocketEvent.HandUpdate, { hand: requester.hand });
+        // Re-fetch victim AGAIN
+        const resolvedVictim = _g.players.find(p => p.id === victimId);
+        if (!resolvedVictim) {
+          this.log(_g, `BUG: FAVOR victim "${victimId}" was not found after resolution`);
+          this.msgToAllPlayers(_g.code, `BUG: FAVOR victim was not found after resolution!`);
+          return;
         }
-        this.emitToSocket(finalVictim.socketId, SocketEvent.HandUpdate, { hand: finalVictim.hand });
-        this.log(_g, `player "${player.name}" received "${stolenCard.class}" from "${finalVictim.name}"`);
-        this.msgToAllPlayers(_g.code, `${finalVictim.name} gave ${player.name} a card.`);
+        stolenCardIndex = resolvedVictim.hand.findIndex(c => c.id === cardId);
+        finalVictim = resolvedVictim;
       }
+
+      if (stolenCardIndex === -1) {
+        this.log(_g, `BUG: FAVOR failed to find a card to steal`);
+        this.msgToAllPlayers(_g.code, `BUG: FAVOR failed to find a card to steal!`);
+        return;
+      }
+
+      const [stolenCard] = finalVictim.hand.splice(stolenCardIndex, 1);
+      // Use ID to find fresh player object
+      const requester = _g.players.find(p => p.id === player.id);
+      if (!requester) {
+        this.log(_g, `BUG: FAVOR player "${player.id}" was not found after resolution`);
+        this.msgToAllPlayers(_g.code, `BUG: FAVOR player was not found after resolution!`);
+      } else {
+        requester.hand.push(stolenCard);
+        this.emitToSocket(requester.socketId, SocketEvent.FavorResult, { card: stolenCard });
+        this.emitToSocket(requester.socketId, SocketEvent.HandUpdate, { hand: requester.hand });
+      }
+      this.emitToSocket(finalVictim.socketId, SocketEvent.HandUpdate, { hand: finalVictim.hand });
+      let victimName = finalVictim.name;
+      if (finalVictim.isOut) {
+        victimName = `${finalVictim.name}'s estate`;
+      }
+      this.log(_g, `player "${player.name}" received "${stolenCard.class}" from "${finalVictim.name}"`);
+      this.msgToAllPlayers(_g.code, `${victimName} gave ${player.name} a card.`);
     }
   }
 
@@ -1916,10 +1827,15 @@ export class GameManager {
     return async (_g: Game) => {
       // Re-fetch victim, since time has passed
       const currentVictim = _g.players.find(p => p.id === victimId);
-      if (!currentVictim || currentVictim.isOut || currentVictim.hand.length === 0) {
-          this.log(_g, `DEVELOPER 2x combo failed: victim unavailable or has empty hand`);
-          this.msgToAllPlayers(_g.code, `${player.name} tried to steal from ${currentVictim?.name || 'someone'}, but they have no cards left!`);
-          return;
+      if (!currentVictim) {
+        this.log(_g, `BUG: 2x combo victim "${victimId}" was not found`);
+        this.msgToAllPlayers(_g.code, `BUG: 2x combo victim was not found!`);
+        return;
+      }
+      if (currentVictim.hand.length === 0) {
+        this.log(_g, `2x combo failed: victim "${currentVictim?.name}" has empty hand`);
+        this.msgToAllPlayers(_g.code, `${player.name} asked ${currentVictim.name} for a favor, but they have no cards left!`);
+        return;
       }
 
       this.setTurnPhase(_g, TurnPhase.ChoosingDeveloperCard);
@@ -1932,6 +1848,8 @@ export class GameManager {
 
       // Wait for response (index)
       let timeoutHandle: NodeJS.Timeout;
+      // This might be resolved by the requester choosing a card or by a
+      // timeout choosing a random card.
       const chosenIndex = await Promise.race([
           new Promise<number>(resolve => { _g.developerResolver = resolve; }),
           new Promise<number>(resolve => {
@@ -1972,174 +1890,220 @@ export class GameManager {
     }
   }
 
+  private resolvePendingInteractions(game: Game, player: Player) {
+    if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
+      // Check for in-progress EXPLODING CLUSTER
+      if (game.turnPhase === TurnPhase.Exploding || game.turnPhase === TurnPhase.ExplodingReinserting) {
+        // Find from end (most recent)
+        let explodingIndex = -1;
+        for (let i = game.discardPile.length - 1; i >= 0; i--) {
+          if (game.discardPile[i].class === CardClass.ExplodingCluster) {
+            explodingIndex = i;
+            break;
+          }
+        }
+        if (explodingIndex !== -1) {
+          const [card] = game.discardPile.splice(explodingIndex, 1);
+          const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
+          game.drawPile.splice(insertIndex, 0, card);
+          this.log(game, `reinserted ${card.name} at index ${insertIndex}`);
+          this.msgToAllPlayers(game.code, `The EXPLODING CLUSTER card was hidden at a random position in the deck.`);
+        }
+      }
 
+      // Check for in-progress UPGRADE CLUSTER
+      if (game.turnPhase === TurnPhase.Upgrading) {
+        let upgradeIndex = -1;
+        for (let i = game.discardPile.length - 1; i >= 0; i--) {
+          if (game.discardPile[i].class === CardClass.UpgradeCluster) {
+            upgradeIndex = i;
+            break;
+          }
+        }
+        if (upgradeIndex !== -1) {
+          const [card] = game.discardPile.splice(upgradeIndex, 1);
+          card.isFaceUp = true; // Re-insert face-up
+          const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
+          game.drawPile.splice(insertIndex, 0, card);
+          this.log(game, `reinserted ${card.name} (face-up) at index ${insertIndex}`);
+          this.msgToAllPlayers(game.code, `The UPGRADE CLUSTER card was hidden at a random position in the deck.`);
+        }
+      }
+    }
+
+    // Check for pending FAVOR interaction
+    if (game.turnPhase === TurnPhase.ChoosingFavorCard && game.favorVictimId === player.id && game.favorResolver) {
+      this.log(game, `FAVOR victim "${player.name}" disconnected, resolving immediately`);
+      if (player.hand.length == 0) {
+        this.msgToAllPlayers(game.code, `${player.name} left with no cards, so no card was given.`);
+      }
+      const randIdx = Math.floor(this.prng.random() * player.hand.length);
+      game.favorResolver(player.hand[randIdx].id);
+      return;
+    }
+
+    // No need to check for pending DEVELOPER interaction - that is handled in
+    // the normal flow (with the developerResolver).
+
+    // Handle game-owner migration if needed
+    if (game.state === GameState.Lobby && game.gameOwnerId === player.id) {
+      if (game.players.length > 0) {
+        const connectedPlayers = game.players.filter(p => !p.isDisconnected);
+        // Prefer connected players, otherwise take any
+        const newGameOwner = connectedPlayers.length > 0 ? connectedPlayers[0] : game.players[0];
+        game.gameOwnerId = newGameOwner.id;
+        this.log(game, `game owner "${player.name}" left, new game owner is "${newGameOwner.name}"`);
+      }
+    }
+  }
+
+  // This is very similar to handleDisconnect() -- keep them in sync.
+  private leaveGame(socket: Socket, gameCode: string) {
+    // Validate gameCode matches the socket's actual game (prevents leaving games you're not in)
+    const actualGameCode = this.playerToGameMap.get(socket.id);
+    if (!actualGameCode) {
+      this.log(null, `socket ${socket.id} attempted to leave game ${gameCode} but is in game ${actualGameCode || 'none'}`);
+      return; // Silently ignore invalid leave attempts
+    }
+    if (actualGameCode !== gameCode) {
+      this.log(null, `socket ${socket.id} attempted to leave game ${gameCode} but is in game ${actualGameCode}`);
+      return; // Silently ignore invalid leave attempts
+    }
+    this.playerToGameMap.delete(socket.id);
+
+    const game = this.games.get(gameCode);
+    if (!game) {
+      return;
+    }
+
+    const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
+    const spectatorIndex = game.spectators.findIndex(s => s.socketId === socket.id);
+
+    const player = playerIndex !== -1 ? game.players[playerIndex] : undefined;
+    const spectator = spectatorIndex !== -1 ? game.spectators[spectatorIndex] : undefined;
+
+    if (player || spectator) {
+      if (player) {
+        this.log(game, `player "${player.name}" (${player.socketId}) voluntarily left the game`);
+      } else {
+        this.log(game, `spectator ${socket.id} voluntarily left the game`);
+      }
+      socket.leave(gameCode);
+    }
+
+    // Handle player leave
+    if (player) {
+      player.isDisconnected = true;
+      player.isOut = true; // they are out for good
+
+      // Send first message
+      if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
+        this.msgToAllPlayers(game.code, `${player.name} has fled in the middle of their turn!`);
+      } else {
+        this.msgToAllPlayers(game.code, `${player.name} has left the game, what a chicken!`);
+      }
+
+      // Handle scenarios where the departing player was involved.
+      this.resolvePendingInteractions(game, player);
+
+      // If it was their turn, advance
+      if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
+        this.advanceTurn(game);
+        this.updateGameNonce(game, player.name);
+      } else {
+        this.emitGameUpdate(game);
+      }
+    }
+
+    // Handle spectator leave
+    if (spectator) {
+      game.spectators.splice(spectatorIndex, 1);
+      this.emitGameUpdate(game);
+    }
+
+    // Check if the game is over
+    this.checkEndConditions(game);
+  }
+
+  // This is very similar to leaveGame() -- keep them in sync.
   private handleDisconnect(socket: Socket) {
     const gameCode = this.playerToGameMap.get(socket.id);
-
     if (!gameCode) {
       this.log(null, `socket ${socket.id} disconnected, not in any game`);
       return;
     }
+    this.playerToGameMap.delete(socket.id);
 
     const game = this.games.get(gameCode);
     if (!game) {
-      // Game doesn't exist, clean up map entry
-      this.playerToGameMap.delete(socket.id);
       return;
     }
 
-    // Remove from players
     const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
-    if (playerIndex !== -1) {
-      const player = game.players[playerIndex];
+    const spectatorIndex = game.spectators.findIndex(s => s.socketId === socket.id);
 
-      // Idempotency check: If already marked as disconnected, skip to avoid double-processing
-      if (player.isDisconnected) {
-        this.log(game, `handleDisconnect: player "${player.name}" already marked as disconnected, skipping`);
-        return;
+    const player = playerIndex !== -1 ? game.players[playerIndex] : undefined;
+    const spectator = spectatorIndex !== -1 ? game.spectators[spectatorIndex] : undefined;
+
+    if (player || spectator) {
+      if (player) {
+        this.log(game, `player "${player.name}" (${player.socketId}) disconnected`);
+      } else {
+        this.log(game, `spectator ${socket.id} disconnected`);
       }
+    }
 
-      this.log(game, `player "${player.name}" (${player.socketId}) disconnected`);
-
+    // Handle player disconnection
+    if (player) {
       const oldSocketId = player.socketId;
       player.isDisconnected = true;
       player.socketId = ''; // Clear socketId so this socket can't be reused directly
-      this.msgToAllPlayers(game.code, `${player.name} has disconnected, maybe they will be right back?`);
 
-      // If current player disconnected, handle turn progression
+      // Send first message
       if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
-        this.log(game, `current player "${player.name}" has left, advancing turn`);
-
-        // Check for pending Exploding/Upgrade Cluster cards in hand (just drawn)
-        // "If the player has just drawn an EXPLODING CLUSTER card, it is reinserted at a random position..."
-        const specialCards = player.hand.filter(c => c.class === CardClass.ExplodingCluster || c.class === CardClass.UpgradeCluster);
-        const remainingHand = player.hand.filter(c => c.class !== CardClass.ExplodingCluster && c.class !== CardClass.UpgradeCluster);
-
-        specialCards.forEach(card => {
-          const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
-          game.drawPile.splice(insertIndex, 0, card);
-          this.log(game, `reinserted ${card.name} (${card.class}) at index ${insertIndex} due to disconnect`);
-        });
-
-        // Also check discard pile if we are in Exploding phase (since we moved the card there)
-        if (game.turnPhase === TurnPhase.Exploding || game.turnPhase === TurnPhase.ExplodingReinserting) {
-          // Find from end (most recent)
-          let explodingIndex = -1;
-          for (let i = game.discardPile.length - 1; i >= 0; i--) {
-            if (game.discardPile[i].class === CardClass.ExplodingCluster) {
-              explodingIndex = i;
-              break;
-            }
-          }
-          if (explodingIndex !== -1) {
-            const [card] = game.discardPile.splice(explodingIndex, 1);
-            const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
-            game.drawPile.splice(insertIndex, 0, card);
-            this.log(game, `reinserted ${card.name} (${card.class}) from discard at index ${insertIndex} due to disconnect`);
-          }
-          // Reset phase
-          this.setTurnPhase(game, TurnPhase.Action);
-        }
-        // Handle Upgrade Cluster in discard on disconnect
-        else if (game.turnPhase === TurnPhase.Upgrading) {
-          let upgradeIndex = -1;
-          for (let i = game.discardPile.length - 1; i >= 0; i--) {
-            if (game.discardPile[i].class === CardClass.UpgradeCluster) {
-              upgradeIndex = i;
-              break;
-            }
-          }
-          if (upgradeIndex !== -1) {
-            const [card] = game.discardPile.splice(upgradeIndex, 1);
-            card.isFaceUp = true; // Re-insert face-up
-            const insertIndex = Math.floor(this.prng.random() * (game.drawPile.length + 1));
-            game.drawPile.splice(insertIndex, 0, card);
-            this.log(game, `reinserted ${card.name} (${card.class}) from discard (face-up) at index ${insertIndex} due to disconnect`);
-          }
-          this.setTurnPhase(game, TurnPhase.Action); // Reset phase
-        }
-
-        // Move remaining hand to removedPile
-        game.removedPile.push(...remainingHand);
-        player.hand = [];
-
-        // "Any pending operations for that player are discarded."
-        game.pendingOperations = [];
-
-        // Reset attack turns if the player who left was under attack
-        game.attackTurns = 0;
-        game.attackTurnsTaken = 0;
-
-        // Remove from players list so they cannot rejoin
-        // We must use the index we found earlier, but verify it hasn't shifted?
-        // No, we haven't mutated players array yet in this function.
-        game.players.splice(playerIndex, 1);
-
-        // Adjust currentPlayer if necessary
-        if (game.currentPlayer >= game.players.length) {
-            game.currentPlayer = 0;
-        }
-        // If the removed player was before the current player, decrement the index
-        if (playerIndex < game.currentPlayer) {
-            game.currentPlayer--;
-        }
-        // Ensure index is always valid
-        if (game.currentPlayer < 0) {
-            game.currentPlayer = 0;
-        }
-
-        const nextPlayer = game.players[game.currentPlayer];
-        if (nextPlayer) {
-          this.msgToAllPlayers(game.code, `${player.name} has abandoned their turn, it's ${nextPlayer.name}'s turn.`);
-        }
-        // Ensure nonce is updated because game state changed significantly
-        this.updateGameNonce(game);
-        return; // updateGameNonce emits update, so we can return
+        this.msgToAllPlayers(game.code, `${player.name} has abandoned their turn!`);
+      } else {
+        this.msgToAllPlayers(game.code, `${player.name} has disconnected, maybe they will be right back?`);
       }
 
-      // Check for attrition win (only 1 connected player left)
-      const connectedPlayers = game.players.filter(p => !p.isDisconnected && !p.isOut);
-      if (game.state === GameState.Started && connectedPlayers.length === 1) {
-        const winner = connectedPlayers[0];
-        this.log(game, `game won by attrition by ${winner.name} (others disconnected/out)`);
-        this.handleWin(game, winner, WinType.Attrition);
-        return;
-      }
+      // Handle scenarios where the departing player was involved.
+      this.resolvePendingInteractions(game, player);
 
-      // If game owner leaves the lobby, assign a new game owner IF game is in lobby
-      if (game.state === GameState.Lobby && game.gameOwnerId === player.id && game.players.length > 1) {
-        // Find all players *other than the disconnecting one* who are currently *connected*
-        const potentialNewOwners = game.players.filter(p => p.id !== player.id && !p.isDisconnected);
-
-        if (potentialNewOwners.length > 0) {
-          // Assign to the first available connected player
-          const newGameOwner = potentialNewOwners[0];
-          game.gameOwnerId = newGameOwner.id;
-          this.log(game, `game owner "${player.name}" (${oldSocketId}) disconnected. new game owner is "${newGameOwner.name}" (${newGameOwner.socketId})`);
-        } else {
-          // No other *connected* players to promote. The game will become empty of connected players soon.
-          // No new owner is assigned; the game effectively ends (handled by final check below).
-          this.log(game, `game owner "${player.name}" (${oldSocketId}) disconnected. no other connected players to promote to game owner. game will end.`);
-        }
+      // If it was their turn, advance
+      if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
+        this.advanceTurn(game);
+        this.updateGameNonce(game, player.name);
+      } else {
+        this.emitGameUpdate(game);
       }
-      // Emit game update, which will trigger nonce change and purging of disconnected players
-      // We do NOT check for attrition here to allow grace period for reconnection.
-      // Attrition check happens in updateGameNonce (if nonce changes) or explicitly if desired later.
-      this.emitGameUpdate(game);
     }
 
-    // --- Spectator Disconnection Logic ---
-    const spectatorIndex = game.spectators.findIndex(s => s.socketId === socket.id);
-    if (spectatorIndex !== -1) {
+    // Handle spectator leave
+    if (spectator) {
       game.spectators.splice(spectatorIndex, 1);
-      this.log(game, `spectator (${socket.id}) disconnected`);
       this.emitGameUpdate(game);
     }
 
-    this.playerToGameMap.delete(socket.id); // Remove from map after all processing
+    // Check if the game is over
+    this.checkEndConditions(game);
   }
 
+  private checkEndConditions(game: Game) {
+    if (game.state === GameState.Ended) {
+      return
+    }
 
+    const activePlayers = game.players.filter(p => !p.isOut && !p.isDisconnected);
+    if (activePlayers.length === 0) {
+      this.log(game, `game is empty, purging`);
+      this.endGame(game.code, "Nobody", WinType.Attrition); 
+      return; 
+    }
+    if (activePlayers.length === 1 && game.state === GameState.Started) {
+      this.handleWin(game, activePlayers[0], WinType.Attrition);
+      return;
+    }
+  }
 
   private endGame(gameCode: string, winnerName: string, winType: WinType) {
     const game = this.games.get(gameCode);
@@ -2285,11 +2249,11 @@ export class GameManager {
     }
 
     if (game.attackTurns > 0) {
-       // Player must take more turns
-       this.updateGameNonce(game, player.name);
+     // Player must take more turns
+     this.updateGameNonce(game, player.name);
     } else {
-       this.advanceTurn(game);
-       this.updateGameNonce(game, player.name);
+     this.advanceTurn(game);
+     this.updateGameNonce(game, player.name);
     }
   }
 
@@ -2301,29 +2265,29 @@ export class GameManager {
     if (!player) return; // Only player who played card can dismiss
 
     if (!this.isPlayerTurn(game, player)) {
-        this.log(game, `player "${player.name}" tried to dismiss SeeTheFuture out of turn`);
-        return;
+      this.log(game, `player "${player.name}" tried to dismiss SeeTheFuture out of turn`);
+      return;
     }
     // Only allow dismissal if we are or were recently in SeeingTheFuture
     // phase. We track prevTurnPhase because time is involved and a client
     // might be delayed in sending the dismissal.
     let prev = game.turnPhase;
     if (game.prevTurnPhase) {
-        prev = game.prevTurnPhase;
+      prev = game.prevTurnPhase;
     }
     if (game.turnPhase !== TurnPhase.SeeingTheFuture && prev !== TurnPhase.SeeingTheFuture) {
-        this.log(game, `player "${player.name}" tried to dismiss SeeTheFuture out of phase (${game.turnPhase})`);
-        return;
+      this.log(game, `player "${player.name}" tried to dismiss SeeTheFuture out of phase (${game.turnPhase})`);
+      return;
     }
 
     if (game.seeTheFutureResolver) {
-        this.log(game, `player "${player.name}" manually dismissed SeeTheFuture`);
-        game.seeTheFutureResolver(); // Resolve the promise
-        game.seeTheFutureResolver = undefined;
+      this.log(game, `player "${player.name}" manually dismissed SeeTheFuture`);
+      game.seeTheFutureResolver(); // Resolve the promise
+      game.seeTheFutureResolver = undefined;
     }
     if (game.timer) { // Clear the timeout if it's still running
-        clearTimeout(game.timer);
-        game.timer = null;
+      clearTimeout(game.timer);
+      game.timer = null;
     }
   }
 
@@ -2338,12 +2302,12 @@ export class GameManager {
 
     // Validate ownership
     if (!player.hand.some(c => c.id === cardId)) {
-        this.msgToPlayer(socket.id, "You don't have that card.");
-        return;
+      this.msgToPlayer(socket.id, "You don't have that card.");
+      return;
     }
 
     if (game.favorResolver) {
-        game.favorResolver(cardId);
+      game.favorResolver(cardId);
     }
   }
 
