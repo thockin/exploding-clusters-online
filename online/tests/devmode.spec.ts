@@ -185,56 +185,6 @@ function catchConsoleLogs(page: Page, prefix: string) {
 
 test.describe('UI Tests with DEVMODE=1', () => {
 
-  test('Game screen loads: 2 players + observer', async ({ browser }) => {
-    const p1 = await browser.newContext();
-    const p2 = await browser.newContext();
-    const obs = await browser.newContext();
-    const page1 = await p1.newPage();
-    const page2 = await p2.newPage();
-    const pageObs = await obs.newPage();
-
-    // P1 Creates Game
-    const code = await createGame(page1, 'Player One');
-
-    // P2 Joins Game
-    await joinGame(page2, 'Player Two', code);
-
-    // Observer Watches Game
-    await watchGame(pageObs, code);
-
-    // Verify the player list has 2 players on all screens
-    await expect(page1.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2);
-    await expect(page2.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2);
-    await expect(pageObs.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2);
-
-    // Verify Lobby Sync on P1: Check that Player Two is listed
-    await expect(page1.locator('text=Player Two')).toBeVisible();
-    // Verify Lobby Sync on P1: Check spectator count
-    await expect(page1.locator('text=Watching: 1 person')).toBeVisible();
-
-    // Verify Lobby Sync on P2: Check that Player One is listed
-    await expect(page1.locator('text=Player One')).toBeVisible();
-    // Verify Lobby Sync on P2: Check spectator count
-    await expect(page1.locator('text=Watching: 1 person')).toBeVisible();
-
-    // Verify Lobby Sync on Observer: Check players
-    await expect(pageObs.locator('text=Player One (Host)')).toBeVisible();
-    await expect(pageObs.locator('text=Player Two')).toBeVisible();
-
-    // Start Game (P1 clicks start)
-    await page1.click(Buttons.START_GAME);
-
-    // Verify Game Screen loaded for all participants
-    await waitForURL(page1, /game/);
-    await waitForURL(page2, /game/);
-    await waitForURL(pageObs, /observer/);
-
-    // Verify Observer UI: Should NOT see a hand
-    await expect(pageObs.locator(Headers.YOUR_HAND)).not.toBeVisible();
-    // Verify Player UI: Should see a hand
-    await expect(page1.locator(Headers.YOUR_HAND)).toBeVisible();
-  });
-
   test('Fail to join: game is full', async ({ browser }) => {
     const p1 = await browser.newContext();
     const page1 = await p1.newPage();
@@ -436,6 +386,56 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page1.locator(Buttons.START_GAME)).not.toBeVisible();
   });
 
+  test('Game screen loads: 2 players + observer', async ({ browser }) => {
+    const p1 = await browser.newContext();
+    const p2 = await browser.newContext();
+    const obs = await browser.newContext();
+    const page1 = await p1.newPage();
+    const page2 = await p2.newPage();
+    const pageObs = await obs.newPage();
+
+    // P1 Creates Game
+    const code = await createGame(page1, 'Player One');
+
+    // P2 Joins Game
+    await joinGame(page2, 'Player Two', code);
+
+    // Observer Watches Game
+    await watchGame(pageObs, code);
+
+    // Verify the player list has 2 players on all screens
+    await expect(page1.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2);
+    await expect(page2.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2);
+    await expect(pageObs.locator(Locators.LOBBY_PLAYER_LIST + ' .list-group-item')).toHaveCount(2);
+
+    // Verify Lobby Sync on P1: Check that Player Two is listed
+    await expect(page1.locator('text=Player Two')).toBeVisible();
+    // Verify Lobby Sync on P1: Check spectator count
+    await expect(page1.locator('text=Watching: 1 person')).toBeVisible();
+
+    // Verify Lobby Sync on P2: Check that Player One is listed
+    await expect(page1.locator('text=Player One')).toBeVisible();
+    // Verify Lobby Sync on P2: Check spectator count
+    await expect(page1.locator('text=Watching: 1 person')).toBeVisible();
+
+    // Verify Lobby Sync on Observer: Check players
+    await expect(pageObs.locator('text=Player One (Host)')).toBeVisible();
+    await expect(pageObs.locator('text=Player Two')).toBeVisible();
+
+    // Start Game (P1 clicks start)
+    await page1.click(Buttons.START_GAME);
+
+    // Verify Game Screen loaded for all participants
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(pageObs, /observer/);
+
+    // Verify Observer UI: Should NOT see a hand
+    await expect(pageObs.locator(Headers.YOUR_HAND)).not.toBeVisible();
+    // Verify Player UI: Should see a hand
+    await expect(page1.locator(Headers.YOUR_HAND)).toBeVisible();
+  });
+
   test('Game page: initial UI', async ({ browser }) => {
     // Setup 3 players
     const ctx1 = await browser.newContext();
@@ -487,263 +487,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p3TurnArea).toBeVisible();
     await expect(p3TurnArea).toHaveCSS('background-color', 'rgb(173, 216, 230)');
     await expect(p3TurnArea).toContainText(`It's P1's turn`);
-  });
-
-  test('Hand: card wrapping', async ({ browser }) => {
-    // Create game
-    // Set viewport to constrain hand width to approx 7 cards to force wrapping
-    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 800 } });
-    const page = await ctx1.newPage();
-    const code = await createGame(page, 'P1');
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-
-    // Start Game
-    await page.click(Buttons.START_GAME);
-    await waitForURL(page, /game/);
-
-    // Wait for hand to render and verify initial count (8)
-    const handArea = findHand(page);
-    await expect(handArea.locator('img')).toHaveCount(8);
-
-    // Check rows: 8 cards should wrap to 2 rows of 4
-    const rows = handArea.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('img')).toHaveCount(4);
-    await expect(rows.nth(1).locator('img')).toHaveCount(4);
-
-    // Draw 9th card (using DEVMODE button)
-    await page.click(Buttons.DEV_GIVE_SAFE_CARD);
-    await expect(handArea.locator('img')).toHaveCount(9);
-    // Verify layout: 2 rows (5, 4)
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('img')).toHaveCount(5);
-    await expect(rows.nth(1).locator('img')).toHaveCount(4);
-
-    // Draw 10th card
-    await page.click(Buttons.DEV_GIVE_SAFE_CARD);
-    await expect(handArea.locator('img')).toHaveCount(10);
-    // Verify layout: 2 rows (5, 5)
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('img')).toHaveCount(5);
-    await expect(rows.nth(1).locator('img')).toHaveCount(5);
-    // Verify standard card size (100px)
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
-
-    // Add cards to force 3 rows (at standard size) -> should trigger resize to 2 rows (small cards)
-    // Add 5 more cards -> Total 15
-    for (let i = 0; i < 5; i++) {
-      await page.click(Buttons.DEV_GIVE_SAFE_CARD);
-    }
-    await expect(handArea.locator('img')).toHaveCount(15);
-
-    // Verify layout: Should be 2 rows (small size)
-    await expect(rows).toHaveCount(2);
-    // Verify card size shrunk to 80px
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
-
-    // Add cards to force 3 rows even with SMALL size
-    // Add 4 more -> Total 19
-    for (let i = 0; i < 4; i++) {
-      await page.click(Buttons.DEV_GIVE_SAFE_CARD);
-    }
-    await expect(handArea.locator('img')).toHaveCount(19);
-
-    // Verify layout: 3 rows (Small size)
-    await expect(rows).toHaveCount(3);
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
-
-    // Go backwards: Remove cards to reduce rows.
-    for (let i = 0; i < 4; i++) {
-      await page.click(Buttons.DEV_PUT_CARD_BACK);
-    }
-    await expect(handArea.locator('img')).toHaveCount(15);
-
-    // Verify layout: Should be 2 rows (small size)
-    await expect(rows).toHaveCount(2);
-    // Verify card size shrunk to 80px
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
-
-    for (let i = 0; i < 5; i++) {
-      await page.click(Buttons.DEV_PUT_CARD_BACK);
-    }
-    await expect(handArea.locator('img')).toHaveCount(10);
-
-    // Verify layout: 2 rows (5, 5)
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('img')).toHaveCount(5);
-    await expect(rows.nth(1).locator('img')).toHaveCount(5);
-    // Verify standard card size (100px)
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
-  });
-
-  test('Players leave game', async ({ browser }) => {
-    // Setup 4 players
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
-    const code = await createGame(page1, 'P1');
-
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-
-    const ctx3 = await browser.newContext();
-    const page3 = await ctx3.newPage();
-    await joinGame(page3, 'P3', code);
-
-    const ctx4 = await browser.newContext();
-    const page4 = await ctx4.newPage();
-    await joinGame(page4, 'P4', code);
-
-    // Start Game
-    await page1.click(Buttons.START_GAME);
-    await waitForURL(page1, /game/);
-    await waitForURL(page2, /game/);
-    await waitForURL(page3, /game/);
-    await waitForURL(page4, /game/);
-
-    // Verify P1 starts
-    await expect(page1.locator('.list-group-item:has-text("P1")')).toHaveClass(/bg-success-subtle/);
-    await expect(findTurnArea(page1)).toContainText("It's your turn");
-    await expect(findTurnArea(page2)).toContainText("It's P1's turn, your turn is next");
-    await expect(findTurnArea(page3)).toContainText("It's P1's turn");
-
-    // P1 (current) disconnects
-    await page1.goto('about:blank');
-
-    // Verify disconnected player disappears from list
-    await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
-    await expect(page3.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
-    await expect(page4.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
-
-    // Verify "abandoned turn" message
-    await expect(findLogArea(page2)).toContainText('P1 has abandoned their turn');
-    await expect(findLogArea(page3)).toContainText('P1 has abandoned their turn');
-    await expect(findLogArea(page4)).toContainText('P1 has abandoned their turn');
-
-    // Verify turn passes to next player
-    await expect(findTurnArea(page2)).toContainText("It's your turn");
-    await expect(findTurnArea(page3)).toContainText("It's P2's turn, your turn is next");
-    await expect(findTurnArea(page4)).toContainText("It's P2's turn");
-
-    // Reconnect attempt by disconnected player
-    await page1.goBack();
-    await page1.waitForLoadState('networkidle');
-
-    // Verify Rejoin Fails (Error Modal)
-    const modal = findModal(page1, "rejoin-error");
-    await expect(modal).toBeVisible();
-
-    // Verify player does NOT reappear in list
-    await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
-    await expect(page3.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
-    await expect(page4.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
-
-    // P3 (not current) disconnects
-    await page3.goto('about:blank');
-
-    // Verify disconnected player disappears from list
-    await expect(page2.locator(`.list-group-item:has-text("P3")`)).not.toBeVisible();
-    await expect(page4.locator(`.list-group-item:has-text("P3")`)).not.toBeVisible();
-
-    // Verify "abandoned turn" message
-    await expect(findLogArea(page2)).toContainText('P3 has disconnected');
-    await expect(findLogArea(page4)).toContainText('P3 has disconnected');
-
-    // Verify turn does not change, but next does
-    await expect(findTurnArea(page2)).toContainText("It's your turn");
-    await expect(findTurnArea(page4)).toContainText("It's P2's turn, your turn is next");
-
-    // Reconnect attempt by disconnected player
-    await page3.goBack();
-    await page3.waitForLoadState('networkidle');
-
-    // Verify player reappears in list
-    await expect(page2.locator(`.list-group-item:has-text("P3")`)).toBeVisible();
-    await expect(page3.locator(`.list-group-item:has-text("P3")`)).toBeVisible();
-    await expect(page4.locator(`.list-group-item:has-text("P3")`)).toBeVisible();
-
-    // Verify "rejoined" message
-    await expect(findLogArea(page2)).toContainText('P3 has rejoined the game');
-    await expect(findLogArea(page4)).toContainText('P3 has rejoined the game');
-
-    // Verify hand layout is correct (not 1 column)
-    // We expect 8 cards. If layout is broken (width 0), we get 8 rows.
-    // If layout is working, we get 1 or 2 rows.
-    await expect(findHand(page3)).toBeVisible();
-    await expect(findAllHandCards(page3)).toHaveCount(8);
-    const rowCount = await page3.locator('div[data-areaname="hand"] > div[data-rfd-droppable-id]').count();
-    expect(rowCount).toBeLessThan(8);
-    expect(rowCount).toBeGreaterThan(0);
-
-    // Verify turn changes
-    await expect(findTurnArea(page2)).toContainText("It's your turn");
-    await expect(findTurnArea(page3)).toContainText("It's P2's turn, your turn is next");
-    await expect(findTurnArea(page4)).toContainText("It's P2's turn");
-
-    // P2 (current) leaves game voluntarily
-    await page2.click(Buttons.LEAVE_GAME);
-    // Confirm modal
-    const p2LeaveModal = findModal(page2, "leave-game");
-    await expect(p2LeaveModal).toBeVisible();
-    await p2LeaveModal.locator(' .modal-footer button.btn-danger').click();
-
-    // Verify turn changes
-    await expect(findTurnArea(page3)).toContainText("It's your turn");
-    await expect(findTurnArea(page4)).toContainText("It's P3's turn, your turn is next");
-    //
-    // P4 (not current) leaves game voluntarily
-    await page4.click(Buttons.LEAVE_GAME);
-    // Confirm modal
-    const p4LeaveModal = findModal(page4, "leave-game");
-    await expect(p4LeaveModal).toBeVisible();
-    await p4LeaveModal.locator(' .modal-footer button.btn-danger').click();
-
-    // Winner should see win dialog
-    const winModal = findModal(page3, "game-end");
-    await expect(winModal).toBeVisible();
-    await expect(winModal.locator(' .modal-title')).toContainText("You win!");
-    await page3.click(Buttons.OK);
-    await waitForURL(page3, '/');
-  });
-
-  test('Hand: dismiss inspect-card overlay', async ({ browser }) => {
-    const ctx1 = await browser.newContext();
-    const page1 = await ctx1.newPage();
-    const code = await createGame(page1, 'P1');
-    const ctx2 = await browser.newContext();
-    const page2 = await ctx2.newPage();
-    await joinGame(page2, 'P2', code);
-    await page1.click(Buttons.START_GAME);
-    await waitForURL(page1, /game/);
-    await waitForURL(page2, /game/);
-
-    // Wait for hand to be visible and have cards
-    const handArea = findHand(page1)
-    await expect(handArea).toBeVisible();
-    await expect(findAllHandCards(page1)).toHaveCount(8);
-    const cardImg = handArea.locator('img').first();
-
-    // Double-click first card to open overlay
-    await cardImg.dblclick({ force: true });
-
-    // Check for overlay
-    await expect(findOverlay(page1, "inspect-card")).toBeVisible();
-
-    // Press <escape> to dismiss
-    await page1.keyboard.press('Escape');
-    await expect(findOverlay(page1, "inspect-card")).toBeHidden();
-
-    // Double-click first card to open overlay again
-    await cardImg.dblclick({ force: true });
-
-    // Check for overlay
-    await expect(findOverlay(page1, "inspect-card")).toBeVisible();
-
-    // Click the overlay to dismiss
-    await findOverlay(page1, "inspect-card").click();
-    await expect(findOverlay(page1, "inspect-card")).toBeHidden();
   });
 
   test('DEVMODE: DEBUG Button limit', async ({ browser }) => {
@@ -864,6 +607,133 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Click the overlay to dismiss
     await findOverlay(page1, "show-removed").click();
     await expect(findOverlay(page1, "show-removed")).toBeHidden();
+  });
+
+  test('Hand: card wrapping', async ({ browser }) => {
+    // Create game
+    // Set viewport to constrain hand width to approx 7 cards to force wrapping
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 800 } });
+    const page = await ctx1.newPage();
+    const code = await createGame(page, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    // Start Game
+    await page.click(Buttons.START_GAME);
+    await waitForURL(page, /game/);
+
+    // Wait for hand to render and verify initial count (8)
+    const handArea = findHand(page);
+    await expect(handArea.locator('img')).toHaveCount(8);
+
+    // Check rows: 8 cards should wrap to 2 rows of 4
+    const rows = handArea.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('img')).toHaveCount(4);
+    await expect(rows.nth(1).locator('img')).toHaveCount(4);
+
+    // Draw 9th card (using DEVMODE button)
+    await page.click(Buttons.DEV_GIVE_SAFE_CARD);
+    await expect(handArea.locator('img')).toHaveCount(9);
+    // Verify layout: 2 rows (5, 4)
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('img')).toHaveCount(5);
+    await expect(rows.nth(1).locator('img')).toHaveCount(4);
+
+    // Draw 10th card
+    await page.click(Buttons.DEV_GIVE_SAFE_CARD);
+    await expect(handArea.locator('img')).toHaveCount(10);
+    // Verify layout: 2 rows (5, 5)
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('img')).toHaveCount(5);
+    await expect(rows.nth(1).locator('img')).toHaveCount(5);
+    // Verify standard card size (100px)
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
+
+    // Add cards to force 3 rows (at standard size) -> should trigger resize to 2 rows (small cards)
+    // Add 5 more cards -> Total 15
+    for (let i = 0; i < 5; i++) {
+      await page.click(Buttons.DEV_GIVE_SAFE_CARD);
+    }
+    await expect(handArea.locator('img')).toHaveCount(15);
+
+    // Verify layout: Should be 2 rows (small size)
+    await expect(rows).toHaveCount(2);
+    // Verify card size shrunk to 80px
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
+
+    // Add cards to force 3 rows even with SMALL size
+    // Add 4 more -> Total 19
+    for (let i = 0; i < 4; i++) {
+      await page.click(Buttons.DEV_GIVE_SAFE_CARD);
+    }
+    await expect(handArea.locator('img')).toHaveCount(19);
+
+    // Verify layout: 3 rows (Small size)
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
+
+    // Go backwards: Remove cards to reduce rows.
+    for (let i = 0; i < 4; i++) {
+      await page.click(Buttons.DEV_PUT_CARD_BACK);
+    }
+    await expect(handArea.locator('img')).toHaveCount(15);
+
+    // Verify layout: Should be 2 rows (small size)
+    await expect(rows).toHaveCount(2);
+    // Verify card size shrunk to 80px
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
+
+    for (let i = 0; i < 5; i++) {
+      await page.click(Buttons.DEV_PUT_CARD_BACK);
+    }
+    await expect(handArea.locator('img')).toHaveCount(10);
+
+    // Verify layout: 2 rows (5, 5)
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0).locator('img')).toHaveCount(5);
+    await expect(rows.nth(1).locator('img')).toHaveCount(5);
+    // Verify standard card size (100px)
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
+  });
+
+  test('Hand: dismiss inspect-card overlay', async ({ browser }) => {
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+
+    // Wait for hand to be visible and have cards
+    const handArea = findHand(page1)
+    await expect(handArea).toBeVisible();
+    await expect(findAllHandCards(page1)).toHaveCount(8);
+    const cardImg = handArea.locator('img').first();
+
+    // Double-click first card to open overlay
+    await cardImg.dblclick({ force: true });
+
+    // Check for overlay
+    await expect(findOverlay(page1, "inspect-card")).toBeVisible();
+
+    // Press <escape> to dismiss
+    await page1.keyboard.press('Escape');
+    await expect(findOverlay(page1, "inspect-card")).toBeHidden();
+
+    // Double-click first card to open overlay again
+    await cardImg.dblclick({ force: true });
+
+    // Check for overlay
+    await expect(findOverlay(page1, "inspect-card")).toBeVisible();
+
+    // Click the overlay to dismiss
+    await findOverlay(page1, "inspect-card").click();
+    await expect(findOverlay(page1, "inspect-card")).toBeHidden();
   });
 
   test('Hand: card selection, deselection', async ({ browser }) => {
@@ -1190,6 +1060,136 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Hand container HEIGHT should not change (it is 35vh fixed)
     expect(finalHandBox.height).toBeCloseTo(initialHandBox.height, 1);
+  });
+
+  test('Players leave game', async ({ browser }) => {
+    // Setup 4 players
+    const ctx1 = await browser.newContext();
+    const page1 = await ctx1.newPage();
+    const code = await createGame(page1, 'P1');
+
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    await joinGame(page2, 'P2', code);
+
+    const ctx3 = await browser.newContext();
+    const page3 = await ctx3.newPage();
+    await joinGame(page3, 'P3', code);
+
+    const ctx4 = await browser.newContext();
+    const page4 = await ctx4.newPage();
+    await joinGame(page4, 'P4', code);
+
+    // Start Game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+    await waitForURL(page3, /game/);
+    await waitForURL(page4, /game/);
+
+    // Verify P1 starts
+    await expect(page1.locator('.list-group-item:has-text("P1")')).toHaveClass(/bg-success-subtle/);
+    await expect(findTurnArea(page1)).toContainText("It's your turn");
+    await expect(findTurnArea(page2)).toContainText("It's P1's turn, your turn is next");
+    await expect(findTurnArea(page3)).toContainText("It's P1's turn");
+
+    // P1 (current) disconnects
+    await page1.goto('about:blank');
+
+    // Verify disconnected player disappears from list
+    await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+    await expect(page3.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+    await expect(page4.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+
+    // Verify "abandoned turn" message
+    await expect(findLogArea(page2)).toContainText('P1 has abandoned their turn');
+    await expect(findLogArea(page3)).toContainText('P1 has abandoned their turn');
+    await expect(findLogArea(page4)).toContainText('P1 has abandoned their turn');
+
+    // Verify turn passes to next player
+    await expect(findTurnArea(page2)).toContainText("It's your turn");
+    await expect(findTurnArea(page3)).toContainText("It's P2's turn, your turn is next");
+    await expect(findTurnArea(page4)).toContainText("It's P2's turn");
+
+    // Reconnect attempt by disconnected player
+    await page1.goBack();
+    await page1.waitForLoadState('networkidle');
+
+    // Verify Rejoin Fails (Error Modal)
+    const modal = findModal(page1, "rejoin-error");
+    await expect(modal).toBeVisible();
+
+    // Verify player does NOT reappear in list
+    await expect(page2.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+    await expect(page3.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+    await expect(page4.locator(`.list-group-item:has-text("P1")`)).not.toBeVisible();
+
+    // P3 (not current) disconnects
+    await page3.goto('about:blank');
+
+    // Verify disconnected player disappears from list
+    await expect(page2.locator(`.list-group-item:has-text("P3")`)).not.toBeVisible();
+    await expect(page4.locator(`.list-group-item:has-text("P3")`)).not.toBeVisible();
+
+    // Verify "abandoned turn" message
+    await expect(findLogArea(page2)).toContainText('P3 has disconnected');
+    await expect(findLogArea(page4)).toContainText('P3 has disconnected');
+
+    // Verify turn does not change, but next does
+    await expect(findTurnArea(page2)).toContainText("It's your turn");
+    await expect(findTurnArea(page4)).toContainText("It's P2's turn, your turn is next");
+
+    // Reconnect attempt by disconnected player
+    await page3.goBack();
+    await page3.waitForLoadState('networkidle');
+
+    // Verify player reappears in list
+    await expect(page2.locator(`.list-group-item:has-text("P3")`)).toBeVisible();
+    await expect(page3.locator(`.list-group-item:has-text("P3")`)).toBeVisible();
+    await expect(page4.locator(`.list-group-item:has-text("P3")`)).toBeVisible();
+
+    // Verify "rejoined" message
+    await expect(findLogArea(page2)).toContainText('P3 has rejoined the game');
+    await expect(findLogArea(page4)).toContainText('P3 has rejoined the game');
+
+    // Verify hand layout is correct (not 1 column)
+    // We expect 8 cards. If layout is broken (width 0), we get 8 rows.
+    // If layout is working, we get 1 or 2 rows.
+    await expect(findHand(page3)).toBeVisible();
+    await expect(findAllHandCards(page3)).toHaveCount(8);
+    const rowCount = await page3.locator('div[data-areaname="hand"] > div[data-rfd-droppable-id]').count();
+    expect(rowCount).toBeLessThan(8);
+    expect(rowCount).toBeGreaterThan(0);
+
+    // Verify turn changes
+    await expect(findTurnArea(page2)).toContainText("It's your turn");
+    await expect(findTurnArea(page3)).toContainText("It's P2's turn, your turn is next");
+    await expect(findTurnArea(page4)).toContainText("It's P2's turn");
+
+    // P2 (current) leaves game voluntarily
+    await page2.click(Buttons.LEAVE_GAME);
+    // Confirm modal
+    const p2LeaveModal = findModal(page2, "leave-game");
+    await expect(p2LeaveModal).toBeVisible();
+    await p2LeaveModal.locator(' .modal-footer button.btn-danger').click();
+
+    // Verify turn changes
+    await expect(findTurnArea(page3)).toContainText("It's your turn");
+    await expect(findTurnArea(page4)).toContainText("It's P3's turn, your turn is next");
+    //
+    // P4 (not current) leaves game voluntarily
+    await page4.click(Buttons.LEAVE_GAME);
+    // Confirm modal
+    const p4LeaveModal = findModal(page4, "leave-game");
+    await expect(p4LeaveModal).toBeVisible();
+    await p4LeaveModal.locator(' .modal-footer button.btn-danger').click();
+
+    // Winner should see win dialog
+    const winModal = findModal(page3, "game-end");
+    await expect(winModal).toBeVisible();
+    await expect(winModal.locator(' .modal-title')).toContainText("You win!");
+    await page3.click(Buttons.OK);
+    await waitForURL(page3, '/');
   });
 
   test('Draw: regular card', async ({ browser }) => {
