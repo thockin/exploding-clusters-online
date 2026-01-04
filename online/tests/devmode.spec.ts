@@ -1971,8 +1971,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findAllHandCards(page2)).toHaveCount(8);
     await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Favor);
     await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Favor);
-    await expect(findLogArea(page1)).toContainText('P1 asked P2 for a favor');
-    await expect(findLogArea(page2)).toContainText('P1 asked P2 for a favor');
+    await expect(findLogArea(page1)).toContainText('P1 asked P2 for a FAVOR');
+    await expect(findLogArea(page2)).toContainText('P1 asked P2 for a FAVOR');
 
     // Verify reaction phase
     await expect(p1TimerArea).toBeVisible();
@@ -2088,8 +2088,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findAllHandCards(page4)).toHaveCount(8);
     await expect(p1DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Favor);
     await expect(p2DiscardPile.locator('img')).toHaveAttribute("data-cardclass", CardClass.Favor);
-    await expect(findLogArea(page1)).toContainText('P1 asked P2 for a favor');
-    await expect(findLogArea(page2)).toContainText('P1 asked P2 for a favor');
+    await expect(findLogArea(page1)).toContainText('P1 asked P2 for a FAVOR');
+    await expect(findLogArea(page2)).toContainText('P1 asked P2 for a FAVOR');
 
     // Verify reaction phase
     await expect(p1TimerArea).toBeVisible();
@@ -3842,8 +3842,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     // Verify logs are clean.
     // Game 1 had "P1 drew a card".
     // Game 2 should be empty initially.
-    await expect(findLogArea(page1)).toHaveText('');
-    await expect(findLogArea(page2)).toHaveText('');
+    await expect(findLogArea(page1)).toHaveText("It's P1's turn first!");
+    await expect(findLogArea(page2)).toHaveText("It's P1's turn first!");
   });
 
 });

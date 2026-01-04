@@ -28,14 +28,9 @@ Cleanup:
 * Fix dumb LLM comments like "Maybe we should" and "design doc says..." and "phase X"
 
 UI:
-* Better messages for messages
-  - e.g. "P2 NAK'ed the SHUFFLE"
 * Capitalization and grammar/style in all buttons and labels
   - Modal dialog for "beat you to it"
 * Colors for reaction timer text
-* Send card classes to logs and messages as `s/_/ /g`
-* Announce who is the first player at gamer start
-* Announce the victim more visibly when FAVOR or combo is played
 * Animations:
   * Add a play-card animation (important when playing the same card)
     - distinguish combo play from single-card

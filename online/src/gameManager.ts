@@ -727,6 +727,7 @@ export class GameManager {
     game.currentPlayer = 0;
 
     this.log(game, `game started`);
+    this.msgToAllPlayers(game.code, `It's ${game.players[game.currentPlayer].name}'s turn first!`);
     this.updateGameNonce(game);
     this.emitToGame(game.code, SocketEvent.GameStarted);
     callback({ success: true });
@@ -1110,7 +1111,8 @@ export class GameManager {
                 this.endGame(currentGame.code, "Nobody", WinType.Explosion); // All players exploded.
               } else {
                 // Game continues if > 1 player remains after current player explodes and others didn't.
-                this.advanceTurn(currentGame);
+                const nextPlayer = this.advanceTurn(currentGame);
+                this.msgToAllPlayers(game.code, `It's ${nextPlayer?.name}'s turn.`);
                 this.updateGameNonce(currentGame, currentPlayer.name);
               }
             } else {
@@ -1142,7 +1144,8 @@ export class GameManager {
               } else if (activePlayersAfter.length === 0) {
                 this.endGame(currentGame.code, "Nobody", WinType.Explosion);
               } else {
-                this.advanceTurn(currentGame);
+                const nextPlayer = this.advanceTurn(currentGame);
+                this.msgToAllPlayers(game.code, `It's ${nextPlayer?.name}'s turn.`);
                 this.updateGameNonce(currentGame, currentPlayer.name);
               }
             } else {
@@ -1154,7 +1157,6 @@ export class GameManager {
             }
           } else {
             // Regular card
-            this.msgToAllPlayers(game.code, `${player.name} drew a card.`);
             currentPlayer.hand.push(card!);
 
             if (currentGame.attackTurns > 0) {
@@ -1164,9 +1166,11 @@ export class GameManager {
 
             if (currentGame.attackTurns > 0) {
               // Player must take more turns
+              this.msgToAllPlayers(game.code, `${player.name} drew a card, but it's still their turn.`);
               this.updateGameNonce(currentGame, currentPlayer.name);
             } else {
-              this.advanceTurn(currentGame);
+              const nextPlayer = this.advanceTurn(currentGame);
+              this.msgToAllPlayers(game.code, `${player.name} drew a card, it's ${nextPlayer?.name}'s turn.`);
               this.updateGameNonce(currentGame, currentPlayer.name);
             }
           }
@@ -1431,11 +1435,14 @@ export class GameManager {
       game.discardPile.push(card);
 
       this.log(game, `player "${player.name}" played "${card.class}: ${card.name}"`);
-      this.msgToAllPlayers(game.code, `${player.name} played ${card.class}.`);
+      if (game.devMode) {
+        this.msgToAllPlayers(game.code, `DEV: ${player.name} played ${card.class}.`);
+      }
 
       let cb: ActionCallback | undefined;
 
       // All of these functions should:
+      // * send a message to all players about the play
       // * return a callback if they have work to do after reactions
       // * return undefined if no further action is needed
       // * send any specific messages to players or the game
@@ -1479,22 +1486,28 @@ export class GameManager {
   }
 
   private playDebugCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+    this.msgToAllPlayers(game.code, `${player.name}'s cluster almost exploded, but they managed to DEBUG it!`);
     this.setTurnPhase(game, TurnPhase.ExplodingReinserting);
-    this.msgToAllPlayers(game.code, `${player.name}'s cluster almost exploded, but they debugged it!`);
     return undefined;
   }
 
   private playNakCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+    const negatedOp = game.pendingOperations[game.pendingOperations.length - 1]; // Peek at top item
+    if (negatedOp) {
+      this.msgToAllPlayers(game.code, `${player.name} NAKed ${negatedOp.playerName}'s ${negatedOp.cardClass}.`);
+    } else {
+      this.msgToAllPlayers(game.code, `${player.name} played a pointless NAK.`);
+    }
     return async (_g: Game) => {
       const negatedOp = _g.pendingOperations.pop(); // Pop the item below
       if (negatedOp) {
         this.log(_g, `NAK by player "${player.name}" negated operation ${negatedOp.cardClass} by ${negatedOp.playerName}`);
-        this.msgToAllPlayers(_g.code, `${player.name} NAKed ${negatedOp.playerName}'s ${negatedOp.cardClass}.`);
       }
     }
   }
 
   private playShuffleCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+    this.msgToAllPlayers(game.code, `${player.name} wants to SHUFFLE the deck, maybe they know something you don't?`);
     return async (_g: Game) => {
       _g.drawPile = shuffleDeck(_g.drawPile, this.prng.random.bind(this.prng));
       this.log(_g, "The deck was shuffled");
@@ -1503,22 +1516,31 @@ export class GameManager {
   }
 
   private playAttackCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+    const nextPlayer = this.getNextPlayer(game);
+    this.msgToAllPlayers(game.code, `${player.name} launched a vicious ATTACK on ${nextPlayer?.name} for ${game.attackTurns + 2} turns!`);
     return async (_g: Game) => {
       _g.attackTurns += 2; // attacks stack up
 
       // Current player's turn ends immediately, pass to next player
-      this.advanceTurn(_g);
+      const np = this.advanceTurn(_g);
+      this.msgToAllPlayers(game.code, `${player.name}'s attack was successful, it's ${np?.name}'s turn.`);
       const targetPlayer = _g.players[_g.currentPlayer];
       if (targetPlayer) {
         this.log(_g, `player "${player.name}" played ATTACK on "${targetPlayer.name}". attackTurns is now ${_g.attackTurns}.`);
-        this.msgToAllPlayers(_g.code, `${player.name} attacked ${targetPlayer.name} for ${_g.attackTurns} turns!`);
       } else {
         this.log(_g, `playAttackCard failed: target player not found (index: ${_g.currentPlayer})`);
+        this.msgToAllPlayers(_g.code, `BUG: ${player.name} attacked a player which does not exist.`);
       }
     }
   }
 
   private playSkipCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+    const nextPlayer = this.getNextPlayer(game);
+    if (game.attackTurns > 1) {
+      this.msgToAllPlayers(game.code, `${player.name} is trying to SKIP one turn.`);
+    } else {
+      this.msgToAllPlayers(game.code, `${player.name} is trying to SKIP their turn and make it ${nextPlayer?.name}'s problem!`);
+    }
     return async (_g: Game) => {
       if (_g.attackTurns > 0) {
         _g.attackTurns--;
@@ -1528,8 +1550,8 @@ export class GameManager {
           return; // still has turns to take, stay on current player
         }
       }
-      this.advanceTurn(_g);
-      this.msgToAllPlayers(_g.code, `${player.name} skipped their turn.`);
+      const np = this.advanceTurn(_g);
+      this.msgToAllPlayers(_g.code, `${player.name} skipped their turn, it's ${np?.name}'s turn.`);
     }
   }
 
@@ -1545,8 +1567,7 @@ export class GameManager {
       this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
       return undefined;
     }
-
-    this.msgToAllPlayers(game.code, `${player.name} asked ${victim.name} for a favor.`);
+    this.msgToAllPlayers(game.code, `${player.name} asked ${victim.name} for a FAVOR.`);
 
     return async (_g: Game) => {
       // Re-fetch victim, since time has passed
@@ -1584,14 +1605,16 @@ export class GameManager {
           }),
           new Promise<string>(resolve => {
             setTimeout(() => {
-              // Pick random card if timeout
-              const v = _g.players.find(p => p.id === victimId);
-              if (v && v.hand.length > 0) {
-                const randIdx = Math.floor(this.prng.random() * v.hand.length);
-                resolve(v.hand[randIdx].id);
-                this.msgToPlayer(v.socketId, "Too slow! A random card was chosen for you.");
-              } else {
-                resolve("");
+              if (_g.favorResolver) {
+                // Pick random card if timeout
+                const v = _g.players.find(p => p.id === victimId);
+                if (v && v.hand.length > 0) {
+                  const randIdx = Math.floor(this.prng.random() * v.hand.length);
+                  resolve(v.hand[randIdx].id);
+                  this.msgToPlayer(v.socketId, "Too slow! A random card was chosen for you.");
+                } else {
+                  resolve("");
+                }
               }
             }, timeout);
           })
@@ -1638,6 +1661,7 @@ export class GameManager {
   }
 
   private playSeeTheFutureCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+    this.msgToAllPlayers(game.code, `${player.name} wants to SEE THE FUTURE.`);
     return async (_g: Game) => {
       // Retrieve top 3 cards without removing them
       const top3Cards = _g.drawPile.slice(Math.max(0, _g.drawPile.length - 3)).reverse();
@@ -1782,9 +1806,14 @@ export class GameManager {
       // Add to discard pile
       game.discardPile.push(...cardsInHand);
 
+      if (game.devMode) {
+        this.msgToAllPlayers(game.code, `DEV: ${player.name} played ${card.class}.`);
+      }
+
       let cb: ActionCallback | undefined;
 
       // All of these functions should:
+      // * send a message to all players about the play
       // * return a callback if they have work to do after reactions
       // * return undefined if no further action is needed
       // * send any specific messages to players or the game
@@ -2016,7 +2045,8 @@ export class GameManager {
 
       // If it was their turn, advance
       if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
-        this.advanceTurn(game);
+        const nextPlayer = this.advanceTurn(game);
+        this.msgToAllPlayers(game.code, `It's ${nextPlayer?.name}'s turn.`);
         this.updateGameNonce(game, player.name);
       } else {
         this.emitGameUpdate(game);
@@ -2079,7 +2109,8 @@ export class GameManager {
 
       // If it was their turn, advance
       if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
-        this.advanceTurn(game);
+        const nextPlayer = this.advanceTurn(game);
+        this.msgToAllPlayers(game.code, `It's ${nextPlayer?.name}'s turn.`);
         this.updateGameNonce(game, player.name);
       } else {
         this.emitGameUpdate(game);
@@ -2162,22 +2193,40 @@ export class GameManager {
     }
   }
 
-  private advanceTurn(game: Game) {
-    game.attackTurnsTaken = 0; // Reset attack turns counter when moving to next player
+  private getNextPlayerIndex(game: Game): number {
     let nextIndex = (game.currentPlayer + 1) % game.players.length;
     let attempts = 0;
     while (attempts < game.players.length) {
       const nextPlayer = game.players[nextIndex];
       if (nextPlayer && !nextPlayer.isOut && !nextPlayer.isDisconnected) {
-        break;
+        return nextIndex;
       }
       nextIndex = (nextIndex + 1) % game.players.length;
       attempts++;
+    }
+    return -1; // No valid next player found
+  }
+
+  private getNextPlayer(game: Game): Player | null {
+    const nextIndex = this.getNextPlayerIndex(game);
+    if (nextIndex === -1) {
+      return null;
+    }
+    return game.players[nextIndex];
+  }
+
+  private advanceTurn(game: Game): Player | null {
+    game.attackTurnsTaken = 0; // Reset attack turns counter when moving to next player
+    const nextIndex = this.getNextPlayerIndex(game);
+    if (nextIndex === -1) {
+      this.log(game, `BUG: advanceTurn failed: no next player found`);
+      return null;
     }
 
     game.prevTurnPhase = undefined;
     game.turnPhase = TurnPhase.Action;
     game.currentPlayer = nextIndex;
+    return game.players[nextIndex];
   }
 
   private handleWin(game: Game, winner: Player, winType: WinType) {
@@ -2246,7 +2295,6 @@ export class GameManager {
     }
 
     this.log(game, `player "${player.name}" reinserted UPGRADE CLUSTER (face-up) at index ${insertIndex} (user input ${index})`);
-    this.msgToAllPlayers(game.code, `${player.name} has hidden the UPGRADE CLUSTER card back in the deck.`);
 
     // Reset phase to Action (for next player or current player if more turns)
     this.setTurnPhase(game, TurnPhase.Action);
@@ -2258,9 +2306,11 @@ export class GameManager {
 
     if (game.attackTurns > 0) {
       // Player must take more turns
+      this.msgToAllPlayers(game.code, `${player.name} has hidden the UPGRADE CLUSTER card back in the deck, but it's still their turn.`);
       this.updateGameNonce(game, player.name);
     } else {
-      this.advanceTurn(game);
+      const nextPlayer = this.advanceTurn(game);
+      this.msgToAllPlayers(game.code, `${player.name} has hidden the UPGRADE CLUSTER card back in the deck, it's ${nextPlayer?.name}'s turn.`);
       this.updateGameNonce(game, player.name);
     }
   }
@@ -2394,7 +2444,6 @@ export class GameManager {
     }
 
     this.log(game, `player "${player.name}" reinserted EXPLODING CLUSTER at index ${insertIndex} (user input ${index})`);
-    this.msgToAllPlayers(game.code, `${player.name} has hidden the EXPLODING CLUSTER card back in the deck.`);
 
     // Reset phase to Action (for next player or current player if more turns)
     this.setTurnPhase(game, TurnPhase.Action);
@@ -2406,9 +2455,11 @@ export class GameManager {
 
     if (game.attackTurns > 0) {
       // Player must take more turns
+      this.msgToAllPlayers(game.code, `${player.name} has hidden the EXPLODING CLUSTER card back in the deck, but it's still their turn.`);
       this.updateGameNonce(game, player.name);
     } else {
-      this.advanceTurn(game);
+      const nextPlayer = this.advanceTurn(game);
+      this.msgToAllPlayers(game.code, `${player.name} has hidden the EXPLODING CLUSTER card back in the deck, it's ${nextPlayer?.name}'s turn.`);
       this.updateGameNonce(game, player.name);
     }
   }
