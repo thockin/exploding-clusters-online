@@ -3,10 +3,11 @@
 if [ "$#" -eq 0 ]; then
     set -- ../art/*.svg
 fi
-mkdir -p cards
+outdir="public/art"
+mkdir -p "$outdir"
 for f; do
-    out=$(basename "$f" | sed 's/\.svg$/.png/')
-    echo "$f -> ./cards/$out"
+    outfile=$(basename "$f" | sed 's/\.svg$/.png/')
+    echo "$f -> ./$outdir/$outfile"
 
     # Render with no background...
     inkscape \
@@ -15,15 +16,20 @@ for f; do
         --export-background-opacity=0 \
         -w 1024 \
         "$f" \
-        -o "/tmp/tmp_$out"
-    # ...then add a background with rounded corners.
+        -o "/tmp/tmp_$outfile"
+    # ...then add a background with rounded corners...
     convert \
         card_bg.png \
         +set date:timestamp \
         -gravity center \
         -compose Atop \
-        "/tmp/tmp_$out" \
+        "/tmp/tmp_$outfile" \
         -composite \
-        "./cards/$out"
+        "./$outdir/$outfile"
+    # ...then add metadata.
+    exiftool \
+        -copyright="Tim Hockin, 2025" \
+        -overwrite_original_in_place \
+        "./$outdir/$outfile"
 done
 

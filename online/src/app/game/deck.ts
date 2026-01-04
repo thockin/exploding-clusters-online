@@ -45,7 +45,7 @@ const cardDefinitions = [
     class: CardClass.UpgradeCluster,
     title: 'Early-adopter tax',
     idname: 'logos1',
-    image: 'upgrade_-_logos1.png',
+    image: 'upgrade_cluster_-_logos1.png',
     now: false,
     combo: false,
     count: 1
@@ -54,7 +54,7 @@ const cardDefinitions = [
     class: CardClass.UpgradeCluster,
     title: 'Skip-version upgrade',
     idname: 'logos2',
-    image: 'upgrade_-_logos2.png',
+    image: 'upgrade_cluster_-_logos2.png',
     now: false,
     combo: false,
     count: 1

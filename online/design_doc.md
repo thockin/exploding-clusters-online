@@ -985,7 +985,7 @@ The full deck is comprised of 66 cards:
   - 28 "DEVELOPER" cards: 7 sets of 4 identical cards.
 
 Each card has a face-image which will be enumerated below.  All cards have the
-same back image, stored in a file `./cards/back.png`.
+same back image, stored in a file `./public/art/back.png`.
 
 Each card has a class, a name, an image, a flag indicating if it is a "now" card or
 not, a flag indicating if it must be played as a combo or not, and a count of
@@ -1002,301 +1002,301 @@ In the code, card classes should use underscores instead of spaces, e.g.
 cards:
   - class: EXPLODING CLUSTER
     name: broken_logo
-    image: ./cards/exploding_-_broken_logo.png
+    image: ./public/art/exploding_-_broken_logo.png
     now: false
     combo: false
     count: 1
 
   - class: EXPLODING CLUSTER
     name: deathstar
-    image: ./cards/exploding_-_deathstar.png
+    image: ./public/art/exploding_-_deathstar.png
     now: false
     combo: false
     count: 1
 
   - class: EXPLODING CLUSTER
     name: ghost
-    image: ./cards/exploding_-_ghost.png
+    image: ./public/art/exploding_-_ghost.png
     now: false
     combo: false
     count: 1
 
   - class: EXPLODING CLUSTER
     name: phippy
-    image: ./cards/exploding_-_phippy.png
+    image: ./public/art/exploding_-_phippy.png
     now: false
     combo: false
     count: 1
 
   - class: UPGRADE CLUSTER
     name: logos1
-    image: ./cards/upgrade_-_logos1.png
+    image: ./public/art/upgrade_cluster_-_logos1.png
     now: false
     combo: false
     count: 1
 
   - class: UPGRADE CLUSTER
     name: logos2
-    image: ./cards/upgrade_-_logos2.png
+    image: ./public/art/upgrade_cluster_-_logos2.png
     now: false
     combo: false
     count: 1
 
   - class: ATTACK
     name: bikeshed
-    image: ./cards/attack_-_bikeshed.png
+    image: ./public/art/attack_-_bikeshed.png
     now: false
     combo: false
     count: 1
 
   - class: ATTACK
     name: dash_dash_force
-    image: ./cards/attack_-_dash_dash_force.png
+    image: ./public/art/attack_-_dash_dash_force.png
     now: false
     combo: false
     count: 1
 
   - class: ATTACK
     name: push_on_friday
-    image: ./cards/attack_-_push_on_friday.png
+    image: ./public/art/attack_-_push_on_friday.png
     now: false
     combo: false
     count: 1
 
   - class: ATTACK
     name: use_latest
-    image: ./cards/attack_-_use_latest.png
+    image: ./public/art/attack_-_use_latest.png
     now: false
     combo: false
     count: 1
 
   - class: DEBUG
     name: cpr
-    image: ./cards/debug_-_cpr.png
+    image: ./public/art/debug_-_cpr.png
     now: false
     combo: false
     count: 1
 
   - class: DEBUG
     name: elementary
-    image: ./cards/debug_-_elementary.png
+    image: ./public/art/debug_-_elementary.png
     now: false
     combo: false
     count: 1
 
   - class: DEBUG
     name: git_bisect
-    image: ./cards/debug_-_git_bisect.png
+    image: ./public/art/debug_-_git_bisect.png
     now: false
     combo: false
     count: 1
 
   - class: DEBUG
     name: roll_it_back
-    image: ./cards/debug_-_roll_it_back.png
+    image: ./public/art/debug_-_roll_it_back.png
     now: false
     combo: false
     count: 1
 
   - class: DEBUG
     name: silence
-    image: ./cards/debug_-_silence.png
+    image: ./public/art/debug_-_silence.png
     now: false
     combo: false
     count: 1
 
   - class: DEBUG
     name: swarm
-    image: ./cards/debug_-_swarm.png
+    image: ./public/art/debug_-_swarm.png
     now: false
     combo: false
     count: 1
 
   - class: FAVOR
     name: code_review
-    image: ./cards/favor_-_code_review.png
+    image: ./public/art/favor_-_code_review.png
     now: false
     combo: false
     count: 2
 
   - class: FAVOR
     name: cut_paste
-    image: ./cards/favor_-_cut_paste.png
+    image: ./public/art/favor_-_cut_paste.png
     now: false
     combo: false
     count: 2
 
   - class: NAK
     name: backlog
-    image: ./cards/nak_-_backlog.png
+    image: ./public/art/nak_-_backlog.png
     now: false
     combo: false
     count: 1
 
   - class: NAK
     name: kelsey
-    image: ./cards/nak_-_kelsey.png
+    image: ./public/art/nak_-_kelsey.png
     now: false
     combo: false
     count: 1
 
   - class: NAK
     name: next_release
-    image: ./cards/nak_-_next_release.png
+    image: ./public/art/nak_-_next_release.png
     now: false
     combo: false
     count: 1
 
   - class: NAK
     name: prs_welcome
-    image: ./cards/nak_-_prs_welcome.png
+    image: ./public/art/nak_-_prs_welcome.png
     now: false
     combo: false
     count: 1
 
   - class: NAK
     name: slash_close
-    image: ./cards/nak_-_slash_close.png
+    image: ./public/art/nak_-_slash_close.png
     now: false
     combo: false
     count: 1
 
   - class: SEE THE FUTURE
     name: dashboard
-    image: ./cards/see_future_-_dashboard.png
+    image: ./public/art/see_future_-_dashboard.png
     now: false
     combo: false
     count: 1
 
   - class: SEE THE FUTURE
     name: date_driven
-    image: ./cards/see_future_-_date_driven.png
+    image: ./public/art/see_future_-_date_driven.png
     now: false
     combo: false
     count: 1
 
   - class: SEE THE FUTURE
     name: dry_run
-    image: ./cards/see_future_-_dry_run.png
+    image: ./public/art/see_future_-_dry_run.png
     now: false
     combo: false
     count: 1
 
   - class: SEE THE FUTURE
     name: learn_from_past
-    image: ./cards/see_future_-_learn_from_past.png
+    image: ./public/art/see_future_-_learn_from_past.png
     now: false
     combo: false
     count: 1
 
   - class: SEE THE FUTURE
     name: release_notes
-    image: ./cards/see_future_-_release_notes.png
+    image: ./public/art/see_future_-_release_notes.png
     now: false
     combo: false
     count: 1
 
   - class: SHUFFLE
     name: double_trouble
-    image: ./cards/shuffle_-_double_trouble.png
+    image: ./public/art/shuffle_-_double_trouble.png
     now: false
     combo: false
     count: 1
 
   - class: SHUFFLE
     name: node_failure
-    image: ./cards/shuffle_-_node_failure.png
+    image: ./public/art/shuffle_-_node_failure.png
     now: false
     combo: false
     count: 1
 
   - class: SHUFFLE
     name: rolling_update
-    image: ./cards/shuffle_-_rolling_update.png
+    image: ./public/art/shuffle_-_rolling_update.png
     now: false
     combo: false
     count: 1
 
   - class: SHUFFLE NOW
     name: eventually_consistent
-    image: ./cards/shuffle_now_-_eventually_consistent.png
+    image: ./public/art/shuffle_now_-_eventually_consistent.png
     now: true
     combo: false
     count: 1
 
   - class: SKIP
     name: oncall
-    image: ./cards/skip_-_oncall.png
+    image: ./public/art/skip_-_oncall.png
     now: false
     combo: false
     count: 1
 
   - class: SKIP
     name: ooo
-    image: ./cards/skip_-_ooo.png
+    image: ./public/art/skip_-_ooo.png
     now: false
     combo: false
     count: 1
 
   - class: SKIP
     name: tech_debt
-    image: ./cards/skip_-_tech_debt.png
+    image: ./public/art/skip_-_tech_debt.png
     now: false
     combo: false
     count: 1
 
   - class: SKIP
     name: unicorn
-    image: ./cards/skip_-_unicorn.png
+    image: ./public/art/skip_-_unicorn.png
     now: false
     combo: false
     count: 1
 
   - class: DEVELOPER
     name: firefighter
-    image: ./cards/developer_-_firefighter.png
+    image: ./public/art/developer_-_firefighter.png
     now: false
     combo: true
     count: 4
 
   - class: DEVELOPER
     name: grumpy_greybeard
-    image: ./cards/developer_-_grumpy_greybeard.png
+    image: ./public/art/developer_-_grumpy_greybeard.png
     now: false
     combo: true
     count: 4
 
   - class: DEVELOPER
     name: helper
-    image: ./cards/developer_-_helper.png
+    image: ./public/art/developer_-_helper.png
     now: false
     combo: true
     count: 4
 
   - class: DEVELOPER
     name: intern
-    image: ./cards/developer_-_intern.png
+    image: ./public/art/developer_-_intern.png
     now: false
     combo: true
     count: 4
 
   - class: DEVELOPER
     name: logical
-    image: ./cards/developer_-_logical.png
+    image: ./public/art/developer_-_logical.png
     now: false
     combo: true
     count: 4
 
   - class: DEVELOPER
     name: nit_picker
-    image: ./cards/developer_-_nit_picker.png
+    image: ./public/art/developer_-_nit_picker.png
     now: false
     combo: true
     count: 4
 
   - class: DEVELOPER
     name: prow_robot
-    image: ./cards/developer_-_prow_robot.png
+    image: ./public/art/developer_-_prow_robot.png
     now: false
     combo: true
     count: 4
