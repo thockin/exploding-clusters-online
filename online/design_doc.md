@@ -1377,12 +1377,12 @@ ATTACK does not consume one of player B's turns.  If player B first drew a
 card, that would consume one of their turns.  If player B then played ATTACK,
 player C must take 3 turns (the remaining 1 from A attacking B, plus 2 more
 from B attacking C). The victim of an attack should see a counter of turns
-remaining in the timer area.
+remaining in the turn area.
 
 Playing a SKIP card immediately ends the current player's turn, without drawing
 a card.  If a SKIP card is used after an ATTACK has been played, it only clears
 1 of the ATTACK card's attacks.  Playing 2 SKIP cards would defend against an
-ATTACK. A mesage is sent to all players saying {player} skipped their turn".
+ATTACK. A message is sent to all players saying {player} skipped their turn".
 
 When a player draws an UPGRADE CLUSTER card, they must reinsert it into the
 deck, the same as an EXPLODING CLUSTER card, except it goes in face-up.  They
