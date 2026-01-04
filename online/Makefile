@@ -11,3 +11,13 @@ test:
 
 lint:
 	npm run lint
+
+container:
+	docker build \
+	    -f Dockerfile \
+	    -t gcr.io/thockin-joonix-dev/xco:latest \
+	    .
+
+push:
+	docker push gcr.io/thockin-joonix-dev/xco:latest
+

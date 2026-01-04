@@ -366,7 +366,7 @@ export class GameManager {
     }
   }
 
-  private startReactionTimer(game: Game, triggeringPlayerId: string) {
+  private startReactionTimer(game: Game) {
     // Clear existing timer if any to prevent multiple executions
     if (game.timer) {
       clearTimeout(game.timer);
@@ -1313,8 +1313,8 @@ export class GameManager {
     // Depending on whose turn it is we want different errors
     if (!isMyTurn) {
       if (game.turnPhase === TurnPhase.Action) {
-          if (isNowCard) return { allowed: true };
-          return { allowed: false, reason: "It's not your turn!" };
+        if (isNowCard) return { allowed: true };
+        return { allowed: false, reason: "It's not your turn!" };
       }
       return { allowed: false, reason: `You can't play cards right now (${game.turnPhase}).` };
     }
@@ -1335,8 +1335,7 @@ export class GameManager {
         }
         return { allowed: true };
 
-      // case TurnPhase.Reaction:
-      //   This is handled above
+      // case TurnPhase.Reaction is handled above
 
       case TurnPhase.Exploding:
         if (card.class === CardClass.Debug) return { allowed: true };
@@ -1451,19 +1450,19 @@ export class GameManager {
       //
       // They should NOT update the nonce.
       if (card.class === CardClass.Debug) {
-        cb = this.playDebugCard(game, player, card);
+        cb = this.playDebugCard(game, player);
       } else if (card.class === CardClass.Nak) {
-        cb = this.playNakCard(game, player, card);
+        cb = this.playNakCard(game, player);
       } else if (card.class === CardClass.Shuffle || card.class === CardClass.ShuffleNow) {
-        cb = this.playShuffleCard(game, player, card);
+        cb = this.playShuffleCard(game, player);
       } else if (card.class === CardClass.Attack) {
-        cb = this.playAttackCard(game, player, card);
+        cb = this.playAttackCard(game, player);
       } else if (card.class === CardClass.Skip) {
-        cb = this.playSkipCard(game, player, card);
+        cb = this.playSkipCard(game, player);
       } else if (card.class === CardClass.Favor) {
         cb = this.playFavorCard(game, player, card, victimId);
       } else if (card.class === CardClass.SeeTheFuture) {
-        cb = this.playSeeTheFutureCard(game, player, card);
+        cb = this.playSeeTheFutureCard(game, player);
       } else {
         this.log(game, `unhandled CardClass ${card.class}`);
         this.msgToPlayer(socket.id, `Error: Invalid card type ${card.class}.`);
@@ -1476,7 +1475,7 @@ export class GameManager {
           playerName: player.name,
           action: cb,
         });
-        this.startReactionTimer(game, player.id);
+        this.startReactionTimer(game);
       }
     } finally {
       // Always clear the playing flag, even if an error occurred
@@ -1485,13 +1484,13 @@ export class GameManager {
     this.updateGameNonce(game, player.name);
   }
 
-  private playDebugCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+  private playDebugCard(game: Game, player: Player): ActionCallback | undefined {
     this.msgToAllPlayers(game.code, `${player.name}'s cluster almost exploded, but they managed to DEBUG it!`);
     this.setTurnPhase(game, TurnPhase.ExplodingReinserting);
     return undefined;
   }
 
-  private playNakCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+  private playNakCard(game: Game, player: Player): ActionCallback | undefined {
     const negatedOp = game.pendingOperations[game.pendingOperations.length - 1]; // Peek at top item
     if (negatedOp) {
       this.msgToAllPlayers(game.code, `${player.name} NAKed ${negatedOp.playerName}'s ${negatedOp.cardClass}.`);
@@ -1506,7 +1505,7 @@ export class GameManager {
     }
   }
 
-  private playShuffleCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+  private playShuffleCard(game: Game, player: Player): ActionCallback | undefined {
     this.msgToAllPlayers(game.code, `${player.name} wants to SHUFFLE the deck, maybe they know something you don't?`);
     return async (_g: Game) => {
       _g.drawPile = shuffleDeck(_g.drawPile, this.prng.random.bind(this.prng));
@@ -1515,7 +1514,7 @@ export class GameManager {
     }
   }
 
-  private playAttackCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+  private playAttackCard(game: Game, player: Player): ActionCallback | undefined {
     const nextPlayer = this.getNextPlayer(game);
     this.msgToAllPlayers(game.code, `${player.name} launched a vicious ATTACK on ${nextPlayer?.name} for ${game.attackTurns + 2} turns!`);
     return async (_g: Game) => {
@@ -1534,7 +1533,7 @@ export class GameManager {
     }
   }
 
-  private playSkipCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+  private playSkipCard(game: Game, player: Player): ActionCallback | undefined {
     const nextPlayer = this.getNextPlayer(game);
     if (game.attackTurns > 1) {
       this.msgToAllPlayers(game.code, `${player.name} is trying to SKIP one turn.`);
@@ -1660,7 +1659,7 @@ export class GameManager {
     }
   }
 
-  private playSeeTheFutureCard(game: Game, player: Player, card: Card): ActionCallback | undefined {
+  private playSeeTheFutureCard(game: Game, player: Player): ActionCallback | undefined {
     this.msgToAllPlayers(game.code, `${player.name} wants to SEE THE FUTURE.`);
     return async (_g: Game) => {
       // Retrieve top 3 cards without removing them
@@ -1753,7 +1752,7 @@ export class GameManager {
     }
 
     // Check they actually hold these cards
-    let idSet: Set<string> = new Set(cardIds);
+    const idSet: Set<string> = new Set(cardIds);
     if (idSet.size !== cardIds.length) {
       this.log(game, `player "${player.name}" tried to play a combo with duplicate card IDs`);
       this.msgToPlayer(socket.id, "Invalid combo.");
@@ -1835,7 +1834,7 @@ export class GameManager {
           playerName: player.name,
           action: cb,
         });
-        this.startReactionTimer(game, player.id);
+        this.startReactionTimer(game);
       }
     } finally {
       // Always clear the playing flag, even if an error occurred
@@ -1888,18 +1887,18 @@ export class GameManager {
       // This might be resolved by the requester choosing a card or by a
       // timeout choosing a random card.
       const chosenIndex = await Promise.race([
-          new Promise<number>(resolve => { _g.developerResolver = resolve; }),
-          new Promise<number>(resolve => {
-              timeoutHandle = setTimeout(() => {
-                const v = _g.players.find(p => p.id === victimId);
-                if (v) {
-                  resolve(Math.floor(this.prng.random() * v.hand.length));
-                  this.msgToPlayer(v.socketId, "Too slow! A random card was chosen for you.");
-                } else {
-                  resolve(-1);
-                }
-              }, timeout);
-          })
+        new Promise<number>(resolve => { _g.developerResolver = resolve; }),
+        new Promise<number>(resolve => {
+          timeoutHandle = setTimeout(() => {
+            const v = _g.players.find(p => p.id === victimId);
+            if (v) {
+              resolve(Math.floor(this.prng.random() * v.hand.length));
+              this.msgToPlayer(v.socketId, "Too slow! A random card was chosen for you.");
+            } else {
+              resolve(-1);
+            }
+          }, timeout);
+        })
       ]);
       clearTimeout(timeoutHandle!);
       _g.developerResolver = undefined;
@@ -1907,8 +1906,8 @@ export class GameManager {
       // Re-fetch victim AGAIN
       const finalVictim = _g.players.find(p => p.id === victimId);
       if (!finalVictim) {
-          this.log(_g, "DEVELOPER combo failed: victim not found after resolution");
-          return;
+        this.log(_g, "DEVELOPER combo failed: victim not found after resolution");
+        return;
       }
 
       const [stolenCard] = finalVictim.hand.splice(chosenIndex, 1);
@@ -1916,9 +1915,9 @@ export class GameManager {
       // Requester
       const requester = _g.players.find(p => p.id === player.id);
       if (requester) {
-          requester.hand.push(stolenCard);
-          this.emitToSocket(requester.socketId, SocketEvent.StealResult, { card: stolenCard });
-          this.emitToSocket(requester.socketId, SocketEvent.HandUpdate, { hand: requester.hand });
+        requester.hand.push(stolenCard);
+        this.emitToSocket(requester.socketId, SocketEvent.StealResult, { card: stolenCard });
+        this.emitToSocket(requester.socketId, SocketEvent.HandUpdate, { hand: requester.hand });
       }
       this.emitToSocket(finalVictim.socketId, SocketEvent.StealResult, { card: stolenCard });
       this.emitToSocket(finalVictim.socketId, SocketEvent.HandUpdate, { hand: finalVictim.hand });
@@ -2093,7 +2092,6 @@ export class GameManager {
 
     // Handle player disconnection
     if (player) {
-      const oldSocketId = player.socketId;
       player.isDisconnected = true;
       player.socketId = ''; // Clear socketId so this socket can't be reused directly
 
@@ -2379,7 +2377,7 @@ export class GameManager {
     if (!player || !this.isPlayerTurn(game, player)) return;
 
     if (game.developerResolver) {
-        game.developerResolver(index);
+      game.developerResolver(index);
     }
   }
 

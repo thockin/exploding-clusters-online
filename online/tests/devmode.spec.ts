@@ -91,30 +91,30 @@ async function drawCard(page: Page) {
 
 // Helper to find a matching pair of cards.
 async function findPair(cards: Locator): Promise<[Locator, Locator]> {
-    let idx1 = -1;
-    let idx2 = -1;
-    const count = await cards.count();
-    for (let i = 0; i < count; i++) {
-      const img1 = cards.nth(i).locator('img');
-      const src = await img1.getAttribute('src');
-      if (!src) continue;
+  let idx1 = -1;
+  let idx2 = -1;
+  const count = await cards.count();
+  for (let i = 0; i < count; i++) {
+    const img1 = cards.nth(i).locator('img');
+    const src = await img1.getAttribute('src');
+    if (!src) continue;
 
-      for (let j = i + 1; j < count; j++) {
-        const img2 = cards.nth(j).locator('img');
-        const src2 = await img2.getAttribute('src');
-        if (!src2) continue;
+    for (let j = i + 1; j < count; j++) {
+      const img2 = cards.nth(j).locator('img');
+      const src2 = await img2.getAttribute('src');
+      if (!src2) continue;
 
-        if (src === src2) {
-          idx1 = i;
-          idx2 = j;
-          break;
-        }
+      if (src === src2) {
+        idx1 = i;
+        idx2 = j;
+        break;
       }
-      if (idx1 !== -1) break;
     }
-    expect(idx1).not.toBe(-1);
+    if (idx1 !== -1) break;
+  }
+  expect(idx1).not.toBe(-1);
 
-    return [cards.nth(idx1), cards.nth(idx2)];
+  return [cards.nth(idx1), cards.nth(idx2)];
 }
 
 // Helper to find the player-list area.
@@ -179,6 +179,7 @@ function findModal(page: Page, name: string): Locator {
 }
 
 // Helper to capture browser console messages
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function catchConsoleLogs(page: Page, prefix: string) {
   page.on('console', (msg: ConsoleMessage) => {
     console.log(`[${new Date().toISOString()}] ${prefix} ${msg.type()}: ${msg.text()}`);
@@ -1033,7 +1034,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const initialHandBox = await handArea.boundingBox();
 
     if (!initialTableBox || !initialMessageBox || !initialHandBox) {
-        throw new Error("Could not get initial bounding boxes");
+      throw new Error("Could not get initial bounding boxes");
     }
 
     // Add 20 cards to force scrolling and potential layout shift
@@ -1050,7 +1051,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const finalHandBox = await handArea.boundingBox();
 
     if (!finalTableBox || !finalMessageBox || !finalHandBox) {
-        throw new Error("Could not get final bounding boxes");
+      throw new Error("Could not get final bounding boxes");
     }
 
     // Assert dimensions haven't changed
@@ -1359,7 +1360,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify that P2's NAK is playable
@@ -1389,7 +1390,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P2's cards are playable
     for (const card of await findAllHandCards(page2).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify that P1's NAK is playable
@@ -1419,7 +1420,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify execution
@@ -1483,7 +1484,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify execution
@@ -1553,7 +1554,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P2's cards are playable
     for (const card of await findAllHandCards(page2).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify execution
@@ -1614,7 +1615,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P2's cards are playable
     for (const card of await findAllHandCards(page2).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify execution
@@ -1730,11 +1731,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     for (const card of await devCards.all()) {
       const playable = await card.getAttribute('data-playable');
       if (playable === 'true') {
-          foundPlayable = true;
+        foundPlayable = true;
       } else if (playable === 'false') {
-          foundUnplayable = true;
+        foundUnplayable = true;
       } else {
-          throw new Error(`Unexpected data-playable value: ${playable} (${typeof playable})`);
+        throw new Error(`Unexpected data-playable value: ${playable} (${typeof playable})`);
       }
     }
     expect(foundPlayable).toBe(true);
@@ -1762,7 +1763,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify that P2's NAK and SHUFFLE_NOW cards are playable
@@ -1781,7 +1782,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P2's cards are playable
     for (const card of await findAllHandCards(page2).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify that P1's NAK is playable
@@ -1799,7 +1800,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify that P2's SHUFFLE_NOW card is playable
@@ -1828,10 +1829,10 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's or P2's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
     for (const card of await findAllHandCards(page2).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
   });
 
@@ -1891,7 +1892,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // 2. P2 plays NAK (negating SHUFFLE)
@@ -1915,7 +1916,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P2's cards are playable
     for (const card of await findAllHandCards(page2).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify execution
@@ -1984,7 +1985,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify card choice modal on P2
@@ -2101,7 +2102,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify card choice modal on P2
@@ -2210,7 +2211,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify Card Choice Modal on P1
@@ -2345,7 +2346,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P1's cards are playable
     for (const card of await findAllHandCards(page1).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // Verify Card Choice Modal on P1
@@ -2450,7 +2451,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify that none of P2's cards are playable
     for (const card of await findAllHandCards(page2).all()) {
-        await expect(card).toHaveAttribute('data-playable', 'false');
+      await expect(card).toHaveAttribute('data-playable', 'false');
     }
 
     // P1 should NOT see the overlay
@@ -3072,7 +3073,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findLogArea(page2)).toContainText("P1 left the game mid-draw");
   });
 
-  test('FAVOR: victim disconnects during reaction period', async ({ browser }) => {
+  test('FAVOR: victim disconnects during reaction', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3176,7 +3177,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test('FAVOR: victim leaves during reaction period', async ({ browser }) => {
+  test('FAVOR: victim leaves during reaction', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3284,7 +3285,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test('DEVELOPER 2x combo: victim disconnects during reaction period', async ({ browser }) => {
+  test('DEVELOPER 2x combo: victim disconnects during reaction', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3430,7 +3431,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test('DEVELOPER 2x combo: victim leaves during reaction period', async ({ browser }) => {
+  test('DEVELOPER 2x combo: victim leaves during reaction', async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3823,7 +3824,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await waitForURL(page1, '/');
 
     // P2 sees win
-    const modal = findModal(page2, "game-end");
     await page2.click(Buttons.MODAL_OK);
     await waitForURL(page2, '/');
 

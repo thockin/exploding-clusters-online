@@ -8,8 +8,8 @@ process.env.DEVMODE = '1';
 // Set "fast" mode for tests.
 process.env.GO_FAST = '1';
 
-// Set reaction timer to 2 seconds for tests to speed them up.
-process.env.REACTION_TIMER = '2';
+// Set reaction timer to 3 seconds for tests to speed them up.
+process.env.REACTION_TIMER = '3';
 
 export default defineConfig({
   testDir: './tests',

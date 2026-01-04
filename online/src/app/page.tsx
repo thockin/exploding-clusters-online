@@ -273,7 +273,7 @@ export default function Home() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancel</Button>
-            <Button variant="primary" onClick={handleJoinGame} disabled={isSubmitting}>Join Game</Button>
+          <Button variant="primary" onClick={handleJoinGame} disabled={isSubmitting}>Join Game</Button>
         </Modal.Footer>
       </Modal>
 

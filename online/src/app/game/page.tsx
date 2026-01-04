@@ -52,7 +52,7 @@ export default function GameScreen() {
   const [drawingAnimation, setDrawingAnimation] = useState<{ card?: Card, playerId?: string, duration?: number, nextCardImageUrl?: string, currentPileImageUrl?: string } | null>(null);
   const [replayModal, setReplayModal] = useState<{ reason: string, cardId?: string, cardIds?: string[] } | null>(null);
   const [explodingReinsertModal, setExplodingReinsertModal] = useState<{ maxIndex: number } | null>(null);
-  const [upgradeReinsertModal, setUpgradeReinsertModal] = useState<{ boolean, maxIndex: number } | null>(null);
+  const [upgradeReinsertModal, setUpgradeReinsertModal] = useState<{ maxIndex: number } | null>(null);
   const [reinsertIndex, setInsertionIndex] = useState<string | number>(0);
   const [seeTheFutureCards, setSeeTheFutureCards] = useState<Card[] | null>(null);
   const [favorVictimModalOpen, setFavorVictimModalOpen] = useState(false);
@@ -95,12 +95,12 @@ export default function GameScreen() {
       // Don't set choiceCountdown here, use the value from the event handler
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
-            if (prev <= 1) {
-                clearInterval(interval);
-                setFavorCardChoiceModal(null);
-                return 0;
-            }
-            return prev - 1;
+          if (prev <= 1) {
+            clearInterval(interval);
+            setFavorCardChoiceModal(null);
+            return 0;
+          }
+          return prev - 1;
         });
       }, 1000);
       return () => clearInterval(interval);
@@ -112,12 +112,12 @@ export default function GameScreen() {
       // Don't set choiceCountdown here, use the value from the event handler
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
-            if (prev <= 1) {
-                clearInterval(interval);
-                setStealCardChoiceModal(null);
-                return 0;
-            }
-            return prev - 1;
+          if (prev <= 1) {
+            clearInterval(interval);
+            setStealCardChoiceModal(null);
+            return 0;
+          }
+          return prev - 1;
         });
       }, 1000);
       return () => clearInterval(interval);
@@ -130,13 +130,13 @@ export default function GameScreen() {
       setChoiceCountdown(choiceTimeoutSeconds);
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
-            if (prev <= 1) {
-                clearInterval(interval);
-                setFavorVictimModalOpen(false);
-                setStealCardVictimModalOpen(false);
-                return 0;
-            }
-            return prev - 1;
+          if (prev <= 1) {
+            clearInterval(interval);
+            setFavorVictimModalOpen(false);
+            setStealCardVictimModalOpen(false);
+            return 0;
+          }
+          return prev - 1;
         });
       }, 1000);
       return () => clearInterval(interval);
@@ -177,7 +177,7 @@ export default function GameScreen() {
       const currentPlayer = gameState.players[gameState.currentPlayer];
       if (currentPlayer?.id === playerId) {
         if (!explodingReinsertModal) {
-           setExplodingReinsertModal({ maxIndex: gameState.drawPileCount || 50 });
+          setExplodingReinsertModal({ maxIndex: gameState.drawPileCount || 50 });
         }
       }
     } else {
@@ -191,7 +191,7 @@ export default function GameScreen() {
       const currentPlayer = gameState.players[gameState.currentPlayer];
       if (currentPlayer?.id === playerId) {
         if (!upgradeReinsertModal) {
-           setUpgradeReinsertModal({ maxIndex: gameState.drawPileCount || 50 });
+          setUpgradeReinsertModal({ maxIndex: gameState.drawPileCount || 50 });
         }
       }
     } else {
@@ -214,9 +214,9 @@ export default function GameScreen() {
     const onDeckData = ({ deck }: { deck: Card[] }) => setDeckCardsOverlay(deck);
     const onRemovedData = ({ removedPile }: { removedPile: Card[] }) => setRemovedCardsOverlay(removedPile);
     const onPlayerExploding = ({ card }: { card: Card }) => setExplodingCard(card);
-        const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
-          setReplayModal(data); // use data directly
-        };
+    const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
+      setReplayModal(data); // use data directly
+    };
 
     const onSeeTheFutureData = (data: { cards: Card[], timeout?: number }) => {
       setSeeTheFutureCards(data.cards);
@@ -243,15 +243,15 @@ export default function GameScreen() {
     };
 
     const onChooseStealCard = (data: { victimName: string, handCount: number, timeout: number }) => {
-        setChoiceCountdown(Math.ceil(data.timeout / 1000));
-        setStealCardChoiceModal({ handSize: data.handCount, victimName: data.victimName });
+      setChoiceCountdown(Math.ceil(data.timeout / 1000));
+      setStealCardChoiceModal({ handSize: data.handCount, victimName: data.victimName });
     };
 
     const onStealResult = (data: { card: Card }) => {
-        setStealCardResultOverlay(data.card);
-        setTimeout(() => {
-          setStealCardResultOverlay(null);
-        }, CARD_DISMISS_TIMEOUT_MS);
+      setStealCardResultOverlay(data.card);
+      setTimeout(() => {
+        setStealCardResultOverlay(null);
+      }, CARD_DISMISS_TIMEOUT_MS);
     };
 
     const onReactionTimerUpdate = ({ duration, phase }: { duration: number, phase: TurnPhase }) => {
@@ -395,8 +395,8 @@ export default function GameScreen() {
 
     // DEBUG card logic
     if (card.class === CardClass.Debug) {
-        // Playable ONLY in Exploding phase and if it's my turn
-        return gameState.turnPhase === TurnPhase.Exploding && isMyTurn;
+      // Playable ONLY in Exploding phase and if it's my turn
+      return gameState.turnPhase === TurnPhase.Exploding && isMyTurn;
     }
 
     // Phase checks
@@ -493,10 +493,10 @@ export default function GameScreen() {
 
         // Apply height constraint if not infinite
         if (limitH !== Infinity) {
-             const availableH = limitH - heightPadding - (rows - 1) * gap;
-             if (availableH <= 0) continue; // Cannot fit vertically
-             const wByHeight = availableH * aspectRatio / rows;
-             w = Math.min(w, wByHeight);
+          const availableH = limitH - heightPadding - (rows - 1) * gap;
+          if (availableH <= 0) continue; // Cannot fit vertically
+          const wByHeight = availableH * aspectRatio / rows;
+          w = Math.min(w, wByHeight);
         }
 
         // Cap at the target (draw pile) size
@@ -508,8 +508,8 @@ export default function GameScreen() {
         // If the width is the same (e.g. capped by target.width), we DO NOT update,
         // effectively preferring the earlier result (more cols).
         if (w > bestW) {
-            bestW = w;
-            bestCols = cols;
+          bestW = w;
+          bestCols = cols;
         }
       }
       return { w: Math.floor(bestW), cols: bestCols };
@@ -525,14 +525,14 @@ export default function GameScreen() {
     const shouldScroll = fitW < MIN_READABLE_WIDTH;
 
     if (shouldScroll) {
-        // Recalculate with infinite height allowed (scrolling)
-        const scrollFit = findBestFit(Infinity);
-        // If we gain significant size by scrolling, do it.
-        // But if even scrolling keeps us small, we just do our best.
-        if (scrollFit.w > fitW) {
-            fitW = scrollFit.w;
-            fitCols = scrollFit.cols;
-        }
+      // Recalculate with infinite height allowed (scrolling)
+      const scrollFit = findBestFit(Infinity);
+      // If we gain significant size by scrolling, do it.
+      // But if even scrolling keeps us small, we just do our best.
+      if (scrollFit.w > fitW) {
+        fitW = scrollFit.w;
+        fitCols = scrollFit.cols;
+      }
     }
 
     if (fitW === 0) return fallback;
@@ -635,7 +635,7 @@ export default function GameScreen() {
     // This prevents a huge single row (vertical stack) from appearing initially
     let effectiveWidth = containerWidth;
     if (effectiveWidth === 0 && typeof window !== 'undefined') {
-        effectiveWidth = window.innerWidth;
+      effectiveWidth = window.innerWidth;
     }
     // If still 0 (SSR), fallback to single column
     if (effectiveWidth === 0) return { maxWidth: CARD_FULL_WIDTH_PX + 2, cardWidth: CARD_WIDTH_PX, cols: 1 };
@@ -944,39 +944,38 @@ export default function GameScreen() {
       // Now handle the actual play
       if (cardsToPlay.length > 0) {
         const getValidVictims = () => {
-             return gameState?.players.filter(p => p.id !== playerId && !p.isOut && !p.isDisconnected && p.cards > 0) || [];
+          return gameState?.players.filter(p => p.id !== playerId && !p.isOut && !p.isDisconnected && p.cards > 0) || [];
         };
         let victimIdToUse: string | undefined;
 
         // Intercept FAVOR play
         if (cardsToPlay.length === 1 && cardsToPlay[0].class === CardClass.Favor) {
-            const victims = getValidVictims();
-            if (victims.length === 0) {
-                setNoPossibleVictimModalOpen(true);
-                return; // Reject
-            }
-            if (victims.length === 1) {
-                victimIdToUse = victims[0].id;
-            } else {
-                setFavorVictimModalOpen(true);
-                return;
-            }
+          const victims = getValidVictims();
+          if (victims.length === 0) {
+            setNoPossibleVictimModalOpen(true);
+            return; // Reject
+          }
+          if (victims.length === 1) {
+            victimIdToUse = victims[0].id;
+          } else {
+            setFavorVictimModalOpen(true);
+            return;
+          }
         }
 
         // Intercept DEVELOPER combo
         if (cardsToPlay.length === 2 && cardsToPlay[0].class === CardClass.Developer && cardsToPlay[1].class === CardClass.Developer) {
-             const victims = getValidVictims();
-             if (victims.length === 0) {
-                 setNoPossibleVictimModalOpen(true);
-                 return; // Reject
-             }
-             if (victims.length === 1) {
-                 victimIdToUse = victims[0].id;
-             }
-             else {
-                 setStealCardVictimModalOpen(true);
-                 return;
-             }
+          const victims = getValidVictims();
+          if (victims.length === 0) {
+            setNoPossibleVictimModalOpen(true);
+            return; // Reject
+          }
+          if (victims.length === 1) {
+            victimIdToUse = victims[0].id;
+          } else {
+            setStealCardVictimModalOpen(true);
+            return;
+          }
         }
 
         // --- Client-side Play Validation ---
@@ -1100,12 +1099,12 @@ export default function GameScreen() {
 
       let attempts = 0;
       while (attempts < gameState.players.length) {
-         if (!nextPlayer.isOut && !nextPlayer.isDisconnected) {
-             break;
-         }
-         nextPlayerIndex = (nextPlayerIndex + 1) % gameState.players.length;
-         nextPlayer = gameState.players[nextPlayerIndex];
-         attempts++;
+        if (!nextPlayer.isOut && !nextPlayer.isDisconnected) {
+          break;
+        }
+        nextPlayerIndex = (nextPlayerIndex + 1) % gameState.players.length;
+        nextPlayer = gameState.players[nextPlayerIndex];
+        attempts++;
       }
 
       if (me.id === currentPlayer.id) {
@@ -1150,7 +1149,7 @@ export default function GameScreen() {
           if (gameState?.topDiscardCard) {
             border = 'none';
           } else if (snapshot.isDraggingOver) {
-             border = '2px dashed #00FF00';
+            border = '2px dashed #00FF00';
           }
           let cursor = 'auto';
           if (draggedCard) {
@@ -1335,7 +1334,7 @@ export default function GameScreen() {
 
   // Determine which card to show in overlay
   let activeOverlayCard = inspectCardOverlay;
-  let turnPhase = gameState?.turnPhase;
+  const turnPhase = gameState?.turnPhase;
   if (turnPhase && (turnPhase === TurnPhase.Exploding || turnPhase === TurnPhase.ExplodingReinserting || turnPhase === TurnPhase.Upgrading)) {
     if (gameState?.playBlockingCard) {
       // Only show persistent overlay for players who are NOT the current player
@@ -1476,13 +1475,13 @@ export default function GameScreen() {
                 </>
               )}
               {(gameState.turnPhase === TurnPhase.Exploding) && (
-                 <>
-                   {playerId === gameState.players[gameState.currentPlayer]?.id ? (
-                     <h4 className="text-danger">PLAY A DEBUG CARD!</h4>
-                   ) : (
-                     <h4 className="text-warning">Waiting for {gameState.players[gameState.currentPlayer]?.name} to debug their cluster...</h4>
-                   )}
-                 </>
+                <>
+                  {playerId === gameState.players[gameState.currentPlayer]?.id ? (
+                    <h4 className="text-danger">PLAY A DEBUG CARD!</h4>
+                  ) : (
+                    <h4 className="text-warning">Waiting for {gameState.players[gameState.currentPlayer]?.name} to debug their cluster...</h4>
+                  )}
+                </>
               )}
             </div>
           </Col>
@@ -1515,8 +1514,8 @@ export default function GameScreen() {
                   }}
                   onMouseLeave={() => {
                     if (isDrawingRef.current) {
-                        isDrawingRef.current = false;
-                        setIsDragging(false);
+                      isDrawingRef.current = false;
+                      setIsDragging(false);
                     }
                   }}
                   onClick={handleDrawClick}
@@ -1530,11 +1529,11 @@ export default function GameScreen() {
 
                   {drawingAnimation && (
                     <div className="static-card-vanish" style={{ animationDuration: `${drawingAnimation.duration}ms` }}>
-                       <Image
-                         src={drawingAnimation.currentPileImageUrl || "/art/back.png"}
-                         alt={`Draw Pile: next card'}`}
-                         width={getCardSize().width}
-                         height={getCardSize().height} />
+                      <Image
+                        src={drawingAnimation.currentPileImageUrl || "/art/back.png"}
+                        alt={`Draw Pile: next card'}`}
+                        width={getCardSize().width}
+                        height={getCardSize().height} />
                     </div>
                   )}
 
@@ -1876,13 +1875,13 @@ export default function GameScreen() {
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setFavorVictimModalOpen(false)}>Cancel</Button>
             <Button variant="primary" disabled={!favorVictimSelection} onClick={() => {
-                const favorCard = myHand.find(c => c.class === CardClass.Favor);
-                if (favorCard && gameCode) {
-                    socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: favorCard.id, nonce: gameState?.nonce, victimId: favorVictimSelection });
-                    setFavorVictimModalOpen(false);
-                    setFavorVictimSelection(null);
-                    setSelectedCards([]);
-                }
+              const favorCard = myHand.find(c => c.class === CardClass.Favor);
+              if (favorCard && gameCode) {
+                socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: favorCard.id, nonce: gameState?.nonce, victimId: favorVictimSelection });
+                setFavorVictimModalOpen(false);
+                setFavorVictimSelection(null);
+                setSelectedCards([]);
+              }
             }}>Ask Favor</Button>
           </Modal.Footer>
         </Modal>
@@ -1902,30 +1901,30 @@ export default function GameScreen() {
           <Modal.Body className="bg-light">
             <p>{`Choose a card to give to ${favorCardChoiceModal?.stealerName ?? "<BUG>"}`}:</p>
             <div className="d-flex justify-content-center w-100">
-            {(() => {
-              const { cardWidth, cardHeight, containerWidth } = calculateAdaptiveLayout(myHand.length);
-              return (
-              <div className="d-flex flex-wrap justify-content-center" style={{ gap: '8px', width: containerWidth, maxWidth: '100%' }}>
-                {myHand.map((card, index) => (
-                <div
-                  key={index}
-                  onClick={() => {
-                      if (gameCode) {
-                          socket?.emit(SocketEvent.GiveFavorCard, { gameCode, cardId: card.id });
-                          setFavorCardChoiceModal(null);
-                      }
-                  }}
-                  style={{
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <Image src={card.imageUrl} alt={card.name} width={cardWidth} height={cardHeight} />
-                </div>
-              ))}
-              </div>
-              );
-            })()}
+              {(() => {
+                const { cardWidth, cardHeight, containerWidth } = calculateAdaptiveLayout(myHand.length);
+                return (
+                  <div className="d-flex flex-wrap justify-content-center" style={{ gap: '8px', width: containerWidth, maxWidth: '100%' }}>
+                    {myHand.map((card, index) => (
+                      <div
+                        key={index}
+                        onClick={() => {
+                          if (gameCode) {
+                            socket?.emit(SocketEvent.GiveFavorCard, { gameCode, cardId: card.id });
+                            setFavorCardChoiceModal(null);
+                          }
+                        }}
+                        style={{
+                          borderRadius: '5px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Image src={card.imageUrl} alt={card.name} width={cardWidth} height={cardHeight} />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </Modal.Body>
         </Modal>
@@ -1973,12 +1972,12 @@ export default function GameScreen() {
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setStealCardVictimModalOpen(false)}>Cancel</Button>
             <Button variant="primary" disabled={!favorVictimSelection} onClick={() => {
-                if (selectedCards.length === 2 && gameCode && favorVictimSelection) {
-                    socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: selectedCards.map(c => c.id), nonce: gameState?.nonce, victimId: favorVictimSelection });
-                    setStealCardVictimModalOpen(false);
-                    setFavorVictimSelection(null);
-                    setSelectedCards([]);
-                }
+              if (selectedCards.length === 2 && gameCode && favorVictimSelection) {
+                socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: selectedCards.map(c => c.id), nonce: gameState?.nonce, victimId: favorVictimSelection });
+                setStealCardVictimModalOpen(false);
+                setFavorVictimSelection(null);
+                setSelectedCards([]);
+              }
             }}>Steal Card</Button>
           </Modal.Footer>
         </Modal>
@@ -1998,30 +1997,30 @@ export default function GameScreen() {
           <Modal.Body className="bg-light">
             <p>{`Pick a card from ${stealCardChoiceModal?.victimName ?? "<BUG>"}'s hand`}:</p>
             <div className="d-flex justify-content-center w-100">
-            {(() => {
+              {(() => {
                 const count = stealCardChoiceModal?.handSize || 0;
                 const { cardWidth, cardHeight, containerWidth } = calculateAdaptiveLayout(count);
                 return (
-                <div className="d-flex flex-wrap justify-content-center" style={{ gap: '8px', width: containerWidth, maxWidth: '100%' }}>
-                  {Array.from({ length: count }).map((_, index) => (
-                  <div
-                    key={index}
-                    onClick={() => {
-                      if (gameCode) {
-                        socket?.emit(SocketEvent.StealCard, { gameCode, index });
-                        setStealCardChoiceModal(null);
-                      }
-                    }}
-                    style={{
-                      borderRadius: '5px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <Image src="/art/back.png" alt="Card Back" width={cardWidth} height={cardHeight} />
+                  <div className="d-flex flex-wrap justify-content-center" style={{ gap: '8px', width: containerWidth, maxWidth: '100%' }}>
+                    {Array.from({ length: count }).map((_, index) => (
+                      <div
+                        key={index}
+                        onClick={() => {
+                          if (gameCode) {
+                            socket?.emit(SocketEvent.StealCard, { gameCode, index });
+                            setStealCardChoiceModal(null);
+                          }
+                        }}
+                        style={{
+                          borderRadius: '5px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <Image src="/art/back.png" alt="Card Back" width={cardWidth} height={cardHeight} />
+                      </div>
+                    ))}
                   </div>
-                  ))}
-                </div>
-              );
+                );
               })()}
             </div>
           </Modal.Body>
@@ -2055,7 +2054,7 @@ export default function GameScreen() {
           centered
         >
           <Modal.Header>
-            <Modal.Title>Can't steal a card</Modal.Title>
+            <Modal.Title>Can&apos;t steal a card</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <p>No other player has cards left!</p>
