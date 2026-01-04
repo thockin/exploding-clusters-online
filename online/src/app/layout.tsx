@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { SocketProvider } from './contexts/SocketContext';
 import './globals.css';

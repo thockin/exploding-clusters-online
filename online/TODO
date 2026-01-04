@@ -9,7 +9,8 @@ Test improvments
  - Add more stability and hand-wrap tests for different screen dimensions
 
 Before release:
-* copyrights on art and code
+* edit README
+* license
 * `npm i baseline-browser-mapping@latest -D`
 * make a docker image
 

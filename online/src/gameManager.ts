@@ -1,3 +1,4 @@
+// Copyright 2025 Tim Hockin
 
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
@@ -1162,11 +1163,11 @@ export class GameManager {
             }
 
             if (currentGame.attackTurns > 0) {
-             // Player must take more turns
-             this.updateGameNonce(currentGame, currentPlayer.name);
+              // Player must take more turns
+              this.updateGameNonce(currentGame, currentPlayer.name);
             } else {
-             this.advanceTurn(currentGame);
-             this.updateGameNonce(currentGame, currentPlayer.name);
+              this.advanceTurn(currentGame);
+              this.updateGameNonce(currentGame, currentPlayer.name);
             }
           }
         } catch (error) {
@@ -1457,9 +1458,9 @@ export class GameManager {
       } else if (card.class === CardClass.SeeTheFuture) {
         cb = this.playSeeTheFutureCard(game, player, card);
       } else {
-         this.log(game, `unhandled CardClass ${card.class}`);
-         this.msgToPlayer(socket.id, `Error: Invalid card type ${card.class}.`);
-         return
+        this.log(game, `unhandled CardClass ${card.class}`);
+        this.msgToPlayer(socket.id, `Error: Invalid card type ${card.class}.`);
+        return
       }
 
       if (cb) {
@@ -1818,13 +1819,13 @@ export class GameManager {
     // Validate victim
     const victim = victimId ? game.players.find(p => p.id === victimId) : undefined;
     if (!victim || victim.isOut || victim.id === player.id || victim.hand.length === 0) {
-       this.log(game, `player "${player.name}" tried to play 2x combo with invalid victim`);
-       this.msgToPlayer(player.socketId, "Invalid victim for DEVELOPER combo.");
-       // Revert play
-       for (let i = 0; i < cards.length; i++) game.discardPile.pop();
-       player.hand.push(...cards);
-       this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
-       return undefined;
+      this.log(game, `player "${player.name}" tried to play 2x combo with invalid victim`);
+      this.msgToPlayer(player.socketId, "Invalid victim for DEVELOPER combo.");
+      // Revert play
+      for (let i = 0; i < cards.length; i++) game.discardPile.pop();
+      player.hand.push(...cards);
+      this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
+      return undefined;
     }
     const card = cards[0];
 
@@ -2103,8 +2104,8 @@ export class GameManager {
     const activePlayers = game.players.filter(p => !p.isOut && !p.isDisconnected);
     if (activePlayers.length === 0) {
       this.log(game, `game is empty, purging`);
-      this.endGame(game.code, "Nobody", WinType.Attrition); 
-      return; 
+      this.endGame(game.code, "Nobody", WinType.Attrition);
+      return;
     }
     if (activePlayers.length === 1 && game.state === GameState.Started) {
       this.handleWin(game, activePlayers[0], WinType.Attrition);
@@ -2256,11 +2257,11 @@ export class GameManager {
     }
 
     if (game.attackTurns > 0) {
-     // Player must take more turns
-     this.updateGameNonce(game, player.name);
+      // Player must take more turns
+      this.updateGameNonce(game, player.name);
     } else {
-     this.advanceTurn(game);
-     this.updateGameNonce(game, player.name);
+      this.advanceTurn(game);
+      this.updateGameNonce(game, player.name);
     }
   }
 
@@ -2404,11 +2405,11 @@ export class GameManager {
     }
 
     if (game.attackTurns > 0) {
-       // Player must take more turns
-       this.updateGameNonce(game, player.name);
+      // Player must take more turns
+      this.updateGameNonce(game, player.name);
     } else {
-       this.advanceTurn(game);
-       this.updateGameNonce(game, player.name);
+      this.advanceTurn(game);
+      this.updateGameNonce(game, player.name);
     }
   }
 

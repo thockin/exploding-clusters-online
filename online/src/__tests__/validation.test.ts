@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { validatePlayerName, sanitizePlayerName, normalizeNameForComparison, escapeHtml } from '../utils/nameValidation';
 import { GameManager } from '../gameManager';
 import { CardClass, GameState, SocketEvent } from '../api';
@@ -140,9 +142,9 @@ describe('Name Validation', () => {
 
     test('rejects names longer than 32 characters', () => {
       const longName = 'A'.repeat(33);
-      expect(validatePlayerName(longName)).toEqual({ 
-        isValid: false, 
-        error: 'Name must be 32 characters or less' 
+      expect(validatePlayerName(longName)).toEqual({
+        isValid: false,
+        error: 'Name must be 32 characters or less'
       });
     });
 
@@ -152,28 +154,28 @@ describe('Name Validation', () => {
     });
 
     test('rejects HTML tags', () => {
-      expect(validatePlayerName('<script>alert("xss")</script>')).toEqual({ 
-        isValid: false, 
-        error: 'Name contains invalid characters' 
+      expect(validatePlayerName('<script>alert("xss")</script>')).toEqual({
+        isValid: false,
+        error: 'Name contains invalid characters'
       });
-      expect(validatePlayerName('<img src=x>')).toEqual({ 
-        isValid: false, 
-        error: 'Name contains invalid characters' 
+      expect(validatePlayerName('<img src=x>')).toEqual({
+        isValid: false,
+        error: 'Name contains invalid characters'
       });
-      expect(validatePlayerName('Hello<br>World')).toEqual({ 
-        isValid: false, 
-        error: 'Name contains invalid characters' 
+      expect(validatePlayerName('Hello<br>World')).toEqual({
+        isValid: false,
+        error: 'Name contains invalid characters'
       });
     });
 
     test('rejects HTML entities', () => {
-      expect(validatePlayerName('&lt;script&gt;')).toEqual({ 
-        isValid: false, 
-        error: 'Name contains invalid characters' 
+      expect(validatePlayerName('&lt;script&gt;')).toEqual({
+        isValid: false,
+        error: 'Name contains invalid characters'
       });
-      expect(validatePlayerName('Test&quot;Quote')).toEqual({ 
-        isValid: false, 
-        error: 'Name contains invalid characters' 
+      expect(validatePlayerName('Test&quot;Quote')).toEqual({
+        isValid: false,
+        error: 'Name contains invalid characters'
       });
     });
 
@@ -362,7 +364,7 @@ describe('GameManager Validation', () => {
 
       host.trigger('createGame', 'Host', (res: any) => {
         gameCode = res.gameCode!;
-        
+
         // Add 4 more players to fill the game (5 total)
         const players: MockSocket[] = [];
         let joined = 0;
@@ -433,7 +435,7 @@ describe('GameManager Validation', () => {
       const socket = new MockSocket('socket-1');
       mockServer.connectSocket(socket);
       socket.trigger('playCard', { gameCode: 'INVALID', cardId: 'card-1' });
-      
+
       // Give it a moment for async processing
       setTimeout(() => {
         const messages = socket.emitted[SocketEvent.GameMessage];
@@ -446,7 +448,7 @@ describe('GameManager Validation', () => {
     test('rejects playing card when game has ended', (done) => {
       // End the game first by having one player leave (this triggers attrition win)
       player2.trigger('leaveGame', gameCode);
-      
+
       // Wait for game to end and potentially be deleted
       setTimeout(() => {
         host.trigger('playCard', { gameCode, cardId: 'card-1' });
@@ -455,8 +457,8 @@ describe('GameManager Validation', () => {
           expect(messages).toBeDefined();
           const lastMessage = messages![messages!.length - 1];
           // Game might be deleted (returns "not found") or ended (returns "ended")
-          expect(lastMessage).toMatchObject({ 
-            message: expect.stringMatching(/ended|not found/) 
+          expect(lastMessage).toMatchObject({
+            message: expect.stringMatching(/ended|not found/)
           });
           done();
         }, 50);
@@ -469,14 +471,14 @@ describe('GameManager Validation', () => {
       // If we get "not your turn", it means turn check failed (player2 is NOT the current player)
       // The important thing is that validation is working - either error is valid
       player2.trigger('playCard', { gameCode, cardId: 'some-card-id' });
-      
+
       setTimeout(() => {
         const messages = player2.emitted[SocketEvent.GameMessage];
         expect(messages).toBeDefined();
         const lastMessage = messages![messages!.length - 1];
         // Accept either error - both indicate validation is working
-        expect(lastMessage).toMatchObject({ 
-          message: expect.stringMatching(/not your turn|don't have/) 
+        expect(lastMessage).toMatchObject({
+          message: expect.stringMatching(/not your turn|don't have/)
         });
         done();
       }, 50);
@@ -484,7 +486,7 @@ describe('GameManager Validation', () => {
 
     test('rejects playing card not in hand', (done) => {
       host.trigger('playCard', { gameCode, cardId: 'non-existent-card' });
-      
+
       setTimeout(() => {
         const messages = host.emitted[SocketEvent.GameMessage];
         expect(messages).toBeDefined();
@@ -492,8 +494,8 @@ describe('GameManager Validation', () => {
         // Validation order: turn check -> card existence
         // If host is current player: "don't have"
         // If host is NOT current player: "not your turn"
-        expect(lastMessage).toMatchObject({ 
-          message: expect.stringMatching(/don't have|not your turn/) 
+        expect(lastMessage).toMatchObject({
+          message: expect.stringMatching(/don't have|not your turn/)
         });
         done();
       }, 50);
@@ -532,7 +534,7 @@ describe('GameManager Validation', () => {
 
     test('rejects invalid combo length', (done) => {
       host.trigger('playCombo', { gameCode, cardIds: ['card-1'] });
-      
+
       setTimeout(() => {
         const messages = host.emitted[SocketEvent.GameMessage];
         expect(messages).toBeDefined();
@@ -540,8 +542,8 @@ describe('GameManager Validation', () => {
         // Validation order: turn check -> combo length
         // If host is current player: "Invalid combo"
         // If host is NOT current player: "not your turn"
-        expect(lastMessage).toMatchObject({ 
-          message: expect.stringMatching(/Invalid combo|not your turn/) 
+        expect(lastMessage).toMatchObject({
+          message: expect.stringMatching(/Invalid combo|not your turn/)
         });
         done();
       }, 50);
@@ -549,7 +551,7 @@ describe('GameManager Validation', () => {
 
     test('rejects combo with non-existent cards', (done) => {
       host.trigger('playCombo', { gameCode, cardIds: ['card-1', 'card-2'] });
-      
+
       setTimeout(() => {
         const messages = host.emitted[SocketEvent.GameMessage];
         expect(messages).toBeDefined();
@@ -557,8 +559,8 @@ describe('GameManager Validation', () => {
         // If host is current player: "don't have" or "Invalid combo"
         // If host is NOT current player: "not your turn"
         const lastMessage = messages![messages!.length - 1];
-        expect(lastMessage).toMatchObject({ 
-          message: expect.stringMatching(/don't have|Invalid combo|not your turn/) 
+        expect(lastMessage).toMatchObject({
+          message: expect.stringMatching(/don't have|Invalid combo|not your turn/)
         });
         done();
       }, 50);
@@ -570,14 +572,14 @@ describe('GameManager Validation', () => {
       // If player2 is current player: "don't have" or "Invalid combo"
       // If player2 is NOT current player: "not your turn"
       player2.trigger('playCombo', { gameCode, cardIds: ['card-1', 'card-2'] });
-      
+
       setTimeout(() => {
         const messages = player2.emitted[SocketEvent.GameMessage];
         expect(messages).toBeDefined();
         const lastMessage = messages![messages!.length - 1];
         // Accept either error - both indicate validation is working
-        expect(lastMessage).toMatchObject({ 
-          message: expect.stringMatching(/not your turn|don't have|Invalid combo/) 
+        expect(lastMessage).toMatchObject({
+          message: expect.stringMatching(/not your turn|don't have|Invalid combo/)
         });
         done();
       }, 50);
@@ -604,14 +606,14 @@ describe('GameManager Validation', () => {
     });
 
     test('rejects reorder with length mismatch', (done) => {
-      host.trigger('reorderHand', { 
-        gameCode, 
+      host.trigger('reorderHand', {
+        gameCode,
         newHand: [
           { id: 'card-1', name: 'Card1', class: CardClass.Attack, imageUrl: '' },
           { id: 'card-2', name: 'Card2', class: CardClass.Attack, imageUrl: '' }
-        ] 
+        ]
       });
-      
+
       setTimeout(() => {
         // Should receive hand update to revert
         const handUpdates = host.emitted[SocketEvent.HandUpdate];
@@ -622,11 +624,11 @@ describe('GameManager Validation', () => {
 
     test('rejects reorder with missing cards', (done) => {
       // This test is harder without knowing the actual hand, but the validation should catch it
-      host.trigger('reorderHand', { 
-        gameCode, 
-        newHand: [] 
+      host.trigger('reorderHand', {
+        gameCode,
+        newHand: []
       });
-      
+
       setTimeout(() => {
         const handUpdates = host.emitted[SocketEvent.HandUpdate];
         expect(handUpdates).toBeDefined();
@@ -635,14 +637,14 @@ describe('GameManager Validation', () => {
     });
 
     test('rejects reorder with duplicate card IDs', (done) => {
-      host.trigger('reorderHand', { 
-        gameCode, 
+      host.trigger('reorderHand', {
+        gameCode,
         newHand: [
           { id: 'card-1', name: 'Card1', class: CardClass.Attack, imageUrl: '' },
           { id: 'card-1', name: 'Card1', class: CardClass.Attack, imageUrl: '' }
-        ] 
+        ]
       });
-      
+
       setTimeout(() => {
         const handUpdates = host.emitted[SocketEvent.HandUpdate];
         expect(handUpdates).toBeDefined();
@@ -677,12 +679,12 @@ describe('GameManager Validation', () => {
       host2.trigger('createGame', 'Host2', (res: any) => {
         const gameCode2 = res.gameCode!;
         host2.trigger('drawCard', gameCode2);
-        
+
         setTimeout(() => {
           const messages = host2.emitted[SocketEvent.GameMessage];
           expect(messages).toBeDefined();
-          expect(messages![messages!.length - 1]).toMatchObject({ 
-            message: expect.stringContaining('not started') 
+          expect(messages![messages!.length - 1]).toMatchObject({
+            message: expect.stringContaining('not started')
           });
           done();
         }, 50);
@@ -696,15 +698,15 @@ describe('GameManager Validation', () => {
       // If player2 is in game but not their turn: "not your turn"
       // If player2 is current player: might succeed or get other error
       player2.trigger('drawCard', gameCode);
-      
+
       setTimeout(() => {
         const messages = player2.emitted[SocketEvent.GameMessage];
         // If we get a message, it should be about turn or game state
         // If no message, player2 might not be properly in game (also a validation scenario)
         if (messages && messages.length > 0) {
           const lastMessage = messages![messages!.length - 1];
-          expect(lastMessage).toMatchObject({ 
-            message: expect.stringMatching(/not your turn|not started|ended/) 
+          expect(lastMessage).toMatchObject({
+            message: expect.stringMatching(/not your turn|not started|ended/)
           });
         }
         // Test passes if we get a validation message OR if player2 isn't in game (both are validation scenarios)

@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { Server, Socket } from 'socket.io';
 import { GameManager } from '../gameManager';
 import { CardClass, GameState, SocketEvent, TurnPhase } from '../api';
@@ -67,13 +69,13 @@ describe('Exploding Stack Logic', () => {
 
     const connectionHandler = (io.on as jest.Mock).mock.calls[0][1];
     connectionHandler(hostSocket);
-    
+
     let createdGameCode = '';
     hostSocket.trigger(SocketEvent.CreateGame, 'Host', (res) => { createdGameCode = res.gameCode; });
-    
+
     connectionHandler(p2Socket);
     p2Socket.trigger(SocketEvent.JoinGame, createdGameCode, 'P2', undefined, jest.fn());
-    
+
     hostSocket.trigger(SocketEvent.StartGame, createdGameCode, jest.fn());
 
     return { hostSocket, p2Socket, gameCode: createdGameCode };

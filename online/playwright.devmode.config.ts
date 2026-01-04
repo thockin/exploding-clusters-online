@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { defineConfig, devices } from '@playwright/test';
 
 // Set DEVMODE=1 so that testing-related features are enabled.

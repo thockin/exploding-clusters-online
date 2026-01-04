@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { GameManager } from '../gameManager';
 import { CardClass, SocketEvent, TurnPhase } from '../api';
 
@@ -168,7 +170,7 @@ describe('Executing Phase Blocking', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const lastMsg = msgs[msgs.length - 1] as any;
     expect(lastMsg.message).toMatch(/wait for reactions/i); // "You cannot draw right now (wait for reactions)."
-    
+
     // Verify no card drawn (Action phase would emit CardDrawn)
     expect(host.emitted[SocketEvent.CardDrawn]).toBeUndefined();
   });

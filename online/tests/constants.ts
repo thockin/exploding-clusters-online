@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 export const Buttons = {
   CREATE_NEW_GAME: 'button:has-text("Create a new game")',
   CREATE_GAME_CONFIRM: 'button:has-text("Create Game")',
@@ -10,7 +12,7 @@ export const Buttons = {
   LEAVE_GAME_CONFIRM: '.modal-footer button.btn-danger',
   OK: 'button:has-text("OK")',
   MODAL_OK: 'button:has-text("OK")',
-  
+
   // DevMode
   DEV_GIVE_SAFE_CARD: 'button:has-text("Give me a safe card")',
   DEV_GIVE_DEBUG_CARD: 'button:has-text("Give me a DEBUG card")',

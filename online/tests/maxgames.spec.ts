@@ -1,10 +1,12 @@
+// Copyright 2025 Tim Hockin
+
 import { test, expect } from '@playwright/test';
 
 test.describe('MAX_GAMES Limit Tests', () => {
   test('MAX_GAMES limit prevents new game creation', async ({ browser }) => {
     // This test requires MAX_GAMES=2 to be set in the environment
     // Run this test with: npx playwright test --config=playwright.maxgames.config.ts
-    
+
     const ctx1 = await browser.newContext();
     const ctx2 = await browser.newContext();
     const ctx3 = await browser.newContext();
@@ -36,20 +38,20 @@ test.describe('MAX_GAMES Limit Tests', () => {
     await page3.click('text=Create a new game');
     await page3.fill('input[placeholder*="Enter your name"]', 'Player Three');
     await page3.click('button:has-text("Create Game")');
-    
+
     // Wait for error message to appear in the modal
     // The error should be displayed in the Alert component within the modal
     await expect(page3.locator('.modal.show .alert-danger')).toContainText('server is full', { timeout: 5000, ignoreCase: true });
-    
+
     // Verify the modal is still open (game was not created)
     await expect(page3.locator('.modal.show')).toBeVisible();
-    
+
     // Verify we're still on the home page (not redirected to lobby)
     await expect(page3).toHaveURL(/\/$/);
-    
+
     // Close the modal to clean up
     await page3.click('button:has-text("Cancel")');
-    
+
     // Clean up contexts
     await ctx1.close();
     await ctx2.close();

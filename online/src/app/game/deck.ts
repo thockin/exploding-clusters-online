@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { Card, CardClass } from '../../api';
 export type { Card };
 
@@ -38,7 +40,7 @@ const cardDefinitions = [
     combo: false,
     count: 1
   },
-  
+
   {
     class: CardClass.UpgradeCluster,
     title: 'Early-adopter tax',
@@ -57,7 +59,7 @@ const cardDefinitions = [
     combo: false,
     count: 1
   },
-  
+
   {
     class: CardClass.Attack,
     title: 'Paint that bikeshed',
@@ -94,7 +96,7 @@ const cardDefinitions = [
     combo: false,
     count: 1
   },
-  
+
   {
     class: CardClass.Debug,
     title: 'SRE to the ER, stat!',
@@ -149,7 +151,7 @@ const cardDefinitions = [
     combo: false,
     count: 1
   },
-  
+
   {
     class: CardClass.Favor,
     title: 'Code review',
@@ -168,7 +170,7 @@ const cardDefinitions = [
     combo: false,
     count: 2
   },
-  
+
   {
     class: CardClass.Nak,
     title: 'Put it on the backlog',
@@ -214,7 +216,7 @@ const cardDefinitions = [
     combo: false,
     count: 1
   },
-  
+
   {
     class: CardClass.SeeTheFuture,
     title: 'Check the dashboard',
@@ -260,7 +262,7 @@ const cardDefinitions = [
     combo: false,
     count: 1
   },
-  
+
   {
     class: CardClass.Shuffle,
     title: 'Double trouble',
@@ -288,7 +290,7 @@ const cardDefinitions = [
     combo: false,
     count: 1
   },
-  
+
   {
     class: CardClass.ShuffleNow,
     title: 'It\'s consistent, eventually',
@@ -298,7 +300,7 @@ const cardDefinitions = [
     combo: false,
     count: 1
   },
-  
+
   {
     class: CardClass.Skip,
     title: 'Punt to oncall',
@@ -335,7 +337,7 @@ const cardDefinitions = [
     combo: false,
     count: 1
   },
-  
+
   {
     class: CardClass.Developer,
     title: 'Bash firefighter',

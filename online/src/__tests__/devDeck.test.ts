@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { GameManager } from '../gameManager';
 import { Card, CardClass } from '../api';
 import { Server } from 'socket.io';

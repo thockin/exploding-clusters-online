@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 /**
  * Validates and sanitizes player names
  * - Maximum length: 32 characters

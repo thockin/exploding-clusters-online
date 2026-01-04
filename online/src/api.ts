@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 export enum CardClass {
   ExplodingCluster = 'EXPLODING_CLUSTER',
   UpgradeCluster = 'UPGRADE_CLUSTER',
@@ -109,7 +111,7 @@ export interface GameUpdatePayload {
   players: Player[];
   currentPlayer: number;     // Index into players[]
   gameOwnerId: string;
-  spectators: Spectator[]; 
+  spectators: Spectator[];
   turnPhase: TurnPhase;
   attackTurns: number;
   attackTurnsTaken: number;

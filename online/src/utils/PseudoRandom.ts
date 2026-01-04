@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { randomInt } from 'crypto';
 
 /**
@@ -16,7 +18,7 @@ export interface RandomSource {
 export class SecureRandom implements RandomSource {
   public random(): number {
     // 2**48 - 1 is the limit for randomInt
-    const max = 0xFFFFFFFFFFFF; 
+    const max = 0xFFFFFFFFFFFF;
     return randomInt(0, max) / max;
   }
 }

@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { defineConfig, devices } from '@playwright/test';
 
 // Force DEVMODE=1 for tests so that debug features are enabled and nonce behavior is deterministic

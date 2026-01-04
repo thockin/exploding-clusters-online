@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { PseudoRandom, SecureRandom } from '../utils/PseudoRandom';
 
 describe('Random Generators', () => {
@@ -5,7 +7,7 @@ describe('Random Generators', () => {
     it('should be reproducible with the same seed', () => {
       const prng1 = new PseudoRandom(12345);
       const prng2 = new PseudoRandom(12345);
-      
+
       for (let i = 0; i < 100; i++) {
         expect(prng1.random()).toBe(prng2.random());
       }
@@ -14,7 +16,7 @@ describe('Random Generators', () => {
     it('should be different with different seeds', () => {
       const prng1 = new PseudoRandom(12345);
       const prng2 = new PseudoRandom(54321);
-      
+
       expect(prng1.random()).not.toBe(prng2.random());
     });
 

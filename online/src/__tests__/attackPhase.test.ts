@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { Server, Socket } from 'socket.io';
 import { GameManager } from '../gameManager';
 import { CardClass, GameState, SocketEvent, TurnPhase } from '../api';
@@ -54,7 +56,7 @@ describe('Attack Phase Logic', () => {
     clientSockets = new Map();
     serverSockets = new Map();
     io = new Server();
-    
+
     (io.on as jest.Mock) = jest.fn((event, callback) => {
       // Mock connection handler if needed
     });
@@ -78,17 +80,17 @@ describe('Attack Phase Logic', () => {
 
     const connectionHandler = (io.on as jest.Mock).mock.calls[0][1];
     connectionHandler(hostSocket);
-    
+
     let createdGameCode = '';
     const createCallback = jest.fn((res) => { createdGameCode = res.gameCode; });
     hostSocket.trigger(SocketEvent.CreateGame, 'Host', createCallback);
-    
+
     connectionHandler(p2Socket);
     p2Socket.trigger(SocketEvent.JoinGame, createdGameCode, 'P2', undefined, jest.fn());
-    
+
     connectionHandler(p3Socket);
     p3Socket.trigger(SocketEvent.JoinGame, createdGameCode, 'P3', undefined, jest.fn());
-    
+
     hostSocket.trigger(SocketEvent.StartGame, createdGameCode, jest.fn());
 
     return { hostSocket, p2Socket, p3Socket, gameCode: createdGameCode };
@@ -99,24 +101,24 @@ describe('Attack Phase Logic', () => {
   it('should increment attackTurns by 2 and pass to next player', async () => {
     const { hostSocket, p2Socket, gameCode } = setupGame();
     const game = (gameManager as any).games.get(gameCode);
-    
+
     // Host plays ATTACK
     const host = game.players[0];
     const attackCard = { id: 'attack-1', class: CardClass.Attack, name: 'Attack', imageUrl: '', now: false };
     host.hand.push(attackCard);
-    
+
     // Ensure it's Host's turn
     game.currentPlayer = 0; // Host
     game.attackTurns = 0;
 
     hostSocket.trigger(SocketEvent.PlayCard, { gameCode, cardId: attackCard.id, nonce: game.nonce });
 
-    jest.advanceTimersByTime(1500); 
+    jest.advanceTimersByTime(1500);
     await flushPromises();
 
     // Verify attackTurns incremented
     expect(game.attackTurns).toBe(2);
-    
+
     // Verify turn passed to P2
     expect(game.currentPlayer).toBe(1);
   });
@@ -124,14 +126,14 @@ describe('Attack Phase Logic', () => {
   it('should stack attacks: P2 attacks P3', async () => {
     const { hostSocket, p2Socket, p3Socket, gameCode } = setupGame();
     const game = (gameManager as any).games.get(gameCode);
-    
+
     // Host attacks P2
     const host = game.players[0];
     host.hand.push({ id: 'attack-h', class: CardClass.Attack, name: 'Attack', imageUrl: '' });
     hostSocket.trigger(SocketEvent.PlayCard, { gameCode, cardId: 'attack-h', nonce: game.nonce });
     jest.advanceTimersByTime(1500);
     await flushPromises();
-    
+
     expect(game.attackTurns).toBe(2);
     expect(game.currentPlayer).toBe(1); // P2
 
@@ -147,13 +149,13 @@ describe('Attack Phase Logic', () => {
     const p2 = game.players[1];
     p2.hand.push({ id: 'attack-p2', class: CardClass.Attack, name: 'Attack', imageUrl: '' });
     p2Socket.trigger(SocketEvent.PlayCard, { gameCode, cardId: 'attack-p2', nonce: game.nonce });
-    
+
     jest.advanceTimersByTime(1500);
     await flushPromises();
-    
+
     // attackTurns was 1, added 2 => 3
     expect(game.attackTurns).toBe(3);
-    
+
     // Turn passes to P3
     expect(game.currentPlayer).toBe(2); // P3
   });
@@ -161,25 +163,25 @@ describe('Attack Phase Logic', () => {
   it('should decrement attackTurns on draw', async () => {
     const { hostSocket, p2Socket, gameCode } = setupGame();
     const game = (gameManager as any).games.get(gameCode);
-    
+
     // Manually set state: P2's turn, attackTurns = 2
     game.currentPlayer = 1;
     game.attackTurns = 2;
-    
+
     // P2 draws a card
     p2Socket.trigger(SocketEvent.DrawCard, gameCode);
-    jest.advanceTimersByTime(3000); 
+    jest.advanceTimersByTime(3000);
     await flushPromises();
-    
+
     // Should still be P2's turn, but 1 attack turn left
     expect(game.currentPlayer).toBe(1);
     expect(game.attackTurns).toBe(1);
-    
+
     // P2 draws again
     p2Socket.trigger(SocketEvent.DrawCard, gameCode);
     jest.advanceTimersByTime(3000);
     await flushPromises();
-    
+
     // Should now be P3's turn
     expect(game.currentPlayer).toBe(2);
     expect(game.attackTurns).toBe(0);

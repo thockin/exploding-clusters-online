@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { GameManager } from '../gameManager';
 import { CardClass, GameState, SocketEvent, TurnPhase } from '../api';
 
@@ -176,21 +178,21 @@ describe('Turn Logic (Phase 3.1.3)', () => {
   };
 
   test('Start of turn is Action phase', () => {
-    // We can verify this via game update or internal state if we exposed it, 
+    // We can verify this via game update or internal state if we exposed it,
     // but better to verify behavior: Can play regular card.
     // Host has DEVELOPER cards (regular) and NAK (now).
     // Let's assume we can get hand from update.
     // In DEVMODE, P1 Hand: 2x Dev(A), 1x Dev(B), 2x Nak, 1x Shuffle, 1x Favor.
     // Shuffle is regular. Favor is regular.
-    
-    // We need a way to know card IDs. 
+
+    // We need a way to know card IDs.
     // We can get hand from emitted HandUpdate to host.
     const hand = host.emitted[SocketEvent.HandUpdate][0] as any; // Initial hand
     const shuffleCard = hand.hand.find((c: any) => c.class === CardClass.Shuffle);
-    
+
     // Play Shuffle (Regular)
     host.trigger('playCard', { gameCode, cardId: shuffleCard.id });
-    
+
     setTimeout(() => {
       // Should trigger ReactionTimerUpdate with Reaction phase
       const update = getLastTimerUpdate();
@@ -229,7 +231,7 @@ describe('Turn Logic (Phase 3.1.3)', () => {
     // 1. P1 plays Shuffle
     const p1Hand = (host.emitted[SocketEvent.HandUpdate].pop() as any).hand;
     const shuffleCard = p1Hand.find((c: any) => c.class === CardClass.Shuffle);
-    
+
     host.trigger('playCard', { gameCode, cardId: shuffleCard.id });
 
     setTimeout(() => {
@@ -238,7 +240,7 @@ describe('Turn Logic (Phase 3.1.3)', () => {
       // 2. P2 plays NAK
       const p2Hand = (p2.emitted[SocketEvent.HandUpdate].pop() as any).hand;
       const nakCard = p2Hand.find((c: any) => c.class === CardClass.Nak);
-      
+
       p2.trigger('playCard', { gameCode, cardId: nakCard.id });
 
       setTimeout(() => {

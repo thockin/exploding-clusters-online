@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 export interface EnvVarDefinition {
   name: string;
   description: string;
@@ -110,11 +112,11 @@ export function printHelp() {
   console.log('Options:');
   console.log('  --help    Show this help message and exit\n');
   console.log('Environment Variables:');
-  
+
   for (const env of envVars) {
     let defaultStr = String(env.defaultValue);
     if (env.type === 'boolean') defaultStr = env.defaultValue ? '"1"' : '"0" (or unset)';
-    
+
     console.log(`  ${env.name.padEnd(20)} ${env.description}`);
     console.log(`  ${''.padEnd(20)} Default: ${defaultStr}`);
     console.log('');

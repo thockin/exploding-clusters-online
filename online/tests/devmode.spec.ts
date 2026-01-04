@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { test, expect, Page, Locator } from '@playwright/test';
 import { Buttons, Inputs, Headers, Locators, CSS } from './constants';
 import { CardClass, TurnPhase } from '../src/api';

@@ -1,3 +1,5 @@
+# Copyright 2025 Tim Hockin
+
 all:
 	@echo "There is no 'all' target defined."
 

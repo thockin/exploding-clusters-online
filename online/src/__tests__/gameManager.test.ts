@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 import { GameManager } from '../gameManager';
 
 // Define types for callbacks and responses
@@ -156,10 +158,10 @@ describe('GameManager', () => {
 
     host.trigger('createGame', 'Host', (res: GameResponse) => {
       gameCode = res.gameCode!;
-            
+
       const player2 = new MockSocket('p2');
       mockServer.connectSocket(player2);
-            
+
       player2.trigger('joinGame', gameCode, 'Player2', undefined, (res2: GameResponse) => {
         expect(res2.success).toBe(true);
         expect(mockServer.games[gameCode].emitted['playerJoined']).toBeDefined();
@@ -177,13 +179,13 @@ describe('GameManager', () => {
       gameCode = res.gameCode!;
       const p2 = new MockSocket('p2');
       mockServer.connectSocket(p2);
-            
+
       p2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
         host.trigger('startGame', gameCode, (resStart: StartGameResponse) => {
           expect(resStart.success).toBe(true);
-                    
+
           p2.trigger('leaveGame', gameCode);
-                    
+
           const gameEmits = mockServer.games[gameCode].emitted['gameEnded'];
           expect(gameEmits).toBeDefined();
           const lastEmit = gameEmits![gameEmits!.length - 1] as GameEndData;
@@ -205,10 +207,10 @@ describe('GameManager', () => {
       gameCode = res.gameCode!;
       const p2 = new MockSocket('p2');
       mockServer.connectSocket(p2);
-            
+
       p2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
         p2.trigger('leaveGame', gameCode);
-                
+
         const gameEmits = mockServer.games[gameCode].emitted['gameEnded'];
         expect(gameEmits).toBeUndefined();
         done();

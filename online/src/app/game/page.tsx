@@ -1,3 +1,5 @@
+// Copyright 2025 Tim Hockin
+
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
