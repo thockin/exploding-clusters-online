@@ -1691,14 +1691,14 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.mouse.up();
 
     // Verify rejection dialog on P2
-    const retryModal = findModal(page2, "retry-play");
-    await expect(retryModal).toBeVisible();
+    const conflictModal = findModal(page2, "operation-conflict");
+    await expect(conflictModal).toBeVisible();
 
-    // P2 retries (Click OK)
-    await retryModal.getByRole('button', { name: 'Play it!' }).click();
+    // P2 acknowledges
+    await conflictModal.getByRole('button', { name: 'OK' }).click();
 
-    // Verify P2 played
-    await expect(findLogArea(page1)).toContainText('P2 played NAK');
+    // Verify P2 did not play
+    await expect(findLogArea(page1)).not.toContainText('P2 played NAK');
   });
 
   test('Play: exhaustive action, reaction', async ({ browser }) => {
@@ -3108,8 +3108,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.mouse.up();
 
     // Verify rejection dialog on P2
-    const retryModal = findModal(page2, "retry-play");
-    await expect(retryModal).toBeVisible();
+    const conflictModal = findModal(page2, "operation-conflict");
+    await expect(conflictModal).toBeVisible();
   });
 
   test('Play: NOW mid-draw EXPLODING CLUSTER', async ({ browser }) => {
@@ -3166,13 +3166,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await playCard(page1, p1Debug);
 
     // Verify rejection dialog on P2
-    const retryModal = findModal(page2, "retry-play");
-    await expect(retryModal).toBeVisible();
+    const conflictModal = findModal(page2, "operation-conflict");
+    await expect(conflictModal).toBeVisible();
 
     // P2 retries (Click OK)
-    await retryModal.getByRole('button', { name: 'Play it!' }).click();
-    // TODO: This is ugly, at best.  Maybe we should just not allow a retry.
-    await expect(findLogArea(page2)).toContainText("You can't play cards right now");
+    await conflictModal.getByRole('button', { name: 'OK' }).click();
 
     // Reinsert
     const p1InsertModal = findModal(page1, "exploding-reinsert");

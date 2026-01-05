@@ -1394,7 +1394,7 @@ export class GameManager {
     if (nonce && nonce !== game.nonce) {
       this.log(game, `playCard rejected: nonce mismatch (client=${nonce}, server=${game.nonce})`);
       this.emitToSocket(socket.id, SocketEvent.PlayError, {
-        reason: `${game.lastActorName || "Another player"} beat you to it, do you still want to play this card?`,
+        reason: `${game.lastActorName || "Another player"} beat you to it! Try again if you still want to make this play.`,
         cardId,
         nonce: game.nonce
       });

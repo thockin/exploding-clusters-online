@@ -50,7 +50,7 @@ export default function GameScreen() {
   const opStartNonceRef = useRef<string>(''); // the nonce when the current operation began
   const isShiftKeyPressed = useRef(false);
   const [drawingAnimation, setDrawingAnimation] = useState<{ card?: Card, playerId?: string, duration?: number, nextCardImageUrl?: string, currentPileImageUrl?: string } | null>(null);
-  const [replayModal, setReplayModal] = useState<{ reason: string, cardId?: string, cardIds?: string[] } | null>(null);
+  const [opConflictModal, setOpConflictModal] = useState<{ reason: string, cardId?: string, cardIds?: string[] } | null>(null);
   const [explodingReinsertModal, setExplodingReinsertModal] = useState<{ maxIndex: number } | null>(null);
   const [upgradeReinsertModal, setUpgradeReinsertModal] = useState<{ maxIndex: number } | null>(null);
   const [reinsertIndex, setInsertionIndex] = useState<string | number>(0);
@@ -215,7 +215,7 @@ export default function GameScreen() {
     const onRemovedData = ({ removedPile }: { removedPile: Card[] }) => setRemovedCardsOverlay(removedPile);
     const onPlayerExploding = ({ card }: { card: Card }) => setExplodingCard(card);
     const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
-      setReplayModal(data); // use data directly
+      setOpConflictModal(data); // use data directly
     };
 
     const onSeeTheFutureData = (data: { cards: Card[], timeout?: number }) => {
@@ -555,17 +555,6 @@ export default function GameScreen() {
     resetState();
     router.push('/');
   }, [socket, gameCode, resetState, router]);
-
-  const handleReplayConfirm = useCallback(() => {
-    if (!socket || !gameCode || !replayModal || !gameState) return;
-
-    if (replayModal.cardId) {
-      socket.emit(SocketEvent.PlayCard, { gameCode, cardId: replayModal.cardId, nonce: gameState.nonce });
-    } else if (replayModal.cardIds) {
-      socket.emit(SocketEvent.PlayCombo, { gameCode, cardIds: replayModal.cardIds, nonce: gameState.nonce });
-    }
-    setReplayModal(null);
-  }, [socket, gameCode, replayModal, gameState]);
 
   const handleCardClick = useCallback((card: Card, event: React.MouseEvent) => {
     event.stopPropagation();
@@ -1703,19 +1692,18 @@ export default function GameScreen() {
         </Modal>
 
         <Modal
-          data-modalname="retry-play"
-          show={!!replayModal}
-          onHide={() => setReplayModal(null)}
+          data-modalname="operation-conflict"
+          show={!!opConflictModal}
+          onHide={() => setOpConflictModal(null)}
         >
           <Modal.Header closeButton>
-            <Modal.Title>Game Updated</Modal.Title>
+            <Modal.Title>Game State Updated</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <p>{replayModal?.reason}</p>
+            <p>{opConflictModal?.reason}</p>
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setReplayModal(null)}>Cancel</Button>
-            <Button variant="primary" onClick={handleReplayConfirm} autoFocus>Play it!</Button>
+            <Button variant="primary" onClick={() => setOpConflictModal(null)}>OK</Button>
           </Modal.Footer>
         </Modal>
 
