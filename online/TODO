@@ -1,4 +1,9 @@
 In progress:
+* Make all areas resizable
+  - make hand cards smaller
+  - bar between log and hand
+  - make decks smaller
+  - left-right between players and table
 * Revist LLM critique notes
 * ipad support
   - shift-click?
@@ -12,7 +17,6 @@ Test improvments
  - Add more stability and hand-wrap tests for different screen dimensions
 
 Before release:
-* make a docker image
 * edit README
 * license
 * `npm i baseline-browser-mapping@latest -D`
@@ -30,7 +34,6 @@ Cleanup:
 * Fix dumb LLM comments like "Maybe we should" and "design doc says..." and "phase X"
 
 UI:
-* Make all areas resizable
 * Add a help screen
 * Capitalization and grammar/style in all buttons and labels
   - Modal dialog for "beat you to it"

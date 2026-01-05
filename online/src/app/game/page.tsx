@@ -40,6 +40,12 @@ export default function GameScreen() {
   const [reactionCountdown, setReactionCountdown] = useState(0);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Resize state for upper/lower half split
+  const [upperHalfHeight, setUpperHalfHeight] = useState<number>(50); // percentage
+  const isResizingHalfRef = useRef(false);
+  const resizeHalfStartPosRef = useRef({ y: 0 });
+  const resizeHalfStartHeightRef = useRef(50);
+
   const choiceTimeoutSeconds = 15; // for client-side choice dialogs
   const [choiceCountdown, setChoiceCountdown] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -361,6 +367,42 @@ export default function GameScreen() {
       return () => observer.disconnect();
     }
   }, [gameState]);
+
+  // Resize handler for upper/lower half split
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingHalfRef.current) return;
+
+      const container = document.querySelector('.container-fluid');
+      if (container) {
+        const containerHeight = container.clientHeight;
+        const deltaY = e.clientY - resizeHalfStartPosRef.current.y;
+        const deltaPercent = (deltaY / containerHeight) * 100;
+        // Dragging down (positive deltaY) increases upper half, decreases lower half
+        // Dragging up (negative deltaY) decreases upper half, increases lower half
+        const newHeight = Math.max(20, Math.min(80, resizeHalfStartHeightRef.current + deltaPercent));
+        setUpperHalfHeight(newHeight);
+      }
+    };
+
+    const handleMouseUp = () => {
+      isResizingHalfRef.current = false;
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleHalfResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingHalfRef.current = true;
+    resizeHalfStartPosRef.current = { y: e.clientY };
+    resizeHalfStartHeightRef.current = upperHalfHeight;
+  };
 
   const handleUpgradeInsertConfirm = useCallback(() => {
     if (!socket || !gameCode || !gameState) return;
@@ -1418,244 +1460,311 @@ export default function GameScreen() {
           </div>
         )}
 
-        <Row className="flex-grow-1">
-          <Col md={3}>
-            <h5>Players</h5>
-            <ListGroup
-              data-areaname="player-list"
-            >
-              {playersToDisplay.map((player) => (
-                <ListGroup.Item key={player.id} className={getPlayerClassName(player)}>
-                  <div>
-                    <span>{player.name} {player.id === playerId && "(that's you)"} {player.isDisconnected && '(Disconnected)'}</span>
-                    <span className="float-end">{player.cards} cards</span>
-                  </div>
-                </ListGroup.Item>
-              ))}
-            </ListGroup>
-
-            {gameState.devMode && !isSpectator && (
-              <div className="mt-3 d-grid gap-2">
-                <Button
-                  variant="warning"
-                  size="sm"
-                  onClick={handleGiveDebugCard}
-                  disabled={(gameState.debugCardsCount ?? 0) === 0}
-                >
-                  Give me a DEBUG card
-                </Button>
-                <Button variant="warning" size="sm" onClick={handleDevDrawCard} disabled={(gameState.safeCardsCount ?? 0) === 0}>Give me a safe card</Button>
-                <Button variant="warning" size="sm" onClick={handlePutCardBack} disabled={myHand.length === 0}>Put a card back</Button>
-                <Button variant="info" size="sm" onClick={handleShowDeck}>Show the deck</Button>
-                <Button variant="info" size="sm" onClick={handleShowRemovedPile}>Show removed cards</Button>
-              </div>
-            )}
-            {/* Timer Area */}
-            <div className="timer-area mt-3 text-center"
-              data-areaname="timer"
-              data-turnphase={gameState.turnPhase}
-            >
-              {(gameState.turnPhase === TurnPhase.Reaction) && reactionCountdown >= 0 && (
-                <>
-                  {(gameState.lastActorName && me?.name === gameState.lastActorName) ? (
-                    <h4 className="text-success">Waiting for other players to react</h4>
-                  ) : (
-                    <h4 className="text-warning">Want to react? Act fast!</h4>
-                  )}
-                  <h2 className="display-3">{reactionCountdown}</h2>
-                </>
-              )}
-              {(gameState.turnPhase === TurnPhase.Exploding) && (
-                <>
-                  {playerId === gameState.players[gameState.currentPlayer]?.id ? (
-                    <h4 className="text-danger">PLAY A DEBUG CARD!</h4>
-                  ) : (
-                    <h4 className="text-warning">Waiting for {gameState.players[gameState.currentPlayer]?.name} to debug their cluster...</h4>
-                  )}
-                </>
-              )}
-            </div>
-          </Col>
-          <Col md={9} className="d-flex flex-column position-relative" style={{ backgroundColor: '#228B22', borderRadius: '10px', padding: `${FIXED_TABLE_PADDING}px`, overflow: 'hidden', minHeight: 0 }} ref={tableAreaRef}>
-            <div
-              className="d-flex justify-content-center align-items-center flex-grow-1"
-              style={{ gap: `${FIXED_PILE_GAP}px` }}
-            >
-              {/* Draw Pile */}
-              <div className="d-flex flex-column align-items-center">
-                <div
-                  className="draw-pile position-relative"
-                  data-areaname="draw-pile"
-                  data-drawcount={gameState?.drawCount ?? 0}
-                  style={{
-                    width: getCardSize().width,
-                    height: getCardSize().height,
-                    cursor: draggedCard ? 'not-allowed' : (
-                      (gameState?.players[gameState.currentPlayer]?.id === playerId && gameState?.turnPhase === TurnPhase.Action) ? (isDrawingRef.current ? 'grabbing' : 'pointer') : 'not-allowed'
-                    ),
-                    borderRadius: '5px'
-                  }}
-                  onMouseDown={() => {
-                    isDrawingRef.current = true;
-                    setIsDragging(true); // force re-render
-                  }}
-                  onMouseUp={() => {
-                    isDrawingRef.current = false;
-                    setIsDragging(false); // force re-render
-                  }}
-                  onMouseLeave={() => {
-                    if (isDrawingRef.current) {
-                      isDrawingRef.current = false;
-                      setIsDragging(false);
-                    }
-                  }}
-                  onClick={handleDrawClick}
-                >
-                  <Image
-                    src={drawingAnimation?.nextCardImageUrl || gameState?.drawPileImage || "/art/back.png"}
-                    alt={`Draw Pile: ${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
-                    data-cardclass={gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'UNKNOWN'}
-                    width={getCardSize().width}
-                    height={getCardSize().height} />
-
-                  {drawingAnimation && (
-                    <div className="static-card-vanish" style={{ animationDuration: `${drawingAnimation.duration}ms` }}>
-                      <Image
-                        src={drawingAnimation.currentPileImageUrl || "/art/back.png"}
-                        alt={`Draw Pile: next card'}`}
-                        width={getCardSize().width}
-                        height={getCardSize().height} />
+        {/* Upper half */}
+        <div style={{
+          height: `${upperHalfHeight}%`,
+          minHeight: '200px',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          <Row className="flex-grow-1" style={{ margin: 0, height: '100%' }}>
+            <Col md={3}>
+              <h5>Players</h5>
+              <ListGroup
+                data-areaname="player-list"
+              >
+                {playersToDisplay.map((player) => (
+                  <ListGroup.Item key={player.id} className={getPlayerClassName(player)}>
+                    <div>
+                      <span>{player.name} {player.id === playerId && "(that's you)"} {player.isDisconnected && '(Disconnected)'}</span>
+                      <span className="float-end">{player.cards} cards</span>
                     </div>
-                  )}
+                  </ListGroup.Item>
+                ))}
+              </ListGroup>
 
-                  {drawingAnimation && (
-                    <div className="hand-animation" style={{
-                      animation: `${drawingAnimation.card ? 'drawCardSelf' : 'drawCard'} ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 4}s ease-in-out forwards`,
-                      transform: `translateX(-50%) ${drawingAnimation.card ? 'rotate(180deg)' : ''}`
-                    }}>
-                      <div className="hand-open" style={{ animation: `handReachIn ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-end forwards` }}>
-                        <Image src="/art/hand_open.png" alt="Hand Open" width={250} height={500} />
-                      </div>
-                      <div className="hand-closed" style={{ animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards` }}>
-                        <Image src="/art/hand_closed.png" alt="Hand Closed" width={250} height={500} />
-                      </div>
-                      <div className="hand-card" style={{
-                        animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards`
-                      }}>
+              {gameState.devMode && !isSpectator && (
+                <div className="mt-3 d-grid gap-2">
+                  <Button
+                    variant="warning"
+                    size="sm"
+                    onClick={handleGiveDebugCard}
+                    disabled={(gameState.debugCardsCount ?? 0) === 0}
+                  >
+                    Give me a DEBUG card
+                  </Button>
+                  <Button variant="warning" size="sm" onClick={handleDevDrawCard} disabled={(gameState.safeCardsCount ?? 0) === 0}>Give me a safe card</Button>
+                  <Button variant="warning" size="sm" onClick={handlePutCardBack} disabled={myHand.length === 0}>Put a card back</Button>
+                  <Button variant="info" size="sm" onClick={handleShowDeck}>Show the deck</Button>
+                  <Button variant="info" size="sm" onClick={handleShowRemovedPile}>Show removed cards</Button>
+                </div>
+              )}
+              {/* Timer Area */}
+              <div className="timer-area mt-3 text-center"
+                data-areaname="timer"
+                data-turnphase={gameState.turnPhase}
+              >
+                {(gameState.turnPhase === TurnPhase.Reaction) && reactionCountdown >= 0 && (
+                  <>
+                    {(gameState.lastActorName && me?.name === gameState.lastActorName) ? (
+                      <h4 className="text-success">Waiting for other players to react</h4>
+                    ) : (
+                      <h4 className="text-warning">Want to react? Act fast!</h4>
+                    )}
+                    <h2 className="display-3">{reactionCountdown}</h2>
+                  </>
+                )}
+                {(gameState.turnPhase === TurnPhase.Exploding) && (
+                  <>
+                    {playerId === gameState.players[gameState.currentPlayer]?.id ? (
+                      <h4 className="text-danger">PLAY A DEBUG CARD!</h4>
+                    ) : (
+                      <h4 className="text-warning">Waiting for {gameState.players[gameState.currentPlayer]?.name} to debug their cluster...</h4>
+                    )}
+                  </>
+                )}
+              </div>
+            </Col>
+            <Col md={9} className="d-flex flex-column position-relative" style={{ backgroundColor: '#228B22', borderRadius: '10px', padding: `${FIXED_TABLE_PADDING}px`, overflow: 'hidden', minHeight: 0 }} ref={tableAreaRef}>
+              <div
+                className="d-flex justify-content-center align-items-center flex-grow-1"
+                style={{ gap: `${FIXED_PILE_GAP}px` }}
+              >
+                {/* Draw Pile */}
+                <div className="d-flex flex-column align-items-center">
+                  <div
+                    className="draw-pile position-relative"
+                    data-areaname="draw-pile"
+                    data-drawcount={gameState?.drawCount ?? 0}
+                    style={{
+                      width: getCardSize().width,
+                      height: getCardSize().height,
+                      cursor: draggedCard ? 'not-allowed' : (
+                        (gameState?.players[gameState.currentPlayer]?.id === playerId && gameState?.turnPhase === TurnPhase.Action) ? (isDrawingRef.current ? 'grabbing' : 'pointer') : 'not-allowed'
+                      ),
+                      borderRadius: '5px'
+                    }}
+                    onMouseDown={() => {
+                      isDrawingRef.current = true;
+                      setIsDragging(true); // force re-render
+                    }}
+                    onMouseUp={() => {
+                      isDrawingRef.current = false;
+                      setIsDragging(false); // force re-render
+                    }}
+                    onMouseLeave={() => {
+                      if (isDrawingRef.current) {
+                        isDrawingRef.current = false;
+                        setIsDragging(false);
+                      }
+                    }}
+                    onClick={handleDrawClick}
+                  >
+                    <Image
+                      src={drawingAnimation?.nextCardImageUrl || gameState?.drawPileImage || "/art/back.png"}
+                      alt={`Draw Pile: ${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
+                      data-cardclass={gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'UNKNOWN'}
+                      width={getCardSize().width}
+                      height={getCardSize().height} />
+
+                    {drawingAnimation && (
+                      <div className="static-card-vanish" style={{ animationDuration: `${drawingAnimation.duration}ms` }}>
                         <Image
                           src={drawingAnimation.currentPileImageUrl || "/art/back.png"}
-                          alt={`${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
+                          alt={`Draw Pile: next card'}`}
                           width={getCardSize().width}
-                          height={getCardSize().height}
-                          style={{
-                            position: 'absolute',
-                            left: `${(100 - getCardSize().width) / 2}px`,
-                            top: `${(180 - getCardSize().height) / 2}px`,
-                            transform: drawingAnimation.card ? 'rotate(180deg)' : 'none'
-                          }} /* Centered within hand div */
-                        />
+                          height={getCardSize().height} />
                       </div>
-                    </div>
-                  )}
-                  {gameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x draw-pile-count" style={{ top: '100%' }}>({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
+                    )}
+
+                    {drawingAnimation && (
+                      <div className="hand-animation" style={{
+                        animation: `${drawingAnimation.card ? 'drawCardSelf' : 'drawCard'} ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 4}s ease-in-out forwards`,
+                        transform: `translateX(-50%) ${drawingAnimation.card ? 'rotate(180deg)' : ''}`
+                      }}>
+                        <div className="hand-open" style={{ animation: `handReachIn ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-end forwards` }}>
+                          <Image src="/art/hand_open.png" alt="Hand Open" width={250} height={500} />
+                        </div>
+                        <div className="hand-closed" style={{ animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards` }}>
+                          <Image src="/art/hand_closed.png" alt="Hand Closed" width={250} height={500} />
+                        </div>
+                        <div className="hand-card" style={{
+                          animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards`
+                        }}>
+                          <Image
+                            src={drawingAnimation.currentPileImageUrl || "/art/back.png"}
+                            alt={`${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
+                            width={getCardSize().width}
+                            height={getCardSize().height}
+                            style={{
+                              position: 'absolute',
+                              left: `${(100 - getCardSize().width) / 2}px`,
+                              top: `${(180 - getCardSize().height) / 2}px`,
+                              transform: drawingAnimation.card ? 'rotate(180deg)' : 'none'
+                            }} /* Centered within hand div */
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {gameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x draw-pile-count" style={{ top: '100%' }}>({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
+                  </div>
+                </div>
+
+                {/* Discard Pile */}
+                <div className="d-flex flex-column align-items-center">
+                  <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
+                    {renderDiscardPile()}
+                    {gameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x discard-pile-count" style={{ top: '100%' }}>({gameState.discardPileCount !== undefined ? gameState.discardPileCount : '??'} cards)</div>}
+                  </div>
                 </div>
               </div>
-
-              {/* Discard Pile */}
-              <div className="d-flex flex-column align-items-center">
-                <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
-                  {renderDiscardPile()}
-                  {gameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x discard-pile-count" style={{ top: '100%' }}>({gameState.discardPileCount !== undefined ? gameState.discardPileCount : '??'} cards)</div>}
-                </div>
-              </div>
-            </div>
-          </Col>
-        </Row>
-        <Row style={{ flexGrow: isSpectator ? 1 : 0 }}>
-          <Col className="d-flex flex-column">
-            <div
-              data-areaname="message"
-              style={{
-                backgroundColor: '#f0f0f0',
-                borderRadius: '5px', margin: '0.5rem 0', padding: '0.5rem',
-                height: isSpectator ? 'auto' : '180px',
-                flexGrow: isSpectator ? 1 : 0,
-                display: 'flex', flexDirection: 'column',
-              }}
-            >
-              <div
-                data-areaname="turn"
-                style={{
-                  textAlign: 'center', padding: '0.25rem',
-                  backgroundColor: turnStatusBgColor,
-                  color: turnStatusColor,
-                  borderRadius: '5px', flexShrink: 0,
-                }}
-              >
-                <strong>{turnStatus}</strong>
-              </div>
-
-              <div
-                ref={messageAreaRef}
-                data-areaname="log"
-                style={{
-                  textAlign: 'left', padding: '0.25rem',
-                  overflowY: 'auto', flexGrow: 1,
-                  borderTop: '1px solid #ccc', marginTop: '0.25rem'
-                }}
-              >
-                {gameMessages.map((msg, i) => (
-                  <div key={i}>{msg}</div>
-                ))}
-              </div>
-            </div>
-          </Col>
-        </Row>
-        {!isSpectator && (
-          <div className="bg-light p-3 d-flex flex-column position-relative"
-            style={{
-              borderTop: '1px solid #ccc',
-              flexShrink: 0,
-              height: '30vh',
-              minHeight: '200px'
-            }}
-            onClick={() => {
-              if (isDraggingRef.current) return;
-              setSelectedCards([]);
-            }}
-          >
-            <h5 className="text-start mb-2 flex-shrink-0">Your Hand</h5>
-            <div
-              ref={handAreaRef}
-              className="flex-grow-1"
-              style={{ overflowY: 'auto', width: '100%' }}
-            >
-              {renderHand()}
-            </div>
-            <Button
-              variant="secondary"
-              className="position-absolute bottom-0 end-0 m-3 w-auto"
-              style={{ zIndex: 10 }}
-              onClick={() => setShowLeaveGameModal(true)}
-            >
-              Leave Game
-            </Button>
-          </div>
-        )}
-        {isSpectator && (
-          <Row className="bg-light p-3 position-relative" style={{ borderTop: '1px solid #ccc', flexShrink: 0 }}>
-            <div className="d-flex justify-content-end w-100">
-              <Button
-                variant="secondary"
-                className="w-auto"
-                style={{ zIndex: 10 }}
-                onClick={() => setShowLeaveGameModal(true)}
-              >
-                Leave Game
-              </Button>
-            </div>
+            </Col>
           </Row>
-        )}
+        </div>
+
+        {/* Resize bar */}
+        <div
+          onMouseDown={handleHalfResizeStart}
+          style={{
+            width: '100%',
+            height: '6px',
+            cursor: 'row-resize',
+            backgroundColor: 'transparent',
+            zIndex: 100,
+            userSelect: 'none',
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative'
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              height: '3px',
+              backgroundColor: 'rgba(150, 150, 150, 0.6)',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(100, 100, 100, 0.9)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(150, 150, 150, 0.6)';
+            }}
+          />
+        </div>
+
+        {/* Lower half */}
+        <div style={{
+          height: `${100 - upperHalfHeight}%`,
+          minHeight: '200px',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          <Row style={{ flex: '1 1 0', margin: 0, minHeight: 0 }}>
+            <Col className="d-flex flex-column">
+              <div
+                data-areaname="message"
+                style={{
+                  backgroundColor: '#f0f0f0',
+                  borderRadius: '5px', margin: '0.5rem 0', padding: '0.5rem',
+                  height: '100%',
+                  flexGrow: 1,
+                  display: 'flex', flexDirection: 'column',
+                  minHeight: 0,
+                  position: 'relative'
+                }}
+              >
+                <div
+                  data-areaname="turn"
+                  style={{
+                    textAlign: 'center', padding: '0.25rem',
+                    backgroundColor: turnStatusBgColor,
+                    color: turnStatusColor,
+                    borderRadius: '5px', flexShrink: 0,
+                  }}
+                >
+                  <strong>{turnStatus}</strong>
+                </div>
+  
+                <div
+                  ref={messageAreaRef}
+                  data-areaname="log"
+                  style={{
+                    textAlign: 'left', padding: '0.25rem',
+                    overflowY: 'auto', flexGrow: 1,
+                    borderTop: '1px solid #ccc', marginTop: '0.25rem'
+                  }}
+                >
+                  {gameMessages.map((msg, i) => (
+                    <div key={i}>{msg}</div>
+                  ))}
+                </div>
+                {!isSpectator && (
+                  <Button
+                    variant="secondary"
+                    className="position-absolute"
+                    style={{
+                      bottom: '1rem',
+                      right: '1rem',
+                      zIndex: 100
+                    }}
+                    onClick={() => setShowLeaveGameModal(true)}
+                  >
+                    Leave Game
+                  </Button>
+                )}
+              </div>
+            </Col>
+          </Row>
+          {!isSpectator && (
+            <Row style={{ margin: 0, flex: '1 1 0', minHeight: 0 }}>
+              <Col className="d-flex flex-column">
+                <div className="bg-light p-3 d-flex flex-column position-relative"
+                  style={{
+                    borderRadius: '5px',
+                    margin: '0.5rem 0',
+                    flex: '1 1 0',
+                    minHeight: '200px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    overflow: 'hidden'
+                  }}
+                  onClick={() => {
+                    if (isDraggingRef.current) return;
+                    setSelectedCards([]);
+                  }}
+                >
+                  <h5 className="text-start mb-2 flex-shrink-0">Your Hand</h5>
+                  <div
+                    ref={handAreaRef}
+                    className="flex-grow-1"
+                    style={{ overflowY: 'auto', width: '100%', minHeight: 0 }}
+                  >
+                    {renderHand()}
+                  </div>
+                </div>
+              </Col>
+            </Row>
+          )}
+          {isSpectator && (
+            <Row className="bg-light p-3 position-relative" style={{ borderTop: '1px solid #ccc', flexShrink: 0 }}>
+              <div className="d-flex justify-content-end w-100">
+                <Button
+                  variant="secondary"
+                  className="w-auto"
+                  style={{ zIndex: 10 }}
+                  onClick={() => setShowLeaveGameModal(true)}
+                >
+                  Leave Game
+                </Button>
+              </div>
+            </Row>
+          )}
+        </div>
 
         {/* Modals... */}
         <Modal

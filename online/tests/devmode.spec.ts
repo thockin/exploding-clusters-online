@@ -65,10 +65,13 @@ async function playCard(page: Page, card: Locator) {
   const pile = findDiscardPileDropTarget(page);
   await expect(pile).toBeVisible();
 
+  await card.scrollIntoViewIfNeeded();
+  await pile.scrollIntoViewIfNeeded();
   const srcBox = await card.boundingBox();
   const dstBox = await pile.boundingBox();
   if (!srcBox) throw new Error('Bounding box not found for card');
   if (!dstBox) throw new Error('Bounding box not found for pile');
+
   await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
   await page.mouse.down();
   await page.mouse.move(dstBox.x + dstBox.width / 2, dstBox.y + dstBox.height / 2, { steps: 20 });
@@ -717,6 +720,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(handArea).toBeVisible();
     await expect(findAllHandCards(page1)).toHaveCount(8);
     const cardImg = handArea.locator('img').first();
+    await cardImg.scrollIntoViewIfNeeded();
 
     // Double-click first card to open overlay
     await cardImg.dblclick({ force: true });
@@ -762,12 +766,14 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const other = findHandCardsByClass(page, CardClass.Shuffle);
 
     // Select first
+    await pair1.scrollIntoViewIfNeeded();
     await pair1.click();
     await expect(pair1).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
     await expect(pair2).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
     await expect(other).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
 
     // Shift-click second
+    await pair2.scrollIntoViewIfNeeded();
     await page.keyboard.down('Shift');
     await pair2.click();
     await page.keyboard.up('Shift');
@@ -788,6 +794,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(other).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
 
     // Shift-click other, does nothing
+    await other.scrollIntoViewIfNeeded();
     await page.keyboard.down('Shift');
     await other.click();
     await page.keyboard.up('Shift');
@@ -831,10 +838,12 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(shuffleCard).toBeVisible();
 
     // Click to select FAVOR
+    await favorCard.scrollIntoViewIfNeeded();
     await favorCard.click();
     await expect(favorCard).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
 
     // Drag SHUFFLE
+    await shuffleCard.scrollIntoViewIfNeeded();
     const srcBox = await shuffleCard.boundingBox();
 
     await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
@@ -945,10 +954,12 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const pairSrc = await card1.locator('img').getAttribute('src');
 
     // Select first card
+    await card1.scrollIntoViewIfNeeded();
     await card1.click();
     await expect(card1).toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
 
     // Shift-click second card to multi-select
+    await card2.scrollIntoViewIfNeeded();
     await page1.keyboard.down('Shift');
     await card2.click();
     await page1.keyboard.up('Shift');
@@ -1670,6 +1681,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p3Nak).toHaveAttribute('data-playable', 'true');
 
     // P2 starts to play NAK, but does not finish yet
+    await p2Nak.scrollIntoViewIfNeeded();
     const p2SrcBox = await p2Nak.boundingBox();
     const p2DstBox = await p2Discard.boundingBox();
     if (!p2SrcBox) throw new Error('Bounding box not found for card');
@@ -2173,9 +2185,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const [ card1, card2 ] = await findPair(devCards);
 
     // Select Pair
-    await card1.click();
-    await page1.keyboard.down('Shift');
+    await card2.scrollIntoViewIfNeeded();
     await card2.click();
+    await page1.keyboard.down('Shift');
+    await card1.scrollIntoViewIfNeeded();
+    await card1.click();
     await page1.keyboard.up('Shift');
 
     // Drag to Discard
@@ -2296,9 +2310,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(findAllHandCards(page3)).toHaveCount(0);
 
     // Select Pair
-    await card1.click();
-    await page1.keyboard.down('Shift');
+    await card2.scrollIntoViewIfNeeded();
     await card2.click();
+    await page1.keyboard.down('Shift');
+    await card1.scrollIntoViewIfNeeded();
+    await card1.click();
     await page1.keyboard.up('Shift');
 
     // Drag to Discard
@@ -3091,6 +3107,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p2ShuffleNow).toHaveCount(1);
 
     // P2 starts to play SHUFFLE_NOW, but does not finish yet
+    await p2ShuffleNow.scrollIntoViewIfNeeded();
     const p2SrcBox = await p2ShuffleNow.boundingBox();
     const p2DstBox = await findDiscardPileDropTarget(page2).boundingBox();
     if (!p2SrcBox) throw new Error('Bounding box not found for card');
@@ -3139,6 +3156,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(p2ShuffleNow).toHaveCount(1);
 
     // P2 starts to play SHUFFLE_NOW, but does not finish yet
+    await p2ShuffleNow.scrollIntoViewIfNeeded();
     const p2SrcBox = await p2ShuffleNow.boundingBox();
     const p2DstBox = await findDiscardPileDropTarget(page2).boundingBox();
     if (!p2SrcBox) throw new Error('Bounding box not found for card');
@@ -3424,9 +3442,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const [devCard1, devCard2] = await findPair(devCards);
 
     // P1 plays DEVELOPER combo targeting P3
-    await devCard1.click();
-    await page1.keyboard.down('Shift');
+    await devCard2.scrollIntoViewIfNeeded();
     await devCard2.click();
+    await devCard1.scrollIntoViewIfNeeded();
+    await page1.keyboard.down('Shift');
+    await devCard1.click();
     await page1.keyboard.up('Shift');
     await playCard(page1, devCard1);
 
@@ -3495,9 +3515,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const [devCard1, devCard2] = await findPair(devCards);
 
     // P1 plays DEVELOPER combo targeting P3
-    await devCard1.click();
-    await page1.keyboard.down('Shift');
+    await devCard2.scrollIntoViewIfNeeded();
     await devCard2.click();
+    await devCard1.scrollIntoViewIfNeeded();
+    await page1.keyboard.down('Shift');
+    await devCard1.click();
     await page1.keyboard.up('Shift');
     await playCard(page1, devCard1);
 
@@ -3570,9 +3592,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const [devCard1, devCard2] = await findPair(devCards);
 
     // P1 plays DEVELOPER combo targeting P3
-    await devCard1.click();
-    await page1.keyboard.down('Shift');
+    await devCard2.scrollIntoViewIfNeeded();
     await devCard2.click();
+    await devCard1.scrollIntoViewIfNeeded();
+    await page1.keyboard.down('Shift');
+    await devCard1.click();
     await page1.keyboard.up('Shift');
     await playCard(page1, devCard1);
 
@@ -3643,9 +3667,11 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const [devCard1, devCard2] = await findPair(devCards);
 
     // P1 plays DEVELOPER combo targeting P3
-    await devCard1.click();
-    await page1.keyboard.down('Shift');
+    await devCard2.scrollIntoViewIfNeeded();
     await devCard2.click();
+    await devCard1.scrollIntoViewIfNeeded();
+    await page1.keyboard.down('Shift');
+    await devCard1.click();
     await page1.keyboard.up('Shift');
     await playCard(page1, devCard1);
 
