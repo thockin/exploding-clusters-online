@@ -1328,6 +1328,7 @@ export class GameManager {
       return { allowed: false, reason: "DEBUG cards can only be played during an explosion." };
     }
 
+    // Note: TurnPhase.Reaction is handled above
     switch (game.turnPhase) {
       case TurnPhase.Action:
         if (card.class === CardClass.Nak && !game.devMode) {
@@ -1337,8 +1338,6 @@ export class GameManager {
           return { allowed: false, reason: "DEVELOPER cards can only be played as combos." };
         }
         return { allowed: true };
-
-      // case TurnPhase.Reaction is handled above
 
       case TurnPhase.Exploding:
         if (card.class === CardClass.Debug) return { allowed: true };

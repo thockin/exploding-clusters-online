@@ -1578,7 +1578,7 @@ export default function GameScreen() {
               style={{
                 backgroundColor: '#f0f0f0',
                 borderRadius: '5px', margin: '0.5rem 0', padding: '0.5rem',
-                height: isSpectator ? 'auto' : '120px',
+                height: isSpectator ? 'auto' : '180px',
                 flexGrow: isSpectator ? 1 : 0,
                 display: 'flex', flexDirection: 'column',
               }}
