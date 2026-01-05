@@ -1616,8 +1616,8 @@ export default function GameScreen() {
             style={{
               borderTop: '1px solid #ccc',
               flexShrink: 0,
-              height: '35vh',
-              minHeight: '250px'
+              height: '30vh',
+              minHeight: '200px'
             }}
             onClick={() => {
               if (isDraggingRef.current) return;

@@ -1,5 +1,4 @@
 In progress:
-* Make the log area bigger
 * Revist LLM critique notes
 * ipad support
   - shift-click?
@@ -31,6 +30,7 @@ Cleanup:
 * Fix dumb LLM comments like "Maybe we should" and "design doc says..." and "phase X"
 
 UI:
+* Make all areas resizable
 * Add a help screen
 * Capitalization and grammar/style in all buttons and labels
   - Modal dialog for "beat you to it"
