@@ -177,7 +177,7 @@ export default function GameScreen() {
       const currentPlayer = gameState.players[gameState.currentPlayer];
       if (currentPlayer?.id === playerId) {
         if (!explodingReinsertModal) {
-          setExplodingReinsertModal({ maxIndex: gameState.drawPileCount || 50 });
+          setExplodingReinsertModal({ maxIndex: gameState.maxReinsert || 50 });
         }
       }
     } else {
@@ -191,7 +191,7 @@ export default function GameScreen() {
       const currentPlayer = gameState.players[gameState.currentPlayer];
       if (currentPlayer?.id === playerId) {
         if (!upgradeReinsertModal) {
-          setUpgradeReinsertModal({ maxIndex: gameState.drawPileCount || 50 });
+          setUpgradeReinsertModal({ maxIndex: gameState.maxReinsert || 50 });
         }
       }
     } else {
@@ -1729,20 +1729,20 @@ export default function GameScreen() {
           </Modal.Header>
           <Modal.Body>
             <p>You can put this card back into the deck anywhere you like.</p>
-            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG>'} cards in the deck, where do you want to put the UPGRADE CLUSTER card?</p>
-            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG>'} is the bottom.</p>
+            <p>There are {upgradeReinsertModal?.maxIndex ?? '<BUG>'} cards in the deck, where do you want to put the UPGRADE CLUSTER card?</p>
+            <p>Position 0 is the top of the deck, {upgradeReinsertModal?.maxIndex ?? '<BUG>'} is the bottom.</p>
             <Form.Control
               id="upgrade-reinsert-index"
               type="number"
               min={0}
-              max={gameState?.drawPileCount || 50}
+              max={upgradeReinsertModal?.maxIndex ?? 50}
               value={reinsertIndex}
               onChange={(e) => setInsertionIndex(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   const val = parseInt(String(reinsertIndex), 10);
-                  const max = gameState?.drawPileCount ?? 50;
+                  const max = upgradeReinsertModal?.maxIndex ?? 50;
                   if (!isNaN(val) && val >= 0 && val <= max) {
                     handleUpgradeInsertConfirm();
                   }
@@ -1756,7 +1756,7 @@ export default function GameScreen() {
               onClick={handleUpgradeInsertConfirm}
               disabled={(() => {
                 const val = parseInt(String(reinsertIndex), 10);
-                const max = gameState?.drawPileCount ?? 50;
+                const max = upgradeReinsertModal?.maxIndex ?? 50;
                 return isNaN(val) || val < 0 || val > max;
               })()}
             >OK</Button>
@@ -1775,13 +1775,13 @@ export default function GameScreen() {
           </Modal.Header>
           <Modal.Body>
             <p>You can put this card back into the deck anywhere you like.</p>
-            <p>There are {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG>'} cards in the deck, where do you want to hide the EXPLODING CLUSTER card?</p>
-            <p>Position 0 is the top of the deck, {gameState?.drawPileCount !== undefined ? gameState.drawPileCount : '<BUG>'} is the bottom.</p>
+            <p>There are { explodingReinsertModal?.maxIndex ?? '<BUG>'} cards in the deck, where do you want to hide the EXPLODING CLUSTER card?</p>
+            <p>Position 0 is the top of the deck, {explodingReinsertModal?.maxIndex ?? '<BUG>'} is the bottom.</p>
             <Form.Control
               id="exploding-reinsert-index"
               type="number"
               min={0}
-              max={explodingReinsertModal?.maxIndex}
+              max={explodingReinsertModal?.maxIndex ?? 50}
               value={reinsertIndex}
               onChange={(e) => setInsertionIndex(e.target.value)}
               onKeyDown={(e) => {

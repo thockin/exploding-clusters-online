@@ -1,4 +1,5 @@
 In progress:
+* Make the log area bigger
 * Revist LLM critique notes
 
 Test improvments
@@ -43,5 +44,6 @@ UI:
   * Add a shuffle-deck animation
 * Scale cards up in size as they get dragged to the discard pile
 * Reduce card spacing in hand or even overlap them?
+* Make it mobile compatible?
 
-Bugs:
+Known bugs:

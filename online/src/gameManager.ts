@@ -269,7 +269,8 @@ export class GameManager {
           break;
         }
       }
-    } else if (game.turnPhase === TurnPhase.Upgrading) {
+    }
+    if (game.turnPhase === TurnPhase.Upgrading) {
       // Find the most recent UPGRADE_CLUSTER in discard pile
       for (let i = game.discardPile.length - 1; i >= 0; i--) {
         if (game.discardPile[i].class === CardClass.UpgradeCluster) {
@@ -277,6 +278,11 @@ export class GameManager {
           break;
         }
       }
+    }
+
+    let maxReinsert: number | undefined;
+    if (game.turnPhase === TurnPhase.ExplodingReinserting || game.turnPhase === TurnPhase.Upgrading) {
+      maxReinsert = game.drawPile.length;
     }
 
     const baseData: GameUpdatePayload = {
@@ -295,6 +301,7 @@ export class GameManager {
       attackTurnsTaken: game.attackTurnsTaken,
       lastActorName: game.lastActorName,
       playBlockingCard,
+      maxReinsert,
       timerDuration: game.timerDuration,
       topDiscardCard: topDiscardCard, // Always send top card for rendering
       drawPileImage: drawPileImage,

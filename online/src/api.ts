@@ -113,6 +113,7 @@ export interface GameUpdatePayload {
   gameOwnerId: string;
   spectators: Spectator[];
   turnPhase: TurnPhase;
+  maxReinsert?: number;      // Max reinsert index
   attackTurns: number;
   attackTurnsTaken: number;
   lastActorName?: string;
