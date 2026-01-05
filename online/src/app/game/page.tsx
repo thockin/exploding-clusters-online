@@ -20,7 +20,7 @@ const CARD_FULL_WIDTH_PX = CARD_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
 const CARD_SMALL_FULL_WIDTH_PX = CARD_SMALL_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
 
 // How long a card is displayed after being drawn or stolen.
-const CARD_DISMISS_TIMEOUT_MS = 3000;
+const CARD_DISMISS_TIMEOUT_MS = 2500;
 
 export default function GameScreen() {
   const router = useRouter();
@@ -47,7 +47,7 @@ export default function GameScreen() {
   const isDraggingRef = useRef(false);
   const isDrawingRef = useRef(false);
   const clickStartPosRef = useRef({ x: 0, y: 0 });
-  const dragStartNonceRef = useRef<string>('');
+  const opStartNonceRef = useRef<string>(''); // the nonce when the current operation began
   const isShiftKeyPressed = useRef(false);
   const [drawingAnimation, setDrawingAnimation] = useState<{ card?: Card, playerId?: string, duration?: number, nextCardImageUrl?: string, currentPileImageUrl?: string } | null>(null);
   const [replayModal, setReplayModal] = useState<{ reason: string, cardId?: string, cardIds?: string[] } | null>(null);
@@ -958,6 +958,7 @@ export default function GameScreen() {
           if (victims.length === 1) {
             victimIdToUse = victims[0].id;
           } else {
+            opStartNonceRef.current = gameState?.nonce;
             setFavorVictimModalOpen(true);
             return;
           }
@@ -973,6 +974,7 @@ export default function GameScreen() {
           if (victims.length === 1) {
             victimIdToUse = victims[0].id;
           } else {
+            opStartNonceRef.current = gameState?.nonce;
             setStealCardVictimModalOpen(true);
             return;
           }
@@ -994,10 +996,10 @@ export default function GameScreen() {
           if (gameCode) {
             if (cardsToPlay.length === 1) {
               console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
-              socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id, nonce: dragStartNonceRef.current, victimId: victimIdToUse });
+              socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id, nonce: opStartNonceRef.current, victimId: victimIdToUse });
             } else if (cardsToPlay.length === 2) {
               console.debug('Emitting playCombo for DEVELOPER cards');
-              socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id), nonce: dragStartNonceRef.current, victimId: victimIdToUse });
+              socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id), nonce: opStartNonceRef.current, victimId: victimIdToUse });
             }
           } else {
             console.error("Game code not found, cannot play card.");
@@ -1017,8 +1019,8 @@ export default function GameScreen() {
 
     isDraggingRef.current = true;
     setIsDragging(true);
-    if (gameState) dragStartNonceRef.current = gameState.nonce;
-    console.debug('onDragStart', start);
+    if (gameState) opStartNonceRef.current = gameState.nonce;
+    console.debug('onDragStart', start, "nonce", opStartNonceRef.current);
 
     if (start.source.droppableId.startsWith('hand-row-')) {
       const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
@@ -1877,7 +1879,7 @@ export default function GameScreen() {
             <Button variant="primary" disabled={!favorVictimSelection} onClick={() => {
               const favorCard = myHand.find(c => c.class === CardClass.Favor);
               if (favorCard && gameCode) {
-                socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: favorCard.id, nonce: gameState?.nonce, victimId: favorVictimSelection });
+                socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: favorCard.id, nonce: opStartNonceRef.current, victimId: favorVictimSelection });
                 setFavorVictimModalOpen(false);
                 setFavorVictimSelection(null);
                 setSelectedCards([]);
@@ -1973,7 +1975,7 @@ export default function GameScreen() {
             <Button variant="secondary" onClick={() => setStealCardVictimModalOpen(false)}>Cancel</Button>
             <Button variant="primary" disabled={!favorVictimSelection} onClick={() => {
               if (selectedCards.length === 2 && gameCode && favorVictimSelection) {
-                socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: selectedCards.map(c => c.id), nonce: gameState?.nonce, victimId: favorVictimSelection });
+                socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: selectedCards.map(c => c.id), nonce: opStartNonceRef.current, victimId: favorVictimSelection });
                 setStealCardVictimModalOpen(false);
                 setFavorVictimSelection(null);
                 setSelectedCards([]);

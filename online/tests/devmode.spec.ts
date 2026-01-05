@@ -839,7 +839,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     await page1.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2);
     await page1.mouse.down();
-    await page1.mouse.move(srcBox.x + srcBox.width * 2, srcBox.y + srcBox.height / 2);
+    await page1.mouse.move(srcBox.x + srcBox.width * 2, srcBox.y + srcBox.height / 2, { steps: 20 });
 
     // Verify selection
     await expect(favorCard).not.toHaveCSS('box-shadow', CSS.CARD_SELECTED_BOX);
@@ -1687,7 +1687,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(timerArea).toHaveAttribute('data-turnphase', TurnPhase.Reaction);
 
     // P2 finishes their play, drops NAK, but sends nonce N1
-    await page2.mouse.move(p2DstBox.x + p2DstBox.width / 2, p2DstBox.y + p2DstBox.height / 2);
+    await page2.mouse.move(p2DstBox.x + p2DstBox.width / 2, p2DstBox.y + p2DstBox.height / 2, { steps: 20 });
     await page2.mouse.up();
 
     // Verify rejection dialog on P2
@@ -3045,10 +3045,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
   });
 
   test('Disconnect mid-draw', async ({ browser }) => {
-    // Setup game with 3 players
-    const ctx1 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-    const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-    const ctx3 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const page1 = await ctx1.newPage();
     const page2 = await ctx2.newPage();
     const page3 = await ctx3.newPage();
@@ -3071,6 +3070,119 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
     // Verify P2 sees the specific log message
     await expect(findLogArea(page2)).toContainText("P1 left the game mid-draw");
+  });
+
+  test('Play: NOW mid-draw', async ({ browser }) => {
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+
+    // Find P2's SHUFFLE NOW card
+    const p2ShuffleNow = findHandCardsByClass(page2, CardClass.ShuffleNow);
+    await expect(p2ShuffleNow).toHaveCount(1);
+
+    // P2 starts to play SHUFFLE_NOW, but does not finish yet
+    const p2SrcBox = await p2ShuffleNow.boundingBox();
+    const p2DstBox = await findDiscardPileDropTarget(page2).boundingBox();
+    if (!p2SrcBox) throw new Error('Bounding box not found for card');
+    if (!p2DstBox) throw new Error('Bounding box not found for pile');
+    await page2.mouse.move(p2SrcBox.x + p2SrcBox.width / 2, p2SrcBox.y + p2SrcBox.height / 2);
+    await page2.mouse.down();
+    // Move to be over discard pile, but do not drop yet, saves the nonce
+    await page2.mouse.move(p2DstBox.x + p2DstBox.width / 2, p2DstBox.y + p2DstBox.height / 2, {steps: 20});
+
+    // P1 clicks draw pile
+    await findDrawPile(page1).click();
+    await page1.waitForTimeout(10);
+
+    // P2 finishes their play, drops SHUFFLE_NOW, but sends old nonce
+    await page2.mouse.up();
+
+    // Verify rejection dialog on P2
+    const retryModal = findModal(page2, "retry-play");
+    await expect(retryModal).toBeVisible();
+  });
+
+  test('Play: NOW mid-draw EXPLODING CLUSTER', async ({ browser }) => {
+    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
+    const page1 = await ctx1.newPage();
+    const page2 = await ctx2.newPage();
+
+    const code = await createGame(page1, 'P1');
+    await joinGame(page2, 'P2', code);
+
+    // Start game
+    await page1.click(Buttons.START_GAME);
+    await waitForURL(page1, /game/);
+    await waitForURL(page2, /game/);
+
+    // Safe draws
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page1);
+    await drawCard(page2);
+    await drawCard(page1);
+    await drawCard(page2);
+
+    // Find P2's SHUFFLE NOW card
+    const p2ShuffleNow = findHandCardsByClass(page2, CardClass.ShuffleNow);
+    await expect(p2ShuffleNow).toHaveCount(1);
+
+    // P2 starts to play SHUFFLE_NOW, but does not finish yet
+    const p2SrcBox = await p2ShuffleNow.boundingBox();
+    const p2DstBox = await findDiscardPileDropTarget(page2).boundingBox();
+    if (!p2SrcBox) throw new Error('Bounding box not found for card');
+    if (!p2DstBox) throw new Error('Bounding box not found for pile');
+    await page2.mouse.move(p2SrcBox.x + p2SrcBox.width / 2, p2SrcBox.y + p2SrcBox.height / 2);
+    await page2.mouse.down();
+    // Move to be over discard pile, but do not drop yet, saves the nonce
+    await page2.mouse.move(p2DstBox.x + p2DstBox.width / 2, p2DstBox.y + p2DstBox.height / 2, {steps: 20});
+
+    // P1 clicks draw pile
+    await findDrawPile(page1).click();
+    await page1.waitForTimeout(10);
+
+    // P2 finishes their play, drops SHUFFLE_NOW, but sends old nonce
+    await page2.mouse.up();
+
+    // Dismiss the overlay
+    const p1Overlay = findOverlay(page1, "inspect-card");
+    await expect(p1Overlay).toBeVisible();
+    await p1Overlay.click(); // Dismiss
+    await expect(p1Overlay).toBeHidden();
+
+    // P1 plays DEBUG
+    const p1Debug = findHandCardsByClass(page1, CardClass.Debug).first();
+    await playCard(page1, p1Debug);
+
+    // Verify rejection dialog on P2
+    const retryModal = findModal(page2, "retry-play");
+    await expect(retryModal).toBeVisible();
+
+    // P2 retries (Click OK)
+    await retryModal.getByRole('button', { name: 'Play it!' }).click();
+    // TODO: This is ugly, at best.  Maybe we should just not allow a retry.
+    await expect(findLogArea(page2)).toContainText("You can't play cards right now");
+
+    // Reinsert
+    const p1InsertModal = findModal(page1, "exploding-reinsert");
+    await expect(p1InsertModal).toBeVisible();
+    await p1InsertModal.locator('input[type="number"]').fill("20");
+    await p1InsertModal.getByRole('button', { name: 'OK', exact: true }).click();
+
+    // Shuffle was cancelled, still in hand
+    await expect(findLogArea(page1)).not.toContainText("The deck was shuffled");
+    await expect(findHandCardsByClass(page2, CardClass.ShuffleNow)).toHaveCount(1);
   });
 
   test('FAVOR: victim disconnects during reaction', async ({ browser }) => {

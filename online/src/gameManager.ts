@@ -1013,6 +1013,7 @@ export class GameManager {
       }
       game.drawCount++;
       this.log(game, `player "${player.name}" drew ${card.class} ("${card.name}"), draw=${game.drawCount}`);
+      this.updateGameNonce(game, player.name); // Notify clients of a change
 
       // This duration gives clients a moment to do an animation before
       // updating the "whose turn is it" indicator.
@@ -1120,12 +1121,9 @@ export class GameManager {
                 // Game continues if > 1 player remains after current player explodes and others didn't.
                 const nextPlayer = this.advanceTurn(currentGame);
                 this.msgToAllPlayers(game.code, `It's ${nextPlayer?.name}'s turn.`);
-                this.updateGameNonce(currentGame, currentPlayer.name);
               }
             } else {
-              // Has DEBUG card
-              // Stay in turn, phase is Exploding
-              this.updateGameNonce(currentGame, currentPlayer.name);
+              // Player has a DEBUG card, stay in turn, phase is Exploding
             }
           } else if (card!.class === CardClass.UpgradeCluster) {
             if (card!.isFaceUp) {
@@ -1142,7 +1140,8 @@ export class GameManager {
               // Move UPGRADE CLUSTER to discard pile
               currentGame.discardPile.push(card!);
 
-              this.setTurnPhase(currentGame, TurnPhase.Action); // Reset phase
+              // Reset phase for next player
+              this.setTurnPhase(currentGame, TurnPhase.Action);
 
               // Determine winner
               const activePlayersAfter = currentGame.players.filter(p => !p.isOut && !p.isDisconnected && p.id !== currentPlayer.id);
@@ -1153,14 +1152,12 @@ export class GameManager {
               } else {
                 const nextPlayer = this.advanceTurn(currentGame);
                 this.msgToAllPlayers(game.code, `It's ${nextPlayer?.name}'s turn.`);
-                this.updateGameNonce(currentGame, currentPlayer.name);
               }
             } else {
               // Face-down UPGRADE CLUSTER: Upgrading Phase
               this.setTurnPhase(currentGame, TurnPhase.Upgrading);
               currentGame.discardPile.push(card!);
               this.msgToAllPlayers(currentGame.code, `${currentPlayer.name} drew an UPGRADE CLUSTER!`);
-              this.updateGameNonce(currentGame, currentPlayer.name);
             }
           } else {
             // Regular card
@@ -1174,13 +1171,12 @@ export class GameManager {
             if (currentGame.attackTurns > 0) {
               // Player must take more turns
               this.msgToAllPlayers(game.code, `${player.name} drew a card, but it's still their turn.`);
-              this.updateGameNonce(currentGame, currentPlayer.name);
             } else {
               const nextPlayer = this.advanceTurn(currentGame);
               this.msgToAllPlayers(game.code, `${player.name} drew a card, it's ${nextPlayer?.name}'s turn.`);
-              this.updateGameNonce(currentGame, currentPlayer.name);
             }
           }
+          this.updateGameNonce(currentGame, currentPlayer.name);
         } catch (error) {
           this.log(null, `finishDrawCard error: ${error}`);
         } finally {

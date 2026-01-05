@@ -1,6 +1,9 @@
 In progress:
+* Revisit retry on racing - just fail?
 * Make the log area bigger
 * Revist LLM critique notes
+* ipad support
+  - shift-click?
 
 Test improvments
  - more helper funcs (e.g. almostExplode)
@@ -29,6 +32,7 @@ Cleanup:
 * Fix dumb LLM comments like "Maybe we should" and "design doc says..." and "phase X"
 
 UI:
+* Add a help screen
 * Capitalization and grammar/style in all buttons and labels
   - Modal dialog for "beat you to it"
 * Colors for reaction timer text
@@ -45,5 +49,7 @@ UI:
 * Scale cards up in size as they get dragged to the discard pile
 * Reduce card spacing in hand or even overlap them?
 * Make it mobile compatible?
+* Maybe add a "chance of explosion"?
+  - would need to pass drawPile length in prod mode
 
 Known bugs:
