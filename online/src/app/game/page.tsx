@@ -22,7 +22,6 @@ const MAX_CARDS_PER_ROW = 12;
 
 // Fallback values
 const CARD_DEFAULT_WIDTH_PX = 100;
-const CARD_DEFAULT_FULL_WIDTH_PX = CARD_DEFAULT_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
 
 // Minimum visibility threshold for rows (percentage)
 const MIN_ROW_VISIBILITY = 0.66;
@@ -375,7 +374,9 @@ export default function GameScreen() {
           let height = entry.contentRect.height;
           // Check if borderBoxSize is supported and available
           if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
-            const { inlineSize: width, blockSize: height } = entry.borderBoxSize[0];
+            const bs = entry.borderBoxSize[0];
+            width = bs.inlineSize;
+            height = bs.blockSize;;
           }
           setHandAreaWidth(width);
           setHandAreaHeight(height);
@@ -579,7 +580,6 @@ export default function GameScreen() {
     let { w: fitW, cols: fitCols } = findBestFit(maxH);
 
     // 2. Check criteria to allow scrolling
-    // "The only time scrolling is acceptable is if we shrink ALL the cards down to the hand-card size and still cannot fit on the screen."
     const MIN_READABLE_WIDTH = CARD_MIN_WIDTH_PX;
     const shouldScroll = fitW < MIN_READABLE_WIDTH;
 
@@ -711,17 +711,6 @@ export default function GameScreen() {
     // Calculate card size based on vertical space
     // Find the largest card size that fits within constraints
 
-    // Check row visibility - returns how much of the row is visible (0-1)
-    const getRowVisibility = (rowIndex: number, cardHeight: number, totalRows: number) => {
-      if (rowIndex === 0) return 1; // First row is always fully visible
-      const rowTop = rowIndex * (cardHeight + rowGap);
-      const rowBottom = rowTop + cardHeight;
-      const visibleTop = Math.max(0, availableHeight - rowTop);
-      const visibleBottom = Math.max(0, availableHeight - rowBottom);
-      const visibleHeight = Math.min(cardHeight, visibleTop) - Math.max(0, cardHeight - visibleBottom);
-      return Math.max(0, Math.min(1, visibleHeight / cardHeight));
-    };
-
     // Layout cards function - returns array of cards per row (e.g., [10, 10, 5])
     // Fills rows sequentially: first row completely, then second row, etc.
     const layoutCards = (nCards: number, cardWidth: number): number[] => {
@@ -770,19 +759,17 @@ export default function GameScreen() {
       const testWidth = Math.floor((minWidth + maxWidth) / 2);
       const testLayout = layoutCards(numCards, testWidth);
 
-      let acceptable = false;
       if (hasRoomForLayout(testWidth, testLayout)) {
         // It fits - try larger
         bestWidth = testWidth;
         bestLayout = testLayout;
         minWidth = testWidth;
-        acceptable = true;
         found = true;
       } else {
         // Doesn't fit - try smaller
         maxWidth = testWidth;
       }
-      //console.debug(`[HandLayout] ${acceptable ? "" : "un"}acceptable solution:`, {
+      //console.debug(`[HandLayout] tried:`, {
       //  numCards,
       //  cardWidth: testWidth,
       //  cardHeight: testWidth / CARD_ASPECT_RATIO,

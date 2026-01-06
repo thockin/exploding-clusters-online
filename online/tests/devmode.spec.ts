@@ -685,13 +685,13 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(handArea.locator('img')).toHaveCount(6);
     await expect(rows).toHaveCount(1);
     await expect(rows.nth(0).locator('img')).toHaveCount(6);
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '82px'); // empirical
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '86px'); // empirical
 
     await page.click(Buttons.DEV_PUT_CARD_BACK);
     await expect(handArea.locator('img')).toHaveCount(5);
     await expect(rows).toHaveCount(1);
     await expect(rows.nth(0).locator('img')).toHaveCount(5);
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '102px'); // empirical
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '106px'); // empirical
 
     await page.click(Buttons.DEV_PUT_CARD_BACK);
     await expect(handArea.locator('img')).toHaveCount(4);
