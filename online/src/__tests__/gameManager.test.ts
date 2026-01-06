@@ -186,13 +186,16 @@ describe('GameManager', () => {
 
           p2.trigger('leaveGame', gameCode);
 
-          const gameEmits = mockServer.games[gameCode].emitted['gameEnded'];
-          expect(gameEmits).toBeDefined();
-          const lastEmit = gameEmits![gameEmits!.length - 1] as GameEndData;
-          expect(lastEmit).toBeDefined();
-          expect(lastEmit.winType).toBe('Attrition');
-          expect(lastEmit.winner).toBe('Host');
-          done();
+          // Wait for the 1000ms delay in leaveGame before checking end conditions
+          setTimeout(() => {
+            const gameEmits = mockServer.games[gameCode].emitted['gameEnded'];
+            expect(gameEmits).toBeDefined();
+            const lastEmit = gameEmits![gameEmits!.length - 1] as GameEndData;
+            expect(lastEmit).toBeDefined();
+            expect(lastEmit.winType).toBe('Attrition');
+            expect(lastEmit.winner).toBe('Host');
+            done();
+          }, 1100); // Wait 1100ms to ensure the 1000ms delay has completed
         });
       });
     });

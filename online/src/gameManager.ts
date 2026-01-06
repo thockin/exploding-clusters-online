@@ -2060,8 +2060,9 @@ export class GameManager {
       this.emitGameUpdate(game);
     }
 
-    // Check if the game is over
-    this.checkEndConditions(game);
+    // Check if the game is over.  Give it a small delay in can someone was
+    // just refreshing or something (happens a lot during dev/test).
+    setTimeout(() => this.checkEndConditions(game), 1000);
   }
 
   // This is very similar to leaveGame() -- keep them in sync.

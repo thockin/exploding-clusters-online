@@ -450,6 +450,7 @@ describe('GameManager Validation', () => {
       player2.trigger('leaveGame', gameCode);
 
       // Wait for game to end and potentially be deleted
+      // The server delays 1000ms before checking end conditions, so we need to wait longer
       setTimeout(() => {
         host.trigger('playCard', { gameCode, cardId: 'card-1' });
         setTimeout(() => {
@@ -462,7 +463,7 @@ describe('GameManager Validation', () => {
           });
           done();
         }, 50);
-      }, 300);
+      }, 1200); // Wait 1200ms to ensure the 1000ms delay in leaveGame has completed
     });
 
     test('rejects playing card when not player\'s turn', (done) => {

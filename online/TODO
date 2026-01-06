@@ -4,6 +4,7 @@ In progress:
   - bar between log and hand
   - make decks smaller
   - left-right between players and table
+* Add a small timeout after disconnect before declaring a win
 * Revist LLM critique notes
 * ipad support
   - shift-click?
@@ -15,6 +16,8 @@ Test improvments
  - Add a prod test with cases which do not need DEVMODE
    - e.g. prove the animation
  - Add more stability and hand-wrap tests for different screen dimensions
+ - A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due to improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure that .unref() was called on them.
+
 
 Before release:
 * edit README
@@ -51,6 +54,7 @@ UI:
 * Scale cards up in size as they get dragged to the discard pile
 * Reduce card spacing in hand or even overlap them?
 * Make it mobile compatible?
+* Add more fanfare to as win - animation or overlay or something
 * Maybe add a "chance of explosion"?
   - would need to pass drawPile length in prod mode
 
