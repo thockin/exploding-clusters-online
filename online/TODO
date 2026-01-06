@@ -1,10 +1,12 @@
 In progress:
 * Make all areas resizable
-  - make hand cards smaller
+  - not using smaller sizes
+  - warning about aspect ratio
   - bar between log and hand
   - make decks smaller
   - left-right between players and table
-* Add a small timeout after disconnect before declaring a win
+* lints
+* Make URLs with game code work
 * Revist LLM critique notes
 * ipad support
   - shift-click?

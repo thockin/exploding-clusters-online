@@ -252,7 +252,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await expect(page.locator('.modal.show .alert-danger')).toContainText('does not exist');
   });
 
-  test('Fail to observe: unknown game coee', async ({ browser }) => {
+  test('Fail to observe: unknown game code', async ({ browser }) => {
     const page = await browser.newPage();
     // Attempt to watch invalid code 'YYYYY'
     await page.goto('/', { timeout: 15000 });
@@ -617,8 +617,8 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
   test('Hand: card wrapping', async ({ browser }) => {
     // Create game
-    // Set viewport to constrain hand width to approx 7 cards to force wrapping
-    const ctx1 = await browser.newContext({ viewport: { width: 850, height: 800 } });
+    // Set viewport to constrain hand width to approx 6 cards to force wrapping
+    const ctx1 = await browser.newContext({ viewport: { width: 700, height: 1000 } });
     const page = await ctx1.newPage();
     const code = await createGame(page, 'P1');
     const ctx2 = await browser.newContext();
@@ -633,75 +633,89 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const handArea = findHand(page);
     await expect(handArea.locator('img')).toHaveCount(8);
 
-    // Check rows: 8 cards should wrap to 2 rows of 4
+    // Check rows: 8 cards should wrap to 2 rows
     const rows = handArea.locator('.d-flex.justify-content-center.flex-nowrap.w-100');
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('img')).toHaveCount(4);
-    await expect(rows.nth(1).locator('img')).toHaveCount(4);
+    await expect(rows.nth(0).locator('img')).toHaveCount(6);
+    await expect(rows.nth(1).locator('img')).toHaveCount(2);
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '77px'); // empirical
 
     // Draw 9th card (using DEVMODE button)
     await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     await expect(handArea.locator('img')).toHaveCount(9);
-    // Verify layout: 2 rows (5, 4)
+    // Verify layout: 2 rows (6, 3)
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('img')).toHaveCount(5);
-    await expect(rows.nth(1).locator('img')).toHaveCount(4);
+    await expect(rows.nth(0).locator('img')).toHaveCount(6);
+    await expect(rows.nth(1).locator('img')).toHaveCount(3);
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '77px'); // empirical
 
     // Draw 10th card
     await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     await expect(handArea.locator('img')).toHaveCount(10);
-    // Verify layout: 2 rows (5, 5)
+    // Verify layout: 2 rows (6, 4)
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator('img')).toHaveCount(5);
-    await expect(rows.nth(1).locator('img')).toHaveCount(5);
-    // Verify standard card size (100px)
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
+    await expect(rows.nth(0).locator('img')).toHaveCount(6);
+    await expect(rows.nth(1).locator('img')).toHaveCount(4);
+    // Verify card size
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '77px'); // empirical
 
-    // Add cards to force 3 rows (at standard size) -> should trigger resize to 2 rows (small cards)
-    // Add 5 more cards -> Total 15
+    // Add cards to force 3 rows
     for (let i = 0; i < 5; i++) {
       await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     }
     await expect(handArea.locator('img')).toHaveCount(15);
-
-    // Verify layout: Should be 2 rows (small size)
-    await expect(rows).toHaveCount(2);
-    // Verify card size shrunk to 80px
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
-
-    // Add cards to force 3 rows even with SMALL size
-    // Add 4 more -> Total 19
-    for (let i = 0; i < 4; i++) {
-      await page.click(Buttons.DEV_GIVE_SAFE_CARD);
-    }
-    await expect(handArea.locator('img')).toHaveCount(19);
-
-    // Verify layout: 3 rows (Small size)
+    // Verify layout: Should be 3 rows
     await expect(rows).toHaveCount(3);
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
+    // Verify card size
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '77px'); // empirical
 
-    // Go backwards: Remove cards to reduce rows.
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 8; i++) {
       await page.click(Buttons.DEV_PUT_CARD_BACK);
     }
-    await expect(handArea.locator('img')).toHaveCount(15);
+    await expect(handArea.locator('img')).toHaveCount(7);
 
-    // Verify layout: Should be 2 rows (small size)
+    // Verify layout: 2 rows 
     await expect(rows).toHaveCount(2);
-    // Verify card size shrunk to 80px
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '80px');
+    await expect(rows.nth(0).locator('img')).toHaveCount(6);
+    await expect(rows.nth(1).locator('img')).toHaveCount(1);
+    // Verify card size
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '77px'); // empirical
 
-    for (let i = 0; i < 5; i++) {
-      await page.click(Buttons.DEV_PUT_CARD_BACK);
-    }
-    await expect(handArea.locator('img')).toHaveCount(10);
+    await page.click(Buttons.DEV_PUT_CARD_BACK);
+    await expect(handArea.locator('img')).toHaveCount(6);
+    await expect(rows).toHaveCount(1);
+    await expect(rows.nth(0).locator('img')).toHaveCount(6);
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '82px'); // empirical
 
-    // Verify layout: 2 rows (5, 5)
-    await expect(rows).toHaveCount(2);
+    await page.click(Buttons.DEV_PUT_CARD_BACK);
+    await expect(handArea.locator('img')).toHaveCount(5);
+    await expect(rows).toHaveCount(1);
     await expect(rows.nth(0).locator('img')).toHaveCount(5);
-    await expect(rows.nth(1).locator('img')).toHaveCount(5);
-    // Verify standard card size (100px)
-    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '100px');
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '102px'); // empirical
+
+    await page.click(Buttons.DEV_PUT_CARD_BACK);
+    await expect(handArea.locator('img')).toHaveCount(4);
+    await expect(rows).toHaveCount(1);
+    await expect(rows.nth(0).locator('img')).toHaveCount(4);
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '106px'); // empirical
+
+    await page.click(Buttons.DEV_PUT_CARD_BACK);
+    await expect(handArea.locator('img')).toHaveCount(3);
+    await expect(rows).toHaveCount(1);
+    await expect(rows.nth(0).locator('img')).toHaveCount(3);
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '106px'); // empirical
+
+    await page.click(Buttons.DEV_PUT_CARD_BACK);
+    await expect(handArea.locator('img')).toHaveCount(2);
+    await expect(rows).toHaveCount(1);
+    await expect(rows.nth(0).locator('img')).toHaveCount(2);
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '106px'); // empirical
+
+    await page.click(Buttons.DEV_PUT_CARD_BACK);
+    await expect(handArea.locator('img')).toHaveCount(1);
+    await expect(rows).toHaveCount(1);
+    await expect(rows.nth(0).locator('img')).toHaveCount(1);
+    await expect(rows.nth(0).locator('.m-1').first()).toHaveCSS('width', '106px'); // empirical
   });
 
   test('Hand: dismiss inspect-card overlay', async ({ browser }) => {
@@ -858,7 +872,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
 
   test('Hand: reorder cards', async ({ browser }) => {
     // Set viewport to force 2 rows
-    const viewport = { width: 850, height: 800 };
+    const viewport = { width: 700, height: 1000 };
     const context = await browser.newContext({ viewport });
     const page1 = await context.newPage();
     const code = await createGame(page1, 'P1');
@@ -888,8 +902,9 @@ test.describe('UI Tests with DEVMODE=1', () => {
     const row1Cards = rows.nth(0).locator('.m-1');
     const row2Cards = rows.nth(1).locator('.m-1');
 
-    await expect(row1Cards).toHaveCount(4);
-    await expect(row2Cards).toHaveCount(4);
+    // Empirical values for for this viewport size
+    await expect(row1Cards).toHaveCount(6);
+    await expect(row2Cards).toHaveCount(2);
 
     // --- Drag and Drop Test ---
     // Drag from Row 1 Index 0 to Row 2 Index 0
@@ -911,7 +926,7 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.mouse.move(card1Box.x + card1Box.width / 2, card1Box.y + card1Box.height / 2, { steps: 20 });
     await page2.mouse.up();
 
-    await page2.waitForTimeout(1000);
+    await page2.waitForTimeout(1000); // empirical wait for reorder animation
 
     // Verify Reorder: Card 0 should now be at Index 1
     const newRow1Idx1 = await row1Cards.nth(1).locator('img').getAttribute('alt');
@@ -927,7 +942,6 @@ test.describe('UI Tests with DEVMODE=1', () => {
     await page2.mouse.down();
     await page2.mouse.move(currentCard1Box!.x + currentCard1Box!.width / 2, currentCard1Box!.y + currentCard1Box!.height / 2, { steps: 20 });
     await page2.mouse.up();
-    await page2.waitForTimeout(1000);
   });
 
   test('Hand: multi-card reorder', async ({ browser }) => {

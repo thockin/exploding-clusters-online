@@ -13,11 +13,19 @@ import Image from 'next/image';
 const FIXED_TABLE_PADDING = 20; // px
 const FIXED_PILE_GAP = 30; // px
 
-const CARD_WIDTH_PX = 100;
-const CARD_SMALL_WIDTH_PX = 80;
+// Card size bounds (in the hand area)
+const CARD_MIN_WIDTH_PX = 85;
+const CARD_MAX_WIDTH_PX = 200;
+const CARD_ASPECT_RATIO = 1024 / 1434; // width / height of art
 const CARD_MARGIN_X_PX = 4; // m-1 means 0.25rem, assuming 1rem=16px, so 4px on each side
-const CARD_FULL_WIDTH_PX = CARD_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
-const CARD_SMALL_FULL_WIDTH_PX = CARD_SMALL_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
+const MAX_CARDS_PER_ROW = 12;
+
+// Fallback values
+const CARD_DEFAULT_WIDTH_PX = 100;
+const CARD_DEFAULT_FULL_WIDTH_PX = CARD_DEFAULT_WIDTH_PX + (CARD_MARGIN_X_PX * 2);
+
+// Minimum visibility threshold for rows (percentage)
+const MIN_ROW_VISIBILITY = 0.66;
 
 // How long a card is displayed after being drawn or stolen.
 const CARD_DISMISS_TIMEOUT_MS = 2500;
@@ -37,6 +45,7 @@ export default function GameScreen() {
   const handAreaRef = useRef<HTMLDivElement>(null);
   const [tableAreaSize, setTableAreaSize] = useState({ width: 0, height: 0 });
   const [handAreaWidth, setHandAreaWidth] = useState(0);
+  const [handAreaHeight, setHandAreaHeight] = useState(0);
   const [reactionCountdown, setReactionCountdown] = useState(0);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -358,9 +367,18 @@ export default function GameScreen() {
   useEffect(() => {
     if (handAreaRef.current) {
       setHandAreaWidth(handAreaRef.current.clientWidth);
+      setHandAreaHeight(handAreaRef.current.clientHeight);
       const observer = new ResizeObserver(entries => {
         if (entries[0] && !isDraggingRef.current) {
-          setHandAreaWidth(entries[0].contentRect.width);
+          const entry = entries[0];
+          let width = entry.contentRect.width - 20;
+          let height = entry.contentRect.height;
+          // Check if borderBoxSize is supported and available
+          if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
+            const { inlineSize: width, blockSize: height } = entry.borderBoxSize[0];
+          }
+          setHandAreaWidth(width);
+          setHandAreaHeight(height);
         }
       });
       observer.observe(handAreaRef.current);
@@ -562,8 +580,7 @@ export default function GameScreen() {
 
     // 2. Check criteria to allow scrolling
     // "The only time scrolling is acceptable is if we shrink ALL the cards down to the hand-card size and still cannot fit on the screen."
-    // Hand cards shrink to 80px (CARD_SMALL_WIDTH_PX).
-    const MIN_READABLE_WIDTH = 80;
+    const MIN_READABLE_WIDTH = CARD_MIN_WIDTH_PX;
     const shouldScroll = fitW < MIN_READABLE_WIDTH;
 
     if (shouldScroll) {
@@ -655,50 +672,149 @@ export default function GameScreen() {
     setInspectCardOverlay(card);
   }, []);
 
+  // Helper function to convert row/card indices to global hand array index
+  // layout is an array like [4, 3, 3] representing cards per row
+  const getGlobalIndex = (rowIndex: number, cardIndex: number, layout: number[]): number => {
+    let globalIndex = 0;
+    // Sum all cards in previous rows
+    for (let i = 0; i < rowIndex; i++) {
+      globalIndex += layout[i];
+    }
+    // Add the card index in the current row
+    globalIndex += cardIndex;
+    return globalIndex;
+  };
+
   // Helper function to calculate layout constraints
   const calculateHandLayout = useCallback((
     numCards: number,
-    containerWidth: number
-  ): { maxWidth: number, cardWidth: number, cols: number } => {
-    if (numCards === 0) return { maxWidth: 0, cardWidth: CARD_WIDTH_PX, cols: 1 };
+    containerWidth: number,
+    containerHeight: number
+  ): { cardWidth: number, layout: number[] } => {
+    if (numCards === 0) return { cardWidth: CARD_DEFAULT_WIDTH_PX, layout: [0] };
 
-    // Fallback to window width if container width is not yet measured (initially 0)
-    // This prevents a huge single row (vertical stack) from appearing initially
+    // Fallback to window dimensions if container is not yet measured
     let effectiveWidth = containerWidth;
+    let effectiveHeight = containerHeight;
     if (effectiveWidth === 0 && typeof window !== 'undefined') {
       effectiveWidth = window.innerWidth;
     }
-    // If still 0 (SSR), fallback to single column
-    if (effectiveWidth === 0) return { maxWidth: CARD_FULL_WIDTH_PX + 2, cardWidth: CARD_WIDTH_PX, cols: 1 };
+    if (effectiveHeight === 0 && typeof window !== 'undefined') {
+      effectiveHeight = window.innerHeight * 0.3; // Estimate
+    }
+    // If still 0 (SSR), fallback to defaults
+    if (effectiveWidth === 0) return { cardWidth: CARD_DEFAULT_WIDTH_PX, layout: [0] };
 
-    const getRowsAndCols = (cardFullWidth: number) => {
-      const maxColsPossible = Math.floor(effectiveWidth / cardFullWidth);
-      if (maxColsPossible === 0) return { rows: numCards, cols: 1 };
+    const availableHeight = Math.max(100, effectiveHeight);
+    const rowGap = 8; // Gap between rows
 
-      for (let r = 1; r <= numCards; r++) {
-        const cols = Math.ceil(numCards / r);
-        if (cols <= maxColsPossible) return { rows: r, cols };
-      }
-      return { rows: numCards, cols: 1 };
+    // Calculate card size based on vertical space
+    // Find the largest card size that fits within constraints
+
+    // Check row visibility - returns how much of the row is visible (0-1)
+    const getRowVisibility = (rowIndex: number, cardHeight: number, totalRows: number) => {
+      if (rowIndex === 0) return 1; // First row is always fully visible
+      const rowTop = rowIndex * (cardHeight + rowGap);
+      const rowBottom = rowTop + cardHeight;
+      const visibleTop = Math.max(0, availableHeight - rowTop);
+      const visibleBottom = Math.max(0, availableHeight - rowBottom);
+      const visibleHeight = Math.min(cardHeight, visibleTop) - Math.max(0, cardHeight - visibleBottom);
+      return Math.max(0, Math.min(1, visibleHeight / cardHeight));
     };
 
-    const standard = getRowsAndCols(CARD_FULL_WIDTH_PX);
+    // Layout cards function - returns array of cards per row (e.g., [10, 10, 5])
+    // Fills rows sequentially: first row completely, then second row, etc.
+    const layoutCards = (nCards: number, cardWidth: number): number[] => {
+      const cardFullWidth = cardWidth + (CARD_MARGIN_X_PX * 2);
+      const maxCols = Math.floor(effectiveWidth / cardFullWidth);
+      if (maxCols === 0) return [nCards]; // All in one row if no space
 
-    let chosenCardWidth = CARD_WIDTH_PX;
-    let chosenFullWidth = CARD_FULL_WIDTH_PX;
-    let chosenCols = standard.cols;
+      const cardsPerRow: number[] = [];
+      let remaining = nCards;
 
-    // Once we shrink cards, they stay at the smaller size until the number of
-    // cards in the hand can all fit in two rows at the regular size
-    if (standard.rows > 2) {
-      const small = getRowsAndCols(CARD_SMALL_FULL_WIDTH_PX);
-      chosenCardWidth = CARD_SMALL_WIDTH_PX;
-      chosenFullWidth = CARD_SMALL_FULL_WIDTH_PX;
-      chosenCols = small.cols;
+      // Fill rows sequentially
+      while (remaining > 0) {
+        const cardsInThisRow = Math.min(maxCols, remaining);
+        cardsPerRow.push(cardsInThisRow);
+        remaining -= cardsInThisRow;
+      }
+      return cardsPerRow;
+    };
+
+    // Check if there's vertical room for the layout at the given card width
+    const hasRoomForLayout = (cardWidth: number, layout: number[]): boolean => {
+      const targetRows = Math.max(1, layout.length - (1 - MIN_ROW_VISIBILITY));
+      const cardHeight = cardWidth / CARD_ASPECT_RATIO;
+      const requiredHeight = targetRows * cardHeight + (targetRows - 1) * rowGap;
+      return requiredHeight <= availableHeight;
+    };
+
+    // Calculate effective minimum width based on max cards per row constraint
+    // This ensures we don't exceed MAX_CARDS_PER_ROW cards per row
+    // To fit MAX_CARDS_PER_ROW cards: MAX_CARDS_PER_ROW * (cardWidth + 2*CARD_MARGIN_X_PX) <= effectiveWidth
+    // Solving for cardWidth: cardWidth <= (effectiveWidth - MAX_CARDS_PER_ROW * 2*CARD_MARGIN_X_PX) / MAX_CARDS_PER_ROW
+    const absoluteMin = CARD_MIN_WIDTH_PX;
+    const imposedMin = (effectiveWidth - (MAX_CARDS_PER_ROW * 2 * CARD_MARGIN_X_PX)) / MAX_CARDS_PER_ROW;
+    const effectiveMin = Math.max(absoluteMin, imposedMin);
+
+    // First try to fit the hand area without scrolling.
+    // Binary search to find the largest width that satisfies hasRoomForLayout
+    // Use effectiveMin as the lower bound to respect max cards per row
+    let minWidth = effectiveMin;
+    let maxWidth = CARD_MAX_WIDTH_PX;
+    let bestWidth = CARD_DEFAULT_WIDTH_PX;
+    let bestLayout = layoutCards(numCards, CARD_DEFAULT_WIDTH_PX);
+
+    let found = false;
+    while (maxWidth - minWidth > 1) {
+      const testWidth = Math.floor((minWidth + maxWidth) / 2);
+      const testLayout = layoutCards(numCards, testWidth);
+
+      let acceptable = false;
+      if (hasRoomForLayout(testWidth, testLayout)) {
+        // It fits - try larger
+        bestWidth = testWidth;
+        bestLayout = testLayout;
+        minWidth = testWidth;
+        acceptable = true;
+        found = true;
+      } else {
+        // Doesn't fit - try smaller
+        maxWidth = testWidth;
+      }
+      //console.debug(`[HandLayout] ${acceptable ? "" : "un"}acceptable solution:`, {
+      //  numCards,
+      //  cardWidth: testWidth,
+      //  cardHeight: testWidth / CARD_ASPECT_RATIO,
+      //  layout: testLayout,
+      //});
     }
 
-    const maxWidth = chosenCols * chosenFullWidth + 2; // Buffer
-    return { maxWidth, cardWidth: chosenCardWidth, cols: chosenCols };
+    // Check the final candidate (maxWidth) if we haven't tested it yet
+    if (maxWidth > bestWidth) {
+      const finalLayout = layoutCards(numCards, maxWidth);
+      if (hasRoomForLayout(maxWidth, finalLayout)) {
+        bestWidth = maxWidth;
+        bestLayout = finalLayout;
+        found = true;
+      }
+    }
+
+    // If no solution found that fits without scrolling, use effectiveMin
+    if (!found) {
+      bestWidth = effectiveMin;
+      bestLayout = layoutCards(numCards, effectiveMin);
+    }
+    console.debug('[HandLayout]:', {
+      numCards,
+      availableWidth: effectiveWidth,
+      availableHeight,
+      effectiveMin,
+      cardWidth: bestWidth,
+      cardHeight: bestWidth / CARD_ASPECT_RATIO,
+      layout: bestLayout,
+    });
+    return { cardWidth: bestWidth, layout: bestLayout };
   }, []);
 
   const handleGiveDebugCard = () => {
@@ -824,12 +940,12 @@ export default function GameScreen() {
 
     // Handle reordering within hand
     if (source.droppableId.startsWith('hand-row-') && destination.droppableId.startsWith('hand-row-')) {
-      const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
+      const { layout } = calculateHandLayout(myHand.length, handAreaWidth, handAreaHeight);
       const sourceRowIndex = parseInt(source.droppableId.replace('hand-row-', ''), 10);
       const destRowIndex = parseInt(destination.droppableId.replace('hand-row-', ''), 10);
 
-      const sourceGlobalIndex = sourceRowIndex * cols + source.index;
-      let destGlobalIndex = destRowIndex * cols + destination.index;
+      const sourceGlobalIndex = getGlobalIndex(sourceRowIndex, source.index, layout);
+      let destGlobalIndex = getGlobalIndex(destRowIndex, destination.index, layout);
 
       // Fix row offset for cross-row drags
       if (destRowIndex > sourceRowIndex) {
@@ -913,9 +1029,9 @@ export default function GameScreen() {
 
     // Handle discard pile drop
     if (destination.droppableId === 'discard-pile') {
-      const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
+      const { layout } = calculateHandLayout(myHand.length, handAreaWidth, handAreaHeight);
       const sourceRowIndex = parseInt(source.droppableId.replace('hand-row-', ''), 10);
-      const sourceGlobalIndex = sourceRowIndex * cols + source.index;
+      const sourceGlobalIndex = getGlobalIndex(sourceRowIndex, source.index, layout);
       const draggedCard = myHand[sourceGlobalIndex];
 
       let cardsToPlay: Card[] = [];
@@ -1054,9 +1170,9 @@ export default function GameScreen() {
     console.debug('onDragStart', start, "nonce", opStartNonceRef.current);
 
     if (start.source.droppableId.startsWith('hand-row-')) {
-      const { cols } = calculateHandLayout(myHand.length, handAreaWidth);
+      const { layout } = calculateHandLayout(myHand.length, handAreaWidth, handAreaHeight);
       const sourceRowIndex = parseInt(start.source.droppableId.replace('hand-row-', ''), 10);
-      const sourceGlobalIndex = sourceRowIndex * cols + start.source.index;
+      const sourceGlobalIndex = getGlobalIndex(sourceRowIndex, start.source.index, layout);
       const draggedCard = myHand[sourceGlobalIndex];
 
       if (!draggedCard) return;
@@ -1232,18 +1348,22 @@ export default function GameScreen() {
   };
 
   const renderHand = () => {
-    const { maxWidth, cardWidth, cols } = calculateHandLayout(myHand.length, handAreaWidth);
+    const { cardWidth, layout } = calculateHandLayout(myHand.length, handAreaWidth, handAreaHeight);
 
     // Split hand into rows
     const rows: Card[][] = [];
-    if (cols > 0) {
-      for (let i = 0; i < myHand.length; i += cols) {
-        rows.push(myHand.slice(i, i + cols));
+    const nRows = layout?.length ?? 0;
+    let longest = 0;
+    for (let row = 0, i = 0; row < nRows; row++) {
+      const cards = layout[row];
+      if (cards > 0) {
+        if (cards > longest) longest = cards;
+        rows.push(myHand.slice(i, i + cards));
+      } else {
+        rows.push(myHand);
       }
-    } else {
-      rows.push(myHand);
+      i += cards;
     }
-
     if (rows.length === 0) {
       rows.push([]);
     }
@@ -1252,7 +1372,7 @@ export default function GameScreen() {
       <div
         data-areaname="hand"
         style={{
-          maxWidth: `${maxWidth}px`,
+          maxWidth: `${longest * cardWidth}px`,
           margin: '0 auto', // Center the container itself
           display: 'flex',
           flexDirection: 'column',
@@ -1267,7 +1387,7 @@ export default function GameScreen() {
                 ref={provided.innerRef}
                 className="d-flex justify-content-center flex-nowrap w-100"
                 style={{
-                  minHeight: `${cardWidth * 1.4 + 10}px`, // Ensure height for drop target + margin
+                  minHeight: `${(cardWidth / CARD_ASPECT_RATIO) + 10}px`, // Ensure height for drop target + margin
                   width: '100%',
                 }}
               >
@@ -1302,7 +1422,7 @@ export default function GameScreen() {
                             outline: 'none', // Prevent browser focus ring
                             borderRadius: '5px',
                             width: `${cardWidth}px`,
-                            height: `${cardWidth * 1.4}px`,
+                            height: `${(cardWidth / CARD_ASPECT_RATIO)-10}px`, // -10 is empirical!
                             boxSizing: 'content-box',
                             cursor: 'grab',
                             position: 'relative',
@@ -1334,8 +1454,12 @@ export default function GameScreen() {
                                     src={sc.imageUrl}
                                     alt={`${sc.class}: ${sc.name}`}
                                     width={cardWidth}
-                                    height={cardWidth * 1.4}
+                                    height={cardWidth / CARD_ASPECT_RATIO}
                                     draggable={false}
+                                    style={{
+                                      width: '100%', height: 'auto',
+                                      objectFit: 'contain'
+                                    }}
                                   />
                                 </div>
                               ))}
@@ -1345,9 +1469,16 @@ export default function GameScreen() {
                             src={card.imageUrl}
                             alt={`${card.class}: ${card.name} (${playable ? 'playable' : 'not playable'})`}
                             width={cardWidth}
-                            height={cardWidth * 1.4}
+                            height={cardWidth / CARD_ASPECT_RATIO}
                             draggable={false}
-                            style={{ zIndex: 1, position: 'relative', backgroundColor: 'white', borderRadius: '5px' }}
+                            style={{
+                              width: '100%', height: 'auto',
+                              zIndex: 1,
+                              position: 'relative',
+                              backgroundColor: 'white',
+                              borderRadius: '5px',
+                              objectFit: 'contain'
+                            }}
                           />
                         </div>
                       );
@@ -1689,7 +1820,7 @@ export default function GameScreen() {
                 >
                   <strong>{turnStatus}</strong>
                 </div>
-  
+
                 <div
                   ref={messageAreaRef}
                   data-areaname="log"
