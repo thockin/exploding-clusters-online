@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Container, Row, Col, ListGroup, Button, Modal, Form } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
@@ -604,7 +604,7 @@ export default function GameScreen() {
       cardHeight: fitH,
       containerWidth: Math.ceil(containerWidth) + 'px'
     };
-  }, [getCardSize, windowHeight]);
+  }, [getCardSize]);
 
   const handleLeaveGame = useCallback(() => {
     if (socket && gameCode) {
@@ -1204,6 +1204,153 @@ export default function GameScreen() {
   };
   const onDragUpdate = () => console.debug('onDragUpdate');
 
+  const renderedHand = useMemo(() => {
+    const { cardWidth, layout } = calculateHandLayout(myHand.length, handAreaWidth, handAreaHeight);
+
+    // Split hand into rows
+    const rows: Card[][] = [];
+    const nRows = layout?.length ?? 0;
+    let longest = 0;
+    for (let row = 0, i = 0; row < nRows; row++) {
+      const cards = layout[row];
+      if (cards > 0) {
+        if (cards > longest) longest = cards;
+        rows.push(myHand.slice(i, i + cards));
+      } else {
+        rows.push(myHand);
+      }
+      i += cards;
+    }
+    if (rows.length === 0) {
+      rows.push([]);
+    }
+
+    return (
+      <div
+        data-areaname="hand"
+        style={{
+          maxWidth: `${longest * cardWidth}px`,
+          margin: '0 auto', // Center the container itself
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
+        }}
+      >
+        {rows.map((rowCards, rowIndex) => (
+          <Droppable key={rowIndex} droppableId={`hand-row-${rowIndex}`} direction="horizontal">
+            {(provided) => (
+              <div
+                {...provided.droppableProps}
+                ref={provided.innerRef}
+                className="d-flex justify-content-center flex-nowrap w-100"
+                style={{
+                  minHeight: `${(cardWidth / CARD_ASPECT_RATIO) + 10}px`, // Ensure height for drop target + margin
+                  width: '100%',
+                }}
+              >
+                {rowCards.map((card, index) => (
+                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!!drawingAnimation}>
+                    {(providedDraggable, snapshot) => {
+                      const isSelected = selectedCards.some(sc => sc.id === card.id);
+                      const shouldHide = isDragging && isSelected && !snapshot.isDragging;
+                      const playable = isCardPlayable(card);
+
+                      return (
+                        <div
+                          ref={providedDraggable.innerRef}
+                          {...providedDraggable.draggableProps}
+                          {...providedDraggable.dragHandleProps}
+                          data-cardclass={card.class}
+                          data-playable={playable}
+                          onMouseDown={(e) => {
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            (providedDraggable.dragHandleProps as any)?.onMouseDown?.(e);
+                            clickStartPosRef.current = { x: e.clientX, y: e.clientY };
+                          }}
+                          onClickCapture={(e) => {
+                            if (isDraggingRef.current) {
+                              e.stopPropagation();
+                              e.preventDefault();
+                            }
+                          }}
+                          className="m-1"
+                          style={{
+                            boxShadow: isSelected ? '0 0 0 3px blue' : 'none',
+                            outline: 'none', // Prevent browser focus ring
+                            borderRadius: '5px',
+                            width: `${cardWidth}px`,
+                            height: `${(cardWidth / CARD_ASPECT_RATIO) - 10}px`, // -10 to offset +10 above?
+                            boxSizing: 'content-box',
+                            cursor: 'grab',
+                            position: 'relative',
+                            opacity: shouldHide ? 0 : (playable ? 1 : 0.6),
+                            ...providedDraggable.draggableProps.style,
+                          }}
+                          onClick={(event) => handleCardClick(card, event)}
+                          onDoubleClick={() => handleCardDoubleClick(card)}
+                        >
+                          {snapshot.isDragging && selectedCards.length > 1 && isSelected && (
+                            <>
+                              {selectedCards.filter(sc => sc.id !== card.id).map((sc, i) => (
+                                <div
+                                  key={sc.id}
+                                  style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    transform: `translate(${15 * (i + 1)}px, ${15 * (i + 1)}px) rotate(${5 * (i + 1)}deg)`,
+                                    zIndex: -1 - i,
+                                    borderRadius: '5px',
+                                    boxShadow: '0 0 0 3px blue',
+                                    background: 'white',
+                                  }}
+                                >
+                                  <Image
+                                    src={sc.imageUrl}
+                                    alt={`${sc.class}: ${sc.name}`}
+                                    width={cardWidth}
+                                    height={cardWidth / CARD_ASPECT_RATIO}
+                                    draggable={false}
+                                    style={{
+                                      width: '100%', height: 'auto',
+                                      objectFit: 'contain'
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </>
+                          )}
+                          <Image
+                            src={card.imageUrl}
+                            alt={`${card.class}: ${card.name} (${playable ? 'playable' : 'not playable'})`}
+                            width={cardWidth}
+                            height={cardWidth / CARD_ASPECT_RATIO}
+                            draggable={false}
+                            style={{
+                              width: '100%', height: 'auto',
+                              zIndex: 1,
+                              position: 'relative',
+                              backgroundColor: 'white',
+                              borderRadius: '5px',
+                              objectFit: 'contain'
+                            }}
+                          />
+                        </div>
+                      );
+                    }}
+                  </Draggable>
+                ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        ))}
+      </div>
+    );
+  }, [myHand, handAreaWidth, handAreaHeight, selectedCards, isDragging, drawingAnimation, isCardPlayable, handleCardClick, handleCardDoubleClick, calculateHandLayout]);
+
   if (!gameState || !socket) {
     return <div>Loading game...</div>;
   }
@@ -1352,153 +1499,6 @@ export default function GameScreen() {
           );
         }}
       </Droppable>
-    );
-  };
-
-  const renderHand = () => {
-    const { cardWidth, layout } = calculateHandLayout(myHand.length, handAreaWidth, handAreaHeight);
-
-    // Split hand into rows
-    const rows: Card[][] = [];
-    const nRows = layout?.length ?? 0;
-    let longest = 0;
-    for (let row = 0, i = 0; row < nRows; row++) {
-      const cards = layout[row];
-      if (cards > 0) {
-        if (cards > longest) longest = cards;
-        rows.push(myHand.slice(i, i + cards));
-      } else {
-        rows.push(myHand);
-      }
-      i += cards;
-    }
-    if (rows.length === 0) {
-      rows.push([]);
-    }
-
-    return (
-      <div
-        data-areaname="hand"
-        style={{
-          maxWidth: `${longest * cardWidth}px`,
-          margin: '0 auto', // Center the container itself
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center'
-        }}
-      >
-        {rows.map((rowCards, rowIndex) => (
-          <Droppable key={rowIndex} droppableId={`hand-row-${rowIndex}`} direction="horizontal">
-            {(provided) => (
-              <div
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className="d-flex justify-content-center flex-nowrap w-100"
-                style={{
-                  minHeight: `${(cardWidth / CARD_ASPECT_RATIO) + 10}px`, // Ensure height for drop target + margin
-                  width: '100%',
-                }}
-              >
-                {rowCards.map((card, index) => (
-                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!!drawingAnimation}>
-                    {(providedDraggable, snapshot) => {
-                      const isSelected = selectedCards.some(sc => sc.id === card.id);
-                      const shouldHide = isDragging && isSelected && !snapshot.isDragging;
-                      const playable = isCardPlayable(card);
-
-                      return (
-                        <div
-                          ref={providedDraggable.innerRef}
-                          {...providedDraggable.draggableProps}
-                          {...providedDraggable.dragHandleProps}
-                          data-cardclass={card.class}
-                          data-playable={playable}
-                          onMouseDown={(e) => {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            (providedDraggable.dragHandleProps as any)?.onMouseDown?.(e);
-                            clickStartPosRef.current = { x: e.clientX, y: e.clientY };
-                          }}
-                          onClickCapture={(e) => {
-                            if (isDraggingRef.current) {
-                              e.stopPropagation();
-                              e.preventDefault();
-                            }
-                          }}
-                          className="m-1"
-                          style={{
-                            boxShadow: isSelected ? '0 0 0 3px blue' : 'none',
-                            outline: 'none', // Prevent browser focus ring
-                            borderRadius: '5px',
-                            width: `${cardWidth}px`,
-                            height: `${(cardWidth / CARD_ASPECT_RATIO)-10}px`, // -10 is empirical!
-                            boxSizing: 'content-box',
-                            cursor: 'grab',
-                            position: 'relative',
-                            opacity: shouldHide ? 0 : (playable ? 1 : 0.6),
-                            ...providedDraggable.draggableProps.style,
-                          }}
-                          onClick={(event) => handleCardClick(card, event)}
-                          onDoubleClick={() => handleCardDoubleClick(card)}
-                        >
-                          {snapshot.isDragging && selectedCards.length > 1 && isSelected && (
-                            <>
-                              {selectedCards.filter(sc => sc.id !== card.id).map((sc, i) => (
-                                <div
-                                  key={sc.id}
-                                  style={{
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    width: '100%',
-                                    height: '100%',
-                                    transform: `translate(${15 * (i + 1)}px, ${15 * (i + 1)}px) rotate(${5 * (i + 1)}deg)`,
-                                    zIndex: -1 - i,
-                                    borderRadius: '5px',
-                                    boxShadow: '0 0 0 3px blue',
-                                    background: 'white',
-                                  }}
-                                >
-                                  <Image
-                                    src={sc.imageUrl}
-                                    alt={`${sc.class}: ${sc.name}`}
-                                    width={cardWidth}
-                                    height={cardWidth / CARD_ASPECT_RATIO}
-                                    draggable={false}
-                                    style={{
-                                      width: '100%', height: 'auto',
-                                      objectFit: 'contain'
-                                    }}
-                                  />
-                                </div>
-                              ))}
-                            </>
-                          )}
-                          <Image
-                            src={card.imageUrl}
-                            alt={`${card.class}: ${card.name} (${playable ? 'playable' : 'not playable'})`}
-                            width={cardWidth}
-                            height={cardWidth / CARD_ASPECT_RATIO}
-                            draggable={false}
-                            style={{
-                              width: '100%', height: 'auto',
-                              zIndex: 1,
-                              position: 'relative',
-                              backgroundColor: 'white',
-                              borderRadius: '5px',
-                              objectFit: 'contain'
-                            }}
-                          />
-                        </div>
-                      );
-                    }}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        ))}
-      </div>
     );
   };
 
@@ -1883,7 +1883,7 @@ export default function GameScreen() {
                     className="flex-grow-1"
                     style={{ overflowY: 'auto', width: '100%', minHeight: 0 }}
                   >
-                    {renderHand()}
+                    {renderedHand}
                   </div>
                 </div>
               </Col>
