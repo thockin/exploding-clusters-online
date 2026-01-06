@@ -1314,8 +1314,16 @@ export default function GameScreen() {
               data-areaname="discard-pile"
               ref={provided.innerRef}
               {...provided.droppableProps}
-              onMouseEnter={() => setIsHoveringDiscard(true)}
-              onMouseLeave={() => setIsHoveringDiscard(false)}
+              onMouseEnter={() => {
+                if (isDragging || draggedCard) {
+                  setIsHoveringDiscard(true);
+                }
+              }}
+              onMouseLeave={() => {
+                if (isDragging || draggedCard) {
+                  setIsHoveringDiscard(false);
+                }
+              }}
               style={{
                 width: getCardSize().width,
                 height: getCardSize().height,

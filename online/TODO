@@ -1,12 +1,11 @@
 In progress:
+* lints
+* Make URLs with game code work
 * Make all areas resizable
-  - not using smaller sizes
-  - warning about aspect ratio
   - bar between log and hand
   - make decks smaller
   - left-right between players and table
-* lints
-* Make URLs with game code work
+  - warning about aspect ratio
 * Revist LLM critique notes
 * ipad support
   - shift-click?
