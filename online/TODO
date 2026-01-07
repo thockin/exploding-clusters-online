@@ -1,12 +1,4 @@
 In progress:
-* Make URLs with game code work
-  Test edge case:
-  * create game
-  * /join/XXXXX => dialog
-  * start game
-  * click OK in dialog
-  * error
-* Don't click to dismiss modals
 * Other lint about react refs
 * Make all areas resizable
   - bar between log and hand

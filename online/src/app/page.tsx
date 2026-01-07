@@ -238,6 +238,7 @@ export default function Home() {
         show={mode === 'create'}
         onHide={handleCloseModal}
         data-modalname="create-game"
+        backdrop="static"
       >
         <Modal.Header closeButton>
           <Modal.Title>Create a New Game</Modal.Title>
@@ -276,6 +277,7 @@ export default function Home() {
         data-modalname="join-game"
         show={mode === 'join'}
         onHide={handleCloseModal}
+        backdrop="static"
       >
         <Modal.Header closeButton>
           <Modal.Title>Join a game</Modal.Title>
@@ -328,6 +330,7 @@ export default function Home() {
         data-modalname="watch-game"
         show={mode === 'watch'}
         onHide={handleCloseModal}
+        backdrop="static"
       >
         <Modal.Header closeButton>
           <Modal.Title>Watch a game</Modal.Title>
