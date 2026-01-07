@@ -37,7 +37,6 @@ export default function GameScreen() {
   const [selectedCards, setSelectedCards] = useState<Card[]>([]); // For single or combo selection
   const [inspectCardOverlay, setInspectCardOverlay] = useState<Card | null>(null);
   const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
-  const [isClient, setIsClient] = useState(false); // Initialize as false
   const tableAreaRef = useRef<HTMLDivElement>(null);
   const messageAreaRef = useRef<HTMLDivElement>(null);
   const handAreaRef = useRef<HTMLDivElement>(null);
@@ -53,12 +52,11 @@ export default function GameScreen() {
   const resizeHalfStartPosRef = useRef({ y: 0 });
   const resizeHalfStartHeightRef = useRef(50);
 
-  const choiceTimeoutSeconds = 15; // for client-side choice dialogs
+  const choiceTimeoutSeconds = 15; // for client-side-only choice dialogs (no server timer)
   const [choiceCountdown, setChoiceCountdown] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [draggedCard, setDraggedCard] = useState<Card | null>(null);
   const isDraggingRef = useRef(false);
-  const isDrawingRef = useRef(false);
   const clickStartPosRef = useRef({ x: 0, y: 0 });
   const opStartNonceRef = useRef<string>(''); // the nonce when the current operation began
   const isShiftKeyPressed = useRef(false);
@@ -82,11 +80,6 @@ export default function GameScreen() {
   // DEVMODE states
   const [deckCardsOverlay, setDeckCardsOverlay] = useState<Card[] | null>(null);
   const [removedCardsOverlay, setRemovedCardsOverlay] = useState<Card[] | null>(null); // New: for removed pile overlay
-
-  // Ensure isClient is true after first render
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -140,7 +133,6 @@ export default function GameScreen() {
   // This is a client-side countdown for the victim selection modals.
   useEffect(() => {
     if (favorVictimModalOpen || stealCardVictimModalOpen) {
-      setChoiceCountdown(choiceTimeoutSeconds);
       const interval = setInterval(() => {
         setChoiceCountdown(prev => {
           if (prev <= 1) {
@@ -180,16 +172,15 @@ export default function GameScreen() {
   }, [gameState, isLoading, router, gameEndData, myHand, playerId, gameCode]);
 
   useEffect(() => {
-    // This effect handles logging exploding card but we don't render it yet?
-    // Keeping state setter for future use or debugging.
-  }, [explodingCard]);
-
-  useEffect(() => {
     // Detect if we are in ExplodingReinserting phase and need to show Insertion Modal
     if (gameState?.turnPhase === TurnPhase.ExplodingReinserting) {
       const currentPlayer = gameState.players[gameState.currentPlayer];
       if (currentPlayer?.id === playerId) {
         if (!explodingReinsertModal) {
+          // I know we are not supposed to set state from an effect, but I
+          // don't know enough to do this "right" and AIs have all failed to
+          // help.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setExplodingReinsertModal({ maxIndex: gameState.maxReinsert || 50 });
         }
       }
@@ -204,6 +195,10 @@ export default function GameScreen() {
       const currentPlayer = gameState.players[gameState.currentPlayer];
       if (currentPlayer?.id === playerId) {
         if (!upgradeReinsertModal) {
+          // I know we are not supposed to set state from an effect, but I
+          // don't know enough to do this "right" and AIs have all failed to
+          // help.
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setUpgradeReinsertModal({ maxIndex: gameState.maxReinsert || 50 });
         }
       }
@@ -345,6 +340,8 @@ export default function GameScreen() {
   }, [gameMessages]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return; // Early return for SSR
+    
     const handleResize = () => {
       setWindowHeight(window.innerHeight);
       if (tableAreaRef.current) {
@@ -357,7 +354,7 @@ export default function GameScreen() {
     window.addEventListener('resize', handleResize);
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
-  }, [isClient, isLoading, gameState]);
+  }, [isLoading, gameState]);
 
   useEffect(() => {
     if (handAreaRef.current) {
@@ -431,7 +428,7 @@ export default function GameScreen() {
     router.push('/');
   }, [resetState, router]);
 
-  const handleInsertConfirm = useCallback(() => {
+  const handleExplodingInsertConfirm = useCallback(() => {
     if (!socket || !gameCode || !gameState) return;
     const index = typeof reinsertIndex === 'string' ? parseInt(reinsertIndex, 10) : reinsertIndex;
     socket.emit(SocketEvent.ReinsertExplodingCard, { gameCode, index, nonce: gameState.nonce });
@@ -1090,6 +1087,7 @@ export default function GameScreen() {
           } else {
             opStartNonceRef.current = gameState?.nonce;
             setFavorVictimModalOpen(true);
+            setChoiceCountdown(choiceTimeoutSeconds);
             return;
           }
         }
@@ -1656,30 +1654,16 @@ export default function GameScreen() {
                 {/* Draw Pile */}
                 <div className="d-flex flex-column align-items-center">
                   <div
-                    className="draw-pile position-relative"
+                    className={`draw-pile position-relative ${!draggedCard && gameState?.players[gameState.currentPlayer]?.id === playerId && gameState?.turnPhase === TurnPhase.Action ? 'draw-pile-clickable' : ''}`}
                     data-areaname="draw-pile"
                     data-drawcount={gameState?.drawCount ?? 0}
                     style={{
                       width: getCardSize().width,
                       height: getCardSize().height,
                       cursor: draggedCard ? 'not-allowed' : (
-                        (gameState?.players[gameState.currentPlayer]?.id === playerId && gameState?.turnPhase === TurnPhase.Action) ? (isDrawingRef.current ? 'grabbing' : 'pointer') : 'not-allowed'
+                        (gameState?.players[gameState.currentPlayer]?.id === playerId && gameState?.turnPhase === TurnPhase.Action) ? 'pointer' : 'not-allowed'
                       ),
                       borderRadius: '5px'
-                    }}
-                    onMouseDown={() => {
-                      isDrawingRef.current = true;
-                      setIsDragging(true); // force re-render
-                    }}
-                    onMouseUp={() => {
-                      isDrawingRef.current = false;
-                      setIsDragging(false); // force re-render
-                    }}
-                    onMouseLeave={() => {
-                      if (isDrawingRef.current) {
-                        isDrawingRef.current = false;
-                        setIsDragging(false);
-                      }
                     }}
                     onClick={handleDrawClick}
                   >
@@ -2012,7 +1996,7 @@ export default function GameScreen() {
                   const val = parseInt(String(reinsertIndex), 10);
                   const max = explodingReinsertModal?.maxIndex ?? 50;
                   if (!isNaN(val) && val >= 0 && val <= max) {
-                    handleInsertConfirm();
+                    handleExplodingInsertConfirm();
                   }
                 }
               }}
@@ -2021,7 +2005,7 @@ export default function GameScreen() {
           <Modal.Footer>
             <Button
               variant="primary"
-              onClick={handleInsertConfirm}
+              onClick={handleExplodingInsertConfirm}
               disabled={(() => {
                 const val = parseInt(String(reinsertIndex), 10);
                 const max = explodingReinsertModal?.maxIndex ?? 50;

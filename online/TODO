@@ -1,12 +1,9 @@
 In progress:
-* Other lint about react refs
 * Make all areas resizable
   - bar between log and hand
   - make decks smaller
   - left-right between players and table
   - warning about aspect ratio
-* Bug: cursor does not auto-change from not-allowed to pointer if state changes
-  while hovering
 * Revist LLM critique notes
 * ipad support
   - shift-click?
@@ -62,10 +59,11 @@ UI:
     - center hand on deck
   * Add a shuffle-deck animation
 * Scale cards up in size as they get dragged to the discard pile
-* Reduce card spacing in hand or even overlap them?
 * Make it mobile compatible?
-* Add more fanfare to as win - animation or overlay or something
+* Add more fanfare to a win - animation or overlay or something
 * Maybe add a "chance of explosion"?
   - would need to pass drawPile length in prod mode
 
 Known bugs:
+* Th cursor does not change from "not-allowed" to "pointer" if the turn changes
+  while hovering over the draw pile, until the mouse moves.

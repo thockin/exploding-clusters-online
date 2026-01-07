@@ -95,3 +95,8 @@
 .modal-body-compact {
   padding: 8px !important; /* Reduce padding inside modal body */
 }
+
+/* Cursor feedback for draw pile when clicking */
+.draw-pile-clickable:active {
+  cursor: grabbing !important;
+}
