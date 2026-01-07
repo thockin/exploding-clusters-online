@@ -244,7 +244,7 @@ export default function Home() {
           <Modal.Title>Create a new game</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form>
+          <Form id="create-game-form" onSubmit={(e) => { e.preventDefault(); handleCreateGame(); }}>
             <Form.Group className="mb-3">
               <Form.Label htmlFor="create-game-player-name">Your Name</Form.Label>
               <Form.Control
@@ -253,7 +253,6 @@ export default function Home() {
                 placeholder="Enter your name (max 32 characters)"
                 value={inputPlayerName}
                 onChange={(e) => handlePlayerNameChange(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleCreateGame()}
                 maxLength={32}
                 isInvalid={!!nameError}
                 autoFocus
@@ -268,7 +267,7 @@ export default function Home() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button variant="primary" onClick={handleCreateGame} disabled={isSubmitting}>Create Game</Button>
+          <Button type="submit" form="create-game-form" variant="primary" disabled={isSubmitting}>Create Game</Button>
         </Modal.Footer>
       </Modal>
 
@@ -283,7 +282,7 @@ export default function Home() {
           <Modal.Title>Join a game</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form>
+          <Form id="join-game-form" onSubmit={(e) => { e.preventDefault(); handleJoinGame(); }}>
             <Form.Group className="mb-3">
               <Form.Label htmlFor="join-game-code">Game Code</Form.Label>
               <Form.Control
@@ -293,7 +292,6 @@ export default function Home() {
                 value={inputGameCode}
                 onChange={(e) => setInputGameCode(e.target.value.toUpperCase())}
                 maxLength={5}
-                onKeyDown={(e) => e.key === 'Enter' && handleJoinGame()}
                 autoFocus
                 autoComplete="off"
               />
@@ -307,7 +305,6 @@ export default function Home() {
                 placeholder="Enter your name (max 32 characters)"
                 value={inputPlayerName}
                 onChange={(e) => handlePlayerNameChange(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleJoinGame()}
                 maxLength={32}
                 isInvalid={!!nameError}
               />
@@ -321,7 +318,7 @@ export default function Home() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button variant="primary" onClick={handleJoinGame} disabled={isSubmitting}>Join Game</Button>
+          <Button type="submit" form="join-game-form" variant="primary" disabled={isSubmitting}>Join Game</Button>
         </Modal.Footer>
       </Modal>
 
@@ -336,7 +333,7 @@ export default function Home() {
           <Modal.Title>Watch a game</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form>
+          <Form id="watch-game-form" onSubmit={(e) => { e.preventDefault(); handleWatchGame(); }}>
             <Form.Group className="mb-3">
               <Form.Label htmlFor="watch-game-code">Game Code</Form.Label>
               <Form.Control
@@ -346,7 +343,6 @@ export default function Home() {
                 value={inputGameCode}
                 onChange={(e) => setInputGameCode(e.target.value.toUpperCase())}
                 maxLength={5}
-                onKeyDown={(e) => e.key === 'Enter' && handleWatchGame()}
                 autoFocus
                 autoComplete="off"
               />
@@ -356,7 +352,7 @@ export default function Home() {
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseModal}>Cancel</Button>
-          <Button variant="info" onClick={handleWatchGame} disabled={isSubmitting}>Watch Game</Button>
+          <Button type="submit" form="watch-game-form" variant="info" disabled={isSubmitting}>Watch Game</Button>
         </Modal.Footer>
       </Modal>
 
