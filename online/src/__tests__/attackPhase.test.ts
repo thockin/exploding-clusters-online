@@ -86,10 +86,10 @@ describe('Attack Phase Logic', () => {
     hostSocket.trigger(SocketEvent.CreateGame, 'Host', createCallback);
 
     connectionHandler(p2Socket);
-    p2Socket.trigger(SocketEvent.JoinGame, createdGameCode, 'P2', undefined, jest.fn());
+    p2Socket.trigger(SocketEvent.JoinGame, createdGameCode, 'P2', undefined, undefined, jest.fn());
 
     connectionHandler(p3Socket);
-    p3Socket.trigger(SocketEvent.JoinGame, createdGameCode, 'P3', undefined, jest.fn());
+    p3Socket.trigger(SocketEvent.JoinGame, createdGameCode, 'P3', undefined, undefined, jest.fn());
 
     hostSocket.trigger(SocketEvent.StartGame, createdGameCode, jest.fn());
 

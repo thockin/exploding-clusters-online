@@ -74,7 +74,7 @@ describe('Exploding Stack Logic', () => {
     hostSocket.trigger(SocketEvent.CreateGame, 'Host', (res) => { createdGameCode = res.gameCode; });
 
     connectionHandler(p2Socket);
-    p2Socket.trigger(SocketEvent.JoinGame, createdGameCode, 'P2', undefined, jest.fn());
+    p2Socket.trigger(SocketEvent.JoinGame, createdGameCode, 'P2', undefined, undefined, jest.fn());
 
     hostSocket.trigger(SocketEvent.StartGame, createdGameCode, jest.fn());
 

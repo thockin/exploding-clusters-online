@@ -33,6 +33,7 @@ interface Player {
 
 interface Game {
   code: string;
+  uuid: string; // Unique identifier for this game instance (changes on server restart)
   players: Player[];
   spectators: { id: string; socketId: string }[];
   state: GameState;
@@ -107,8 +108,8 @@ export class GameManager {
         this.createGame(socket, playerName, callback);
       });
 
-      socket.on(SocketEvent.JoinGame, (gameCode: string, playerName: string, nonce: string | undefined, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string; }) => void) => {
-        this.joinGame(socket, gameCode, playerName, nonce, callback);
+      socket.on(SocketEvent.JoinGame, (gameCode: string, playerName: string, nonce: string | undefined, clientUuid: string | undefined, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string; uuid?: string; }) => void) => {
+        this.joinGame(socket, gameCode, playerName, nonce, clientUuid, callback);
       });
 
       socket.on(SocketEvent.WatchGame, (gameCode: string, callback: (response: { success: boolean; gameCode?: string; error?: string }) => void) => {
@@ -287,6 +288,7 @@ export class GameManager {
 
     const baseData: GameUpdatePayload = {
       gameCode: game.code,
+      uuid: game.uuid,
       nonce: game.nonce,
       state: game.state,
       devMode: game.devMode,
@@ -483,6 +485,7 @@ export class GameManager {
 
     const newGame: Game = {
       code: gameCode,
+      uuid: uuidv4(), // Generate unique ID for this game instance
       players: [player],
       spectators: [],
       state: GameState.Lobby,
@@ -510,7 +513,7 @@ export class GameManager {
     callback({ success: true, gameCode, playerId });
   }
 
-  private joinGame(socket: Socket, gameCode: string, playerName: string, clientNonce: string | undefined, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string; }) => void) {
+  private joinGame(socket: Socket, gameCode: string, playerName: string, clientNonce: string | undefined, clientUuid: string | undefined, callback: (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string; uuid?: string; }) => void) {
     // Validate and sanitize player name
     const validation = validatePlayerName(playerName);
     if (!validation.isValid) {
@@ -523,6 +526,13 @@ export class GameManager {
 
     if (!game) {
       this.log(null, `attempted to join non-existent game: ${gameCode}`);
+      return callback({ success: false, error: `Game ${gameCode} does not exist` });
+    }
+
+    // Check UUID first - if client has a UUID and it doesn't match, this is a different game instance
+    // (e.g., server restarted and game code was reused)
+    if (clientUuid && clientUuid !== game.uuid) {
+      this.log(game, `player "${sanitizedName}" (${socket.id}) attempted to rejoin but UUID mismatch (client=${clientUuid}, server=${game.uuid}) - treating as non-existent game`);
       return callback({ success: false, error: `Game ${gameCode} does not exist` });
     }
 
@@ -547,7 +557,7 @@ export class GameManager {
         this.msgToAllPlayers(game.code, `${sanitizedName} has rejoined the game, hoorah!`);
         this.emitGameUpdate(game); // Rejoining player does not change nonce
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: existingPlayer.hand });
-        return callback({ success: true, gameCode, nonce: game.nonce, playerId: existingPlayer.id });
+        return callback({ success: true, gameCode, uuid: game.uuid, nonce: game.nonce, playerId: existingPlayer.id });
       }
     } else if (clientNonce && clientNonce !== game.nonce) {
       this.log(game, `player "${playerName}" (${socket.id}) failed to rejoin due to nonce mismatch`);
@@ -557,6 +567,20 @@ export class GameManager {
     if (game.state !== GameState.Lobby) {
       this.log(game, `attempted to join when not in lobby state (state=${game.state})`);
       return callback({ success: false, error: 'Sorry, that game has already started' });
+    }
+
+    // Check if this socket is already a spectator in this game - if so, remove them first
+    const existingSpectatorIndex = game.spectators.findIndex(s => s.socketId === socket.id);
+    if (existingSpectatorIndex !== -1) {
+      this.log(game, `spectator ${socket.id} switching from spectator to player`);
+
+      // Remove spectator from the game
+      game.spectators.splice(existingSpectatorIndex, 1);
+      // Note: we don't remove from playerToGameMap or socket.leave here because
+      // we'll add them as a player immediately below, which will handle that
+
+      this.log(game, `spectator ${socket.id} removed from game (switching to player)`);
+      // Don't emit game update here - we'll emit it after adding the player below
     }
 
     // Check full against CONNECTED players
@@ -585,7 +609,9 @@ export class GameManager {
     this.updateGameNonce(game);
     // Notify all players in the game about the new player
     this.emitToGame(game.code, SocketEvent.PlayerJoined, { playerId: player.id, playerName: player.name });
-    callback({ success: true, gameCode, nonce: game.nonce, playerId: player.id });
+    // Emit game update to ensure all clients see the updated player and spectator counts
+    this.emitGameUpdate(game);
+    callback({ success: true, gameCode, uuid: game.uuid, nonce: game.nonce, playerId: player.id });
   }
 
   private watchGame(socket: Socket, gameCode: string, callback: (response: { success: boolean; gameCode?: string; error?: string }) => void) {
@@ -594,6 +620,62 @@ export class GameManager {
     if (!game) {
       this.log(null, `attempted to watch non-existent game: ${gameCode}`);
       return callback({ success: false, error: `Game ${gameCode} does not exist` });
+    }
+
+    // Check if this socket is already a player in this game - if so, remove them first
+    const existingPlayerIndex = game.players.findIndex(p => p.socketId === socket.id);
+    if (existingPlayerIndex !== -1) {
+      const player = game.players[existingPlayerIndex];
+      this.log(game, `player "${player.name}" (${socket.id}) switching from player to spectator`);
+
+      // Remove player from the game
+      this.resolvePlayerDeparture(game, player);
+      game.players.splice(existingPlayerIndex, 1);
+      // Don't remove from playerToGameMap or leave socket room yet - we'll add them as spectator below
+      // and they'll rejoin the room, so we can keep them in the room
+
+      // Emit hand update to remove their hand
+      this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: [] });
+
+      // Check end conditions if game was started
+      if (game.state === GameState.Started) {
+        setTimeout(() => {
+          this.checkEndConditions(game);
+        }, 1000);
+      }
+
+      this.log(game, `player "${player.name}" removed from game (switching to spectator)`);
+      // Emit game update immediately so all clients see the player count decrease
+      this.emitGameUpdate(game);
+    }
+
+    // Check if this socket is already watching (reconnection case with same socket ID)
+    const existingSpectatorIndex = game.spectators.findIndex(s => s.socketId === socket.id);
+    if (existingSpectatorIndex !== -1) {
+      // This socket is already watching - just update the game state and return success
+      this.log(game, `spectator ${socket.id} reconnected to game`);
+      this.emitGameUpdate(game);
+      this.emitToSocket(socket.id, SocketEvent.GameUpdate, this.getGameUpdateData(game));
+      return callback({ success: true, gameCode });
+    }
+
+    // Clean up any stale spectator entries for this socket ID in ALL games
+    // (in case the socket reconnected with a new ID but old entries weren't cleaned up)
+    // This handles the case where disconnect didn't fire or was delayed
+    for (const [gCode, g] of this.games.entries()) {
+      const staleIndex = g.spectators.findIndex(s => s.socketId === socket.id);
+      if (staleIndex !== -1) {
+        if (gCode === gameCode) {
+          // If it's the same game, we already handled this case above (existingSpectatorIndex check)
+          // But if we get here, it means the socket ID changed, so remove the old entry
+          this.log(g, `removing stale spectator entry for socket ${socket.id} from game ${gCode} (socket ID changed on reconnect)`);
+          g.spectators.splice(staleIndex, 1);
+        } else {
+          this.log(g, `removing stale spectator entry for socket ${socket.id} from game ${gCode}`);
+          g.spectators.splice(staleIndex, 1);
+          this.emitGameUpdate(g);
+        }
+      }
     }
 
     // Check if the game is full of spectators
@@ -1928,7 +2010,7 @@ export class GameManager {
     }
   }
 
-  private resolvePendingInteractions(game: Game, player: Player) {
+  private resolvePlayerDeparture(game: Game, player: Player) {
     if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
       // Check for in-progress EXPLODING CLUSTER
       if (game.turnPhase === TurnPhase.Exploding || game.turnPhase === TurnPhase.ExplodingReinserting) {
@@ -1986,11 +2068,34 @@ export class GameManager {
     // Handle game-owner migration if needed
     if (game.state === GameState.Lobby && game.gameOwnerId === player.id) {
       if (game.players.length > 0) {
-        const connectedPlayers = game.players.filter(p => !p.isDisconnected);
-        // Prefer connected players, otherwise take any
-        const newGameOwner = connectedPlayers.length > 0 ? connectedPlayers[0] : game.players[0];
-        game.gameOwnerId = newGameOwner.id;
-        this.log(game, `game owner "${player.name}" left, new game owner is "${newGameOwner.name}"`);
+        // If player is "out" (left voluntarily), promote immediately
+        // If player is disconnected but not "out", wait 1 second in case they reconnect
+        const delay = player.isOut ? 0 : 1000;
+
+        setTimeout(() => {
+          // Re-check the game state - the player might have reconnected
+          const currentGame = this.games.get(game.code);
+          if (!currentGame) {
+            return; // Game no longer exists
+          }
+
+          // Find the player again (they might have reconnected)
+          const currentPlayer = currentGame.players.find(p => p.id === player.id);
+
+          // Only promote if the player is still disconnected or out
+          if (!currentPlayer || currentPlayer.isDisconnected || currentPlayer.isOut) {
+            const connectedPlayers = currentGame.players.filter(p => !p.isDisconnected && p.id !== player.id);
+            // Prefer connected players, otherwise take any (excluding the departing player)
+            const availablePlayers = currentGame.players.filter(p => p.id !== player.id);
+            const newGameOwner = connectedPlayers.length > 0 ? connectedPlayers[0] : (availablePlayers.length > 0 ? availablePlayers[0] : undefined);
+
+            if (newGameOwner) {
+              currentGame.gameOwnerId = newGameOwner.id;
+              this.log(currentGame, `game owner "${player.name}" left, new game owner is "${newGameOwner.name}"`);
+              this.emitGameUpdate(currentGame);
+            }
+          }
+        }, delay);
       }
     }
   }
@@ -2042,7 +2147,7 @@ export class GameManager {
       }
 
       // Handle scenarios where the departing player was involved.
-      this.resolvePendingInteractions(game, player);
+      this.resolvePlayerDeparture(game, player);
 
       // If it was their turn, advance
       if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
@@ -2094,28 +2199,50 @@ export class GameManager {
     }
 
     // Handle player disconnection
+    // Wait 1 second before marking as disconnected and checking end conditions
+    // to allow for quick refreshes/reconnections
     if (player) {
-      player.isDisconnected = true;
-      player.socketId = ''; // Clear socketId so this socket can't be reused directly
+      setTimeout(() => {
+        // Re-check the game state - the player might have reconnected
+        const currentGame = this.games.get(gameCode);
+        if (!currentGame) {
+          return; // Game no longer exists
+        }
 
-      // Send first message
-      if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
-        this.msgToAllPlayers(game.code, `${player.name} has abandoned their turn!`);
-      } else {
-        this.msgToAllPlayers(game.code, `${player.name} has disconnected, maybe they will be right back?`);
-      }
+        // Find the player again (they might have reconnected)
+        const currentPlayer = currentGame.players.find(p => p.id === player.id);
 
-      // Handle scenarios where the departing player was involved.
-      this.resolvePendingInteractions(game, player);
+        // Only mark as disconnected if they're still disconnected
+        if (currentPlayer && !currentPlayer.socketId) {
+          currentPlayer.isDisconnected = true;
 
-      // If it was their turn, advance
-      if (game.state === GameState.Started && this.isPlayerTurn(game, player)) {
-        const nextPlayer = this.advanceTurn(game);
-        this.msgToAllPlayers(game.code, `It's ${nextPlayer?.name}'s turn.`);
-        this.updateGameNonce(game, player.name);
-      } else {
-        this.emitGameUpdate(game);
-      }
+          // Send first message
+          if (currentGame.state === GameState.Started && this.isPlayerTurn(currentGame, currentPlayer)) {
+            this.msgToAllPlayers(currentGame.code, `${currentPlayer.name} has abandoned their turn!`);
+          } else {
+            this.msgToAllPlayers(currentGame.code, `${currentPlayer.name} has disconnected, maybe they will be right back?`);
+          }
+
+          // Handle scenarios where the departing player was involved.
+          this.resolvePlayerDeparture(currentGame, currentPlayer);
+
+          // If it was their turn, advance
+          if (currentGame.state === GameState.Started && this.isPlayerTurn(currentGame, currentPlayer)) {
+            const nextPlayer = this.advanceTurn(currentGame);
+            this.msgToAllPlayers(currentGame.code, `It's ${nextPlayer?.name}'s turn.`);
+            this.updateGameNonce(currentGame, currentPlayer.name);
+          } else {
+            this.emitGameUpdate(currentGame);
+          }
+
+          // Check if the game is over. Give it a small delay in case someone was
+          // just refreshing or something (happens a lot during dev/test).
+          setTimeout(() => this.checkEndConditions(currentGame), 1000);
+        }
+      }, 1000);
+
+      // Clear socketId immediately so this socket can't be reused directly
+      player.socketId = '';
     }
 
     // Handle spectator leave

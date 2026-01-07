@@ -153,8 +153,8 @@ describe('Turn Logic (Phase 3.1.3)', () => {
     // Create game with 3 players
     host.trigger('createGame', 'Host', (res: GameResponse) => {
       gameCode = res.gameCode!;
-      p2.trigger('joinGame', gameCode, 'P2', undefined, () => {
-        p3.trigger('joinGame', gameCode, 'P3', undefined, () => {
+      p2.trigger('joinGame', gameCode, 'P2', undefined, undefined, () => {
+        p3.trigger('joinGame', gameCode, 'P3', undefined, undefined, () => {
           host.trigger('startGame', gameCode, () => {
             done();
           });

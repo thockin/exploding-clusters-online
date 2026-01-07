@@ -1,6 +1,13 @@
 In progress:
-* lints
 * Make URLs with game code work
+  Test edge case:
+  * create game
+  * /join/XXXXX => dialog
+  * start game
+  * click OK in dialog
+  * error
+* Don't click to dismiss modals
+* Other lint about react refs
 * Make all areas resizable
   - bar between log and hand
   - make decks smaller
@@ -11,13 +18,20 @@ In progress:
   - shift-click?
 
 Test improvments
- - more helper funcs (e.g. almostExplode)
- - better locators (e.g. cards in a modal derives from the modal not the page)
- - remove unused locator consts
- - Add a prod test with cases which do not need DEVMODE
+* s/'/" in test
+* use string URLs in test
+* Make tests fast
+  - precompile so we don't need to wait so long at startup of each test
+  - faster timeouts, move flaky tests to "slow" set
+* more helper funcs (e.g. almostExplode)
+  - make tests use them (e.g. "max games" does not)
+* better locators (e.g. cards in a modal derives from the modal not the page)
+* remove unused locator consts
+* Add a prod test with cases which do not need DEVMODE
    - e.g. prove the animation
- - Add more stability and hand-wrap tests for different screen dimensions
- - A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due to improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure that .unref() was called on them.
+* Add more stability and hand-wrap tests for different screen dimensions
+* A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due to improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure that .unref() was called on them.
+* simplify context + page -> browser.newPage
 
 
 Before release:
@@ -31,6 +45,7 @@ Repeated:
 
 Cleanup:
 * Unify PlayCard and PlayCombo events
+* Move end-of-game checking into "departure" func
 * document the turn state-machine
   * Rename TurnPhase to TurnState ?
   * Rename GameStater Started -> Playing

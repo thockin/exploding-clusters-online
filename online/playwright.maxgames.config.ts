@@ -2,8 +2,13 @@
 
 import { defineConfig, devices } from '@playwright/test';
 
-// Force DEVMODE=1 for tests so that debug features are enabled and nonce behavior is deterministic
+// Set DEVMODE so that testing-related features are enabled.
 process.env.DEVMODE = '1';
+
+// Set reaction timer to for tests.
+process.env.REACTION_TIMER = '3';
+
+// Limit max games to for tests.
 process.env.MAX_GAMES = '2';
 
 export default defineConfig({

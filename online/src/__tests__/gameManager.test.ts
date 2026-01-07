@@ -162,7 +162,7 @@ describe('GameManager', () => {
       const player2 = new MockSocket('p2');
       mockServer.connectSocket(player2);
 
-      player2.trigger('joinGame', gameCode, 'Player2', undefined, (res2: GameResponse) => {
+      player2.trigger('joinGame', gameCode, 'Player2', undefined, undefined, (res2: GameResponse) => {
         expect(res2.success).toBe(true);
         expect(mockServer.games[gameCode].emitted['playerJoined']).toBeDefined();
         done();
@@ -180,7 +180,7 @@ describe('GameManager', () => {
       const p2 = new MockSocket('p2');
       mockServer.connectSocket(p2);
 
-      p2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
+      p2.trigger('joinGame', gameCode, 'Player2', undefined, undefined, () => {
         host.trigger('startGame', gameCode, (resStart: StartGameResponse) => {
           expect(resStart.success).toBe(true);
 
@@ -211,7 +211,7 @@ describe('GameManager', () => {
       const p2 = new MockSocket('p2');
       mockServer.connectSocket(p2);
 
-      p2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
+      p2.trigger('joinGame', gameCode, 'Player2', undefined, undefined, () => {
         p2.trigger('leaveGame', gameCode);
 
         const gameEmits = mockServer.games[gameCode].emitted['gameEnded'];

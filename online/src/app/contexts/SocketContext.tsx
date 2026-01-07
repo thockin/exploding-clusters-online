@@ -17,6 +17,7 @@ interface SocketContextType {
   setMyHand: React.Dispatch<React.SetStateAction<Card[]>>;
   gameState: GameUpdatePayload | null;
   isLoading: boolean; // New: indicates if context is restoring session
+  isSpectator: boolean; // Whether the current user is a spectator
   rejoinError: string | null;
   gameMessages: string[];
   gameEndData: { winner: string; winType: WinType } | null;
@@ -58,7 +59,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       const stored = sessionStorage.getItem('exploding_session');
       if (stored) {
         try {
-          const { gameCode: sCode, playerName: sName, nonce: sNonce, playerId: sId, isSpectator: sIsSpectator } = JSON.parse(stored);
+          const { gameCode: sCode, playerName: sName, nonce: sNonce, playerId: sId, isSpectator: sIsSpectator, uuid: sUuid } = JSON.parse(stored);
           if (sCode) {
 
             // Check if explicit spectator flag OR legacy "Spectator" name
@@ -76,8 +77,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
                 setIsLoading(false);
               });
             } else if (sName && sNonce) {
-              // Restore player session
-              socket.emit(SocketEvent.JoinGame, sCode, sName, sNonce, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }) => {
+              // Restore player session - send stored UUID to check if it's the same game instance
+              socket.emit(SocketEvent.JoinGame, sCode, sName, sNonce, sUuid, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string; uuid?: string }) => {
                 if (response.success && response.gameCode) {
                   setGameCode(response.gameCode);
                   setPlayerName(sName);
@@ -125,11 +126,12 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         playerName,
         playerId,
         nonce: gameState.nonce,
+        uuid: gameState.uuid, // Store UUID to detect server restarts
         isSpectator
       };
       sessionStorage.setItem('exploding_session', JSON.stringify(sessionData));
     }
-  }, [gameCode, playerName, playerId, gameState?.nonce, isSpectator]);
+  }, [gameCode, playerName, playerId, gameState?.nonce, gameState?.uuid, isSpectator]);
 
 
   const createGame = useCallback(async (pName: string) => {
@@ -146,9 +148,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     });
   }, [socket]);
 
-  const joinGame = useCallback(async (gCode: string, pName: string, clientNonce?: string) => {
-    return new Promise<{ success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }>((resolve) => {
-      socket?.emit(SocketEvent.JoinGame, gCode, pName, clientNonce, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string }) => {
+  const joinGame = useCallback(async (gCode: string, pName: string, clientNonce?: string, clientUuid?: string) => {
+    return new Promise<{ success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string; uuid?: string }>((resolve) => {
+      socket?.emit(SocketEvent.JoinGame, gCode, pName, clientNonce, clientUuid, (response: { success: boolean; gameCode?: string; playerId?: string; error?: string; nonce?: string; uuid?: string }) => {
         if (response.success && response.gameCode && response.playerId) {
           setGameCode(response.gameCode);
           setPlayerName(pName);
@@ -194,7 +196,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     sessionStorage.removeItem('exploding_session');
     // Optionally disconnect socket to ensure server cleans up connection-based state
     // socket?.disconnect();
-    // socket?.connect(); 
+    // socket?.connect();
   }, []);
 
   useEffect(() => {
@@ -231,7 +233,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         return data;
       });
       // Also sync the separate gameCode state if it's not set (e.g. refresh or late join)
-      setGameCode(prev => prev || data.gameCode); 
+      setGameCode(prev => prev || data.gameCode);
     });
 
     socketIo.on(SocketEvent.GameMessage, (data: { message: string }) => {
@@ -260,7 +262,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       console.debug(`received event: ${SocketEvent.PlayerDisconnected}`);
       setGameState(prev => {
         if (!prev) return null;
-        const newPlayers = prev.players.map(p => 
+        const newPlayers = prev.players.map(p =>
           p.id === data.playerId ? { ...p, isDisconnected: true } : p
         );
         return { ...prev, players: newPlayers };
@@ -316,6 +318,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       setMyHand,
       gameState,
       isLoading,
+      isSpectator,
       rejoinError,
       gameMessages,
       gameEndData,

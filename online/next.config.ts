@@ -18,6 +18,18 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/join/:gameCode',
+        destination: '/join?code=:gameCode',
+      },
+      {
+        source: '/watch/:gameCode',
+        destination: '/watch?code=:gameCode',
+      },
+    ];
+  },
 };
 
 export default nextConfig;

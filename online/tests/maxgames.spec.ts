@@ -2,11 +2,10 @@
 
 import { test, expect } from '@playwright/test';
 
-test.describe('MAX_GAMES Limit Tests', () => {
-  test('MAX_GAMES limit prevents new game creation', async ({ browser }) => {
-    // This test requires MAX_GAMES=2 to be set in the environment
-    // Run this test with: npx playwright test --config=playwright.maxgames.config.ts
+test.describe('Tests for MAX_GAMES', () => {
 
+  // This requires MAX_GAMES=2.
+  test('MAX_GAMES limit prevents new game creation', async ({ browser }) => {
     const ctx1 = await browser.newContext();
     const ctx2 = await browser.newContext();
     const ctx3 = await browser.newContext();
@@ -57,6 +56,7 @@ test.describe('MAX_GAMES Limit Tests', () => {
     await ctx2.close();
     await ctx3.close();
   });
+
 });
 
 

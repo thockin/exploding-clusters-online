@@ -136,7 +136,7 @@ describe('Executing Phase Blocking', () => {
 
     host.trigger('createGame', 'Host', (res: GameResponse) => {
       gameCode = res.gameCode!;
-      p2.trigger('joinGame', gameCode, 'P2', undefined, () => {
+      p2.trigger('joinGame', gameCode, 'P2', undefined, undefined, () => {
         host.trigger('startGame', gameCode, () => {
           done();
         });

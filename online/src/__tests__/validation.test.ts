@@ -332,7 +332,7 @@ describe('GameManager Validation', () => {
       const socket = new MockSocket('socket-1');
       mockServer.connectSocket(socket);
 
-      socket.trigger('joinGame', 'INVALID', 'Player', undefined, (response: any) => {
+      socket.trigger('joinGame', 'INVALID', 'Player', undefined, undefined, (response: any) => {
         expect(response.success).toBe(false);
         expect(response.error).toContain('does not exist');
         done();
@@ -349,7 +349,7 @@ describe('GameManager Validation', () => {
         const player2 = new MockSocket('p2');
         mockServer.connectSocket(player2);
 
-        player2.trigger('joinGame', gameCode, '', undefined, (res2: any) => {
+        player2.trigger('joinGame', gameCode, '', undefined, undefined, (res2: any) => {
           expect(res2.success).toBe(false);
           expect(res2.error).toContain('Name');
           done();
@@ -372,7 +372,7 @@ describe('GameManager Validation', () => {
           if (joined === 4) {
             const p6 = new MockSocket('p6');
             mockServer.connectSocket(p6);
-            p6.trigger('joinGame', gameCode, 'Player6', undefined, (res6: any) => {
+            p6.trigger('joinGame', gameCode, 'Player6', undefined, undefined, (res6: any) => {
               expect(res6.success).toBe(false);
               expect(res6.error).toContain('full');
               done();
@@ -384,7 +384,7 @@ describe('GameManager Validation', () => {
           const p = new MockSocket(`p${i + 2}`);
           mockServer.connectSocket(p);
           players.push(p);
-          p.trigger('joinGame', gameCode, `Player${i + 2}`, undefined, () => {
+          p.trigger('joinGame', gameCode, `Player${i + 2}`, undefined, undefined, () => {
             joined++;
             checkFull();
           });
@@ -402,7 +402,7 @@ describe('GameManager Validation', () => {
         const player2 = new MockSocket('p2');
         mockServer.connectSocket(player2);
 
-        player2.trigger('joinGame', gameCode, 'alice', undefined, (res2: any) => {
+        player2.trigger('joinGame', gameCode, 'alice', undefined, undefined, (res2: any) => {
           expect(res2.success).toBe(false);
           expect(res2.error).toContain('already taken');
           done();
@@ -423,7 +423,7 @@ describe('GameManager Validation', () => {
         gameCode = res.gameCode!;
         player2 = new MockSocket('p2');
         mockServer.connectSocket(player2);
-        player2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
+        player2.trigger('joinGame', gameCode, 'Player2', undefined, undefined, () => {
           host.trigger('startGame', gameCode, () => {
             done();
           });
@@ -525,7 +525,7 @@ describe('GameManager Validation', () => {
         gameCode = res.gameCode!;
         player2 = new MockSocket('p2');
         mockServer.connectSocket(player2);
-        player2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
+        player2.trigger('joinGame', gameCode, 'Player2', undefined, undefined, () => {
           host.trigger('startGame', gameCode, () => {
             done();
           });
@@ -598,7 +598,7 @@ describe('GameManager Validation', () => {
         gameCode = res.gameCode!;
         const player2 = new MockSocket('p2');
         mockServer.connectSocket(player2);
-        player2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
+        player2.trigger('joinGame', gameCode, 'Player2', undefined, undefined, () => {
           host.trigger('startGame', gameCode, () => {
             done();
           });
@@ -666,7 +666,7 @@ describe('GameManager Validation', () => {
         gameCode = res.gameCode!;
         player2 = new MockSocket('p2');
         mockServer.connectSocket(player2);
-        player2.trigger('joinGame', gameCode, 'Player2', undefined, () => {
+        player2.trigger('joinGame', gameCode, 'Player2', undefined, undefined, () => {
           host.trigger('startGame', gameCode, () => {
             done();
           });

@@ -105,6 +105,7 @@ export interface Spectator {
 
 export interface GameUpdatePayload {
   gameCode: string;
+  uuid: string; // Unique identifier for this game instance (changes on server restart)
   nonce: string;
   state: GameState;
   devMode: boolean;

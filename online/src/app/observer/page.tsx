@@ -15,7 +15,9 @@ export default function ObserverPage() {
   const { gameState, gameCode, isLoading, gameEndData, resetState } = useSocket();
 
   useEffect(() => {
-    if (!gameState && !isLoading && !gameCode && !gameEndData) {
+    // Only redirect if we're not loading and have no session data
+    // Don't redirect while loading (e.g., during reconnection)
+    if (!isLoading && !gameState && !gameCode && !gameEndData) {
       router.push('/');
     }
   }, [gameState, isLoading, gameCode, router, gameEndData]);

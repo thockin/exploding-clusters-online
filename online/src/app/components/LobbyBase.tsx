@@ -4,17 +4,20 @@
 
 import { useEffect, Suspense, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Container, Row, Col, Card, ListGroup, Button, Modal } from 'react-bootstrap';
+import { Container, Row, Col, Card, ListGroup, Button, Modal, Form, InputGroup } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
 import { GameState, SocketEvent } from '../../api';
 
 function LobbyContent() {
   const router = useRouter();
-  const { gameCode, playerName, playerId, gameState, socket, startGame, resetState } = useSocket();
+  const { gameCode, playerName, playerId, gameState, socket, startGame, resetState, isLoading, isSpectator } = useSocket();
   const [showPromotionModal, setShowPromotionModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [previousHostName, setPreviousHostName] = useState('');
+  const [copyJoinFeedback, setCopyJoinFeedback] = useState(false);
+  const [copyWatchFeedback, setCopyWatchFeedback] = useState(false);
   const previousGameOwnerIdRef = useRef<string | null>(gameState?.gameOwnerId || null);
+  const hasRedirected = useRef(false);
 
   const handleLeaveGame = () => {
     if (socket && gameCode) {
@@ -44,8 +47,24 @@ function LobbyContent() {
   }, [gameState?.gameOwnerId, playerId, gameState?.players]);
 
   useEffect(() => {
-    if (!gameCode || !playerName || !socket) {
-      router.push('/'); // Redirect to home if no gameCode or playerName
+    // For spectators, playerName might be 'Spectator' or not set during reconnection
+    // Don't redirect if we're still loading (reconnecting)
+    if (isLoading) {
+      return;
+    }
+
+    // For spectators, we only need gameCode and socket, not playerName
+    const hasValidSession = isSpectator
+      ? (gameCode && socket)
+      : (gameCode && playerName && socket);
+
+    if (!hasValidSession) {
+      // Redirect to home immediately
+      // (user is not reconnecting, they don't have a valid session)
+      if (!hasRedirected.current) {
+        hasRedirected.current = true;
+        router.replace('/');
+      }
       return;
     }
 
@@ -56,10 +75,10 @@ function LobbyContent() {
       // Easiest: If I am a spectator, DO NOT redirect here. Let the parent (ObserverPage) or manual logic handle it.
       const isSpectator = !gameState.players.some(p => p.id === playerId);
       if (!isSpectator) {
-        router.push(`/game?gameCode=${gameCode}`);
+        router.push('/game');
       }
     }
-  }, [gameCode, playerName, gameState, router, socket, playerId]);
+  }, [gameCode, playerName, gameState, router, socket, playerId, isLoading, isSpectator]);
 
   const handleStartGame = async () => {
     if (gameCode) {
@@ -71,11 +90,38 @@ function LobbyContent() {
     }
   };
 
+  const getBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+      return window.location.origin;
+    }
+    return '';
+  };
+
+  const handleCopyToClipboard = async (text: string, setFeedback: (value: boolean) => void) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setFeedback(true);
+      setTimeout(() => setFeedback(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+    }
+  };
+
   // Hide disconnected players in lobby to mimic 'removal', but they remain in state for reconnection
   const allPlayers = gameState?.players || [];
   const playersInLobby = allPlayers.filter(p => !p.isDisconnected);
   const spectatorsInLobby = gameState?.spectators.length || 0;
   const isGameOwner = gameState?.gameOwnerId === playerId;
+
+  // Don't render anything if we don't have a valid session (will redirect)
+  // For spectators, playerName might be 'Spectator' or not set during reconnection
+  const hasValidSession = isSpectator
+    ? (gameCode && socket)
+    : (gameCode && playerName && socket);
+
+  if (!hasValidSession || isLoading) {
+    return null;
+  }
 
   return (
     <Container className="mt-5">
@@ -101,7 +147,7 @@ function LobbyContent() {
                       variant="danger"
                       size="lg"
                       onClick={handleStartGame}
-                      disabled={playersInLobby.length < 2} 
+                      disabled={playersInLobby.length < 2}
                     >
                       Start Game
                     </Button>
@@ -109,7 +155,7 @@ function LobbyContent() {
                   {!isGameOwner && (
                     <p>Waiting for the game to start...</p>
                   )}
-                  
+
                   <hr />
                   <Button variant="secondary" onClick={() => setShowLeaveModal(true)}>
                     Leave Game
@@ -121,8 +167,57 @@ function LobbyContent() {
         </Col>
       </Row>
 
+      {isGameOwner && (
+        <Row className="justify-content-md-center mt-3">
+          <Col md="8">
+            <Row className="mb-3">
+              <Col xs={4} sm={3} className="d-flex align-items-center">
+                <Form.Label className="mb-0">Invite friends to play:</Form.Label>
+              </Col>
+              <Col>
+                <InputGroup>
+                  <Form.Control
+                    type="text"
+                    readOnly
+                    value={gameCode ? `${getBaseUrl()}/join/${gameCode}` : ''}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <Button
+                    variant="outline-secondary"
+                    onClick={() => handleCopyToClipboard(`${getBaseUrl()}/join/${gameCode}`, setCopyJoinFeedback)}
+                  >
+                    {copyJoinFeedback ? 'Copied!' : 'Copy'}
+                  </Button>
+                </InputGroup>
+              </Col>
+            </Row>
+            <Row>
+              <Col xs={4} sm={3} className="d-flex align-items-center">
+                <Form.Label className="mb-0">Invite friends to watch:</Form.Label>
+              </Col>
+              <Col>
+                <InputGroup>
+                  <Form.Control
+                    type="text"
+                    readOnly
+                    value={gameCode ? `${getBaseUrl()}/watch/${gameCode}` : ''}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <Button
+                    variant="outline-secondary"
+                    onClick={() => handleCopyToClipboard(`${getBaseUrl()}/watch/${gameCode}`, setCopyWatchFeedback)}
+                  >
+                    {copyWatchFeedback ? 'Copied!' : 'Copy'}
+                  </Button>
+                </InputGroup>
+              </Col>
+            </Row>
+          </Col>
+        </Row>
+      )}
+
       <Modal
-        data-modalname="lobby-host-promotion"
+        data-modalname="host-promotion"
         show={showPromotionModal}
         onHide={() => setShowPromotionModal(false)}
       >
@@ -140,7 +235,7 @@ function LobbyContent() {
       </Modal>
 
       <Modal
-        data-modalname="lobby-leave-game"
+        data-modalname="leave-game"
         show={showLeaveModal}
         onHide={() => setShowLeaveModal(false)}
       >

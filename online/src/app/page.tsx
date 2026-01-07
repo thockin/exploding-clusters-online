@@ -22,16 +22,57 @@ export default function Home() {
   const [mode, setMode] = useState<FileMode>('initial');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const hasProcessedUrlAction = useRef(false);
 
+  // Check for action parameter in URL (from /join route) and open join dialog
   useEffect(() => {
-    if (gameCode && playerName && gameState && socket && playerId) {
-      if (gameState.state === GameState.Lobby) {
-        router.push(`/lobby?gameCode=${gameCode}`);
-      } else if (gameState.state === GameState.Started) {
-        router.push(`/game?gameCode=${gameCode}`);
+    // Wait for loading to complete before processing URL
+    if (isLoading) return;
+
+    // Only process once on mount
+    if (hasProcessedUrlAction.current) return;
+
+    // Read from URL directly to avoid useSearchParams re-render issues
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlGameCode = params.get('gameCode');
+      const action = params.get('action'); // 'join' (watch is handled by /watch route)
+
+      // Only process if we have both gameCode and action=join
+      if (urlGameCode && action === 'join' && mode === 'initial') {
+        hasProcessedUrlAction.current = true;
+        setInputGameCode(urlGameCode.toUpperCase());
+        setMode('join');
+
+        // Focus the name field after a short delay to ensure modal is rendered
+        setTimeout(() => {
+          nameInputRef.current?.focus();
+        }, 100);
       }
     }
-  }, [gameCode, playerName, gameState, router, socket, playerId]);
+  }, [mode, isLoading]);
+
+  useEffect(() => {
+    // Don't redirect if we're still loading
+    if (isLoading) return;
+
+    // Only prevent redirect in join mode if we don't have all the data yet (user is still filling form)
+    // If we have all the data, allow redirect even in join mode (join was successful)
+    // Watch mode redirects directly in handleWatchGame, so we don't need to handle it here
+    const hasAllData = gameCode && playerName && gameState && socket && playerId;
+    if (mode === 'join' && !hasAllData) {
+      return; // Stay on page to allow user to join
+    }
+
+    if (hasAllData) {
+      if (gameState.state === GameState.Lobby) {
+        router.push('/lobby');
+      } else if (gameState.state === GameState.Started) {
+        router.push('/game');
+      }
+    }
+  }, [gameCode, playerName, gameState, router, socket, playerId, mode, isLoading]);
 
   if (isLoading) {
     return <Container className="mt-5 text-center"><h2>Loading session...</h2></Container>;
@@ -51,7 +92,7 @@ export default function Home() {
         setError('Please enter your name to create a game.');
         return;
       }
-  
+
       // Client-side validation
       const validation = validatePlayerName(inputPlayerName);
       if (!validation.isValid) {
@@ -59,7 +100,7 @@ export default function Home() {
         setError(validation.error || 'Invalid name');
         return;
       }
-  
+
       setNameError(null);
       setError(null);
       const response = await createGame(inputPlayerName);
@@ -88,7 +129,7 @@ export default function Home() {
         setError('Please enter game code and your name to join.');
         return;
       }
-  
+
       // Client-side validation
       const validation = validatePlayerName(inputPlayerName);
       if (!validation.isValid) {
@@ -96,7 +137,7 @@ export default function Home() {
         setError(validation.error || 'Invalid name');
         return;
       }
-  
+
       setNameError(null);
       setError(null);
       const response = await joinGame(inputGameCode, inputPlayerName);
@@ -131,7 +172,7 @@ export default function Home() {
       if (response.success && response.gameCode) {
         setGameCode(response.gameCode);
         setPlayerName('Spectator'); // Ensure session saves
-        router.push(`/observer?gameCode=${response.gameCode}`);
+        router.push('/observer');
       } else {
         setError(response.error || 'Failed to watch game.');
       }
@@ -148,6 +189,10 @@ export default function Home() {
     setError(null);
     setNameError(null);
     setInputGameCode('');
+    // Clear URL query parameters when closing modal
+    if (typeof window !== 'undefined') {
+      router.replace('/', { scroll: false });
+    }
     // Keep inputPlayerName if they entered it for convenience?
   };
 
@@ -233,7 +278,7 @@ export default function Home() {
         onHide={handleCloseModal}
       >
         <Modal.Header closeButton>
-          <Modal.Title>Join an Existing Game</Modal.Title>
+          <Modal.Title>Join a game</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
@@ -254,6 +299,7 @@ export default function Home() {
             <Form.Group className="mb-3">
               <Form.Label htmlFor="join-game-player-name">Your Name</Form.Label>
               <Form.Control
+                ref={nameInputRef}
                 type="text"
                 id="join-game-player-name"
                 placeholder="Enter your name (max 32 characters)"
@@ -284,7 +330,7 @@ export default function Home() {
         onHide={handleCloseModal}
       >
         <Modal.Header closeButton>
-          <Modal.Title>Watch an Existing Game</Modal.Title>
+          <Modal.Title>Watch a game</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
