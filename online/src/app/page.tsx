@@ -241,7 +241,7 @@ export default function Home() {
         backdrop="static"
       >
         <Modal.Header closeButton>
-          <Modal.Title>Create a New Game</Modal.Title>
+          <Modal.Title>Create a new game</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
