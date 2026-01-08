@@ -66,7 +66,7 @@ export default function GameScreen() {
   const [opConflictModal, setOpConflictModal] = useState<{ reason: string, cardId?: string, cardIds?: string[] } | null>(null);
   const [explodingReinsertModal, setExplodingReinsertModal] = useState<{ maxIndex: number } | null>(null);
   const [upgradeReinsertModal, setUpgradeReinsertModal] = useState<{ maxIndex: number } | null>(null);
-  const [reinsertIndex, setInsertionIndex] = useState<string | number>(0);
+  const [reinsertIndex, setReinsertIndex] = useState<string | number>(0);
   const [seeTheFutureCards, setSeeTheFutureCards] = useState<Card[] | null>(null);
   const [favorVictimModalOpen, setFavorVictimModalOpen] = useState(false);
   const [favorVictimSelection, setFavorVictimSelection] = useState<string | null>(null);
@@ -1958,7 +1958,7 @@ export default function GameScreen() {
               min={0}
               max={upgradeReinsertModal?.maxIndex ?? 50}
               value={reinsertIndex}
-              onChange={(e) => setInsertionIndex(e.target.value)}
+              onChange={(e) => setReinsertIndex(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -2004,7 +2004,7 @@ export default function GameScreen() {
               min={0}
               max={explodingReinsertModal?.maxIndex ?? 50}
               value={reinsertIndex}
-              onChange={(e) => setInsertionIndex(e.target.value)}
+              onChange={(e) => setReinsertIndex(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
