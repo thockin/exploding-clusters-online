@@ -88,6 +88,8 @@ export default function GameScreen() {
   const tableAreaRef = useRef<HTMLDivElement>(null);
   // Reference to the message log area, used to auto-scroll to bottom when new messages arrive
   const messageAreaRef = useRef<HTMLDivElement>(null);
+  // Track if user has scrolled up from the bottom (if false, we should auto-scroll)
+  const isUserScrolledUpRef = useRef(false);
   // Reference to the hand container, used to measure its size for card layout calculations
   const handAreaRef = useRef<HTMLDivElement>(null);
 
@@ -491,12 +493,36 @@ export default function GameScreen() {
   }, []);
 
   // Auto-scroll message log to bottom when new messages arrive
-  // Ensures the latest game messages are always visible
+  // Only auto-scrolls if the user is already at or near the bottom (hasn't scrolled up)
+  // This allows users to scroll up to read old messages without being interrupted
   useEffect(() => {
-    if (messageAreaRef.current) {
-      messageAreaRef.current.scrollTop = messageAreaRef.current.scrollHeight;
+    if (messageAreaRef.current && !isUserScrolledUpRef.current) {
+      const element = messageAreaRef.current;
+      element.scrollTop = element.scrollHeight;
     }
   }, [gameMessages]);
+
+  // Track user scroll position to determine if we should auto-scroll
+  // If user scrolls up, we stop auto-scrolling until they scroll back to bottom
+  useEffect(() => {
+    const element = messageAreaRef.current;
+    if (!element) return;
+
+    const handleScroll = () => {
+      if (!element) return;
+      // Check if user is at or near the bottom (within 50px threshold)
+      const isAtBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+      isUserScrolledUpRef.current = !isAtBottom;
+    };
+
+    element.addEventListener('scroll', handleScroll);
+    // Initial check
+    handleScroll();
+
+    return () => {
+      element.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   // Track window and table area dimensions for responsive layout
   // Updates windowHeight and tableAreaSize when window is resized or game state changes
@@ -2052,17 +2078,17 @@ export default function GameScreen() {
           flexDirection: 'column',
           overflow: 'hidden'
         }}>
-          <Row style={{ flex: '1 1 0', margin: 0, minHeight: 0 }}>
-            <Col className="d-flex flex-column">
+          <Row style={{ flex: '1 1 0', margin: 0, minHeight: 0, height: '100%' }}>
+            <Col className="d-flex flex-column" style={{ minHeight: 0, height: '100%' }}>
               <div
                 data-areaname="message"
                 style={{
                   backgroundColor: '#f0f0f0',
                   borderRadius: '5px', margin: '0.5rem 0', padding: '0.5rem',
-                  height: '100%',
-                  flexGrow: 1,
+                  flex: '1 1 0',
                   display: 'flex', flexDirection: 'column',
                   minHeight: 0,
+                  overflow: 'hidden', // Prevent parent from scrolling
                   position: 'relative'
                 }}
               >
@@ -2083,7 +2109,10 @@ export default function GameScreen() {
                   data-areaname="log"
                   style={{
                     textAlign: 'left', padding: '0.25rem',
-                    overflowY: 'auto', flexGrow: 1,
+                    overflowY: 'auto', 
+                    flexGrow: 1,
+                    flexShrink: 1,
+                    minHeight: 0, // Critical for flex scrolling
                     borderTop: '1px solid #ccc', marginTop: '0.25rem'
                   }}
                 >
@@ -2097,7 +2126,7 @@ export default function GameScreen() {
                     className="position-absolute"
                     style={{
                       bottom: '1rem',
-                      right: '1rem',
+                      right: 'calc(1rem + 12px)', // Offset for scrollbar width
                       zIndex: 100
                     }}
                     onClick={() => setShowLeaveGameModal(true)}
