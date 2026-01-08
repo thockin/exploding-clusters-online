@@ -1,5 +1,4 @@
 In progress:
-* BUG: Copy link doesn't work in prod
 * BUG: Scroll on log
 * BUG: Flicker on hand update
 * Make all areas resizable

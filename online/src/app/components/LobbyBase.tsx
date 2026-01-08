@@ -99,9 +99,36 @@ function LobbyContent() {
 
   const handleCopyToClipboard = async (text: string, setFeedback: (value: boolean) => void) => {
     try {
-      await navigator.clipboard.writeText(text);
-      setFeedback(true);
-      setTimeout(() => setFeedback(false), 2000);
+      // Try modern Clipboard API first (requires HTTPS or localhost)
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        setFeedback(true);
+        setTimeout(() => setFeedback(false), 2000);
+        return;
+      }
+
+      // Fallback to execCommand for older browsers or non-HTTPS contexts
+      // Create a temporary textarea element
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-999999px';
+      textarea.style.top = '-999999px';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          setFeedback(true);
+          setTimeout(() => setFeedback(false), 2000);
+        } else {
+          console.error('Failed to copy to clipboard: execCommand returned false');
+        }
+      } finally {
+        document.body.removeChild(textarea);
+      }
     } catch (err) {
       console.error('Failed to copy to clipboard:', err);
     }
