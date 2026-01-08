@@ -26,61 +26,150 @@ const CARD_DEFAULT_WIDTH_PX = 100;
 // Minimum visibility threshold for rows (percentage)
 const MIN_ROW_VISIBILITY = 0.66;
 
-// How long a card is displayed after being drawn or stolen.
+// How long a card is displayed after being drawn or stolen
 const CARD_DISMISS_TIMEOUT_MS = 2500;
+
+// How long before auto-dismiss for client-only choice dialogs (no server timer)
+const CHOICE_DISMISS_TIMEOUT_S = 15;
 
 export default function GameScreen() {
   const router = useRouter();
   const { socket, gameCode, gameState, playerName, playerId, myHand, setMyHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
 
-  const [showLeaveGameModal, setShowLeaveGameModal] = useState(false);
-  const [selectedCards, setSelectedCards] = useState<Card[]>([]); // For single or combo selection
-  const [inspectCardOverlay, setInspectCardOverlay] = useState<Card | null>(null);
+  // Tracks the current window height for responsive card sizing
+  // Updated on window resize to recalculate card dimensions
   const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
-  const tableAreaRef = useRef<HTMLDivElement>(null);
-  const messageAreaRef = useRef<HTMLDivElement>(null);
-  const handAreaRef = useRef<HTMLDivElement>(null);
+  // Percentage height of the upper half of the screen (players/table area)
+  // User can drag the resize bar to adjust this between 20% and 80%
+  // Lower half shows messages and hand
+  const [upperHalfHeight, setUpperHalfHeight] = useState<number>(50);
+  // Stores the dimensions of the table area (where draw/discard piles are displayed)
+  // Used to calculate optimal card sizes for the table cards
   const [tableAreaSize, setTableAreaSize] = useState({ width: 0, height: 0 });
+  // Stores the current width of the hand container
+  // Used to calculate how many cards fit per row in the hand layout
   const [handAreaWidth, setHandAreaWidth] = useState(0);
+  // Stores the current height of the hand container
+  // Used to calculate how many rows of cards fit in the hand layout
   const [handAreaHeight, setHandAreaHeight] = useState(0);
-  const [reactionCountdown, setReactionCountdown] = useState(0);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Resize state for upper/lower half split
-  const [upperHalfHeight, setUpperHalfHeight] = useState<number>(50); // percentage
+  // Refs to DOM elements - these don't trigger re-renders when accessed, used for direct DOM manipulation
+  // Reference to the table area div, used to measure its size for card layout calculations
+  const tableAreaRef = useRef<HTMLDivElement>(null);
+  // Reference to the message log area, used to auto-scroll to bottom when new messages arrive
+  const messageAreaRef = useRef<HTMLDivElement>(null);
+  // Reference to the hand container, used to measure its size for card layout calculations
+  const handAreaRef = useRef<HTMLDivElement>(null);
+
+  // Refs for resize drag tracking - these store values that don't need to trigger re-renders
+  // Tracks whether the user is currently dragging the resize bar
   const isResizingHalfRef = useRef(false);
+  // Stores the mouse Y position when resize drag started
   const resizeHalfStartPosRef = useRef({ y: 0 });
+  // Stores the upper half height percentage when resize drag started
   const resizeHalfStartHeightRef = useRef(50);
 
-  const choiceTimeoutSeconds = 15; // for client-side-only choice dialogs (no server timer)
+  // A ref that always holds the latest gameState value
+  // Used in event handlers/callbacks to avoid stale closures (getting old gameState values)
+  // Unlike gameState (which triggers re-renders), this ref can be accessed without causing re-renders
+  const gameStateRef = useRef(gameState);
+
+  // Controls visibility of the "Leave Game" confirmation modal
+  const [showLeaveGameModal, setShowLeaveGameModal] = useState(false);
+  // Stores currently selected cards in the hand (for single card or combo selection)
+  // Used to highlight selected cards and determine which cards to play when dropped
+  const [selectedCards, setSelectedCards] = useState<Card[]>([]);
+  // Stores the card currently being inspected (shown in enlarged overlay)
+  // Set when user double-clicks a card or when a card is drawn/stolen
+  const [inspectCardOverlay, setInspectCardOverlay] = useState<Card | null>(null);
+  // Countdown timer (in seconds) for the reaction phase
+  // Shows how much time players have to play reaction cards (NAK, NOW cards)
+  const [reactionCountdown, setReactionCountdown] = useState(0);
+  // Stores the interval ID for the reaction countdown timer
+  // Used to clear the interval when the countdown ends or component unmounts
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Countdown timer (in seconds) for choice modals (victim selection, card choice)
+  // Used to show how much time is left to make a choice before auto-closing
   const [choiceCountdown, setChoiceCountdown] = useState(0);
+
+  // Tracks if a card drag operation is currently in progress
+  // Used to hide selected cards during drag and prevent click events
   const [isDragging, setIsDragging] = useState(false);
+  // Stores the card currently being dragged
+  // Used to show drag preview and determine drop target validity
   const [draggedCard, setDraggedCard] = useState<Card | null>(null);
+  // Refs for drag-and-drop state - these don't trigger re-renders, avoiding unnecessary updates during drags
+  // Tracks if a drag operation is in progress (used to prevent click events during drag)
   const isDraggingRef = useRef(false);
+  // Stores mouse position when mouse down occurs, used to distinguish clicks from drags
   const clickStartPosRef = useRef({ x: 0, y: 0 });
-  const opStartNonceRef = useRef<string>(''); // the nonce when the current operation began
+  // Stores the game nonce when an operation (play card, etc.) started
+  // Used to detect if game state changed during the operation (prevents race conditions)
+  const opStartNonceRef = useRef<string>('');
+  // Tracks if Shift key is currently held down (for combo card selection)
   const isShiftKeyPressed = useRef(false);
-  const [drawingAnimation, setDrawingAnimation] = useState<{ card?: Card, playerId?: string, duration?: number, nextCardImageUrl?: string, currentPileImageUrl?: string } | null>(null);
+
+  // Stores animation state when a card is being drawn
+  // Contains card data, player ID, duration, and image URLs for the animation
+  // When set, triggers the hand animation that shows a card being drawn from the pile
+  const [drawCardAnimation, setDrawCardAnimation] = useState<{ card?: Card, playerId?: string, duration?: number, nextCardImageUrl?: string, currentPileImageUrl?: string } | null>(null);
+  // Stores error information when a game operation conflicts with server state
+  // Shows a modal explaining why an action was rejected (e.g., game state changed)
   const [opConflictModal, setOpConflictModal] = useState<{ reason: string, cardId?: string, cardIds?: string[] } | null>(null);
+  // Controls the modal for reinserting an EXPLODING CLUSTER card
+  // When set, shows a modal asking where to put the card back in the deck (0 to maxIndex)
   const [explodingReinsertModal, setExplodingReinsertModal] = useState<{ maxIndex: number } | null>(null);
+  // Controls the modal for reinserting an UPGRADE CLUSTER card
+  // When set, shows a modal asking where to put the card back in the deck (0 to maxIndex)
   const [upgradeReinsertModal, setUpgradeReinsertModal] = useState<{ maxIndex: number } | null>(null);
+  // The position in the deck where the player wants to reinsert a cluster card
+  // Can be a number (0 = top, maxIndex = bottom) or a string (from input field before parsing)
   const [reinsertIndex, setReinsertIndex] = useState<string | number>(0);
+  // Stores the cards shown in the "See The Future" overlay
+  // When set, displays an overlay showing the top N cards of the deck
   const [seeTheFutureCards, setSeeTheFutureCards] = useState<Card[] | null>(null);
+  // Controls visibility of the "Choose a victim for Favor" modal
+  // Opens when player plays a FAVOR card and there are multiple possible victims
   const [favorVictimModalOpen, setFavorVictimModalOpen] = useState(false);
+  // Stores the selected player ID when choosing a Favor victim
+  // Used to track which player the user has selected in the victim selection modal
   const [favorVictimSelection, setFavorVictimSelection] = useState<string | null>(null);
+  // Controls the modal where a player chooses which card to give for a Favor
+  // Contains the name of the player who asked for the favor
   const [favorCardChoiceModal, setFavorCardChoiceModal] = useState<{ stealerName?: string } | null>(null);
+  // Stores the card received from a Favor action
+  // When set, shows an overlay displaying the card that was received
   const [favorResultCardOverlay, setFavorResultCardOverlay] = useState<Card | null>(null);
+  // Controls visibility of the "Choose a victim to steal from" modal
+  // Opens when player plays a DEVELOPER combo and there are multiple possible victims
   const [stealCardVictimModalOpen, setStealCardVictimModalOpen] = useState(false);
+  // Controls the modal where a player chooses which card to steal
+  // Contains the victim's name and hand size (number of face-down cards to choose from)
   const [stealCardChoiceModal, setStealCardChoiceModal] = useState<{ handSize: number, victimName?: string } | null>(null);
+  // Stores the card stolen via DEVELOPER combo
+  // When set, shows an overlay displaying the card that was stolen
   const [stealCardResultOverlay, setStealCardResultOverlay] = useState<Card | null>(null);
+  // Controls visibility of error modal when no valid victims exist
+  // Shows when trying to play FAVOR or DEVELOPER combo but no players have cards
   const [noPossibleVictimModalOpen, setNoPossibleVictimModalOpen] = useState(false);
+  // Stores the message to show when this player becomes the game owner
+  // Set when the previous game owner leaves and this player is promoted
   const [hostPromotionModal, setHostPromotionModal] = useState<string | null>(null);
+  // Tracks if the mouse is hovering over the discard pile during a drag
+  // Used to change cursor style and show visual feedback for valid/invalid drop targets
   const [isHoveringDiscard, setIsHoveringDiscard] = useState(false);
 
-  // DEVMODE states
+  // DEVMODE state
+  // Stores all cards in the draw pile (dev mode only)
+  // When set, shows an overlay displaying all cards in the deck in order
   const [deckCardsOverlay, setDeckCardsOverlay] = useState<Card[] | null>(null);
-  const [removedCardsOverlay, setRemovedCardsOverlay] = useState<Card[] | null>(null); // New: for removed pile overlay
+  // Stores all cards in the removed pile (dev mode only)
+  // When set, shows an overlay displaying all cards that have been removed from the game
+  const [removedCardsOverlay, setRemovedCardsOverlay] = useState<Card[] | null>(null);
 
+  // Track Shift key state for combo card selection
+  // Registers global keyboard listeners to track when Shift is pressed/released
+  // Empty dependency array means this only runs once on mount
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') isShiftKeyPressed.current = true;
@@ -96,6 +185,9 @@ export default function GameScreen() {
     };
   }, []);
 
+  // Countdown timer for "Grant a Favor" card choice modal
+  // When the modal opens, starts a 1-second interval that decrements the countdown
+  // When countdown reaches 0, automatically closes the modal
   useEffect(() => {
     if (favorCardChoiceModal) {
       // Don't set choiceCountdown here, use the value from the event handler
@@ -113,6 +205,9 @@ export default function GameScreen() {
     }
   }, [favorCardChoiceModal]);
 
+  // Countdown timer for "Choose a Card to Steal" modal
+  // When the modal opens, starts a 1-second interval that decrements the countdown
+  // When countdown reaches 0, automatically closes the modal
   useEffect(() => {
     if (stealCardChoiceModal !== null) {
       // Don't set choiceCountdown here, use the value from the event handler
@@ -130,7 +225,9 @@ export default function GameScreen() {
     }
   }, [stealCardChoiceModal]);
 
-  // This is a client-side countdown for the victim selection modals.
+  // Countdown timer for victim selection modals (Favor and Steal Card)
+  // When either modal opens, starts a 1-second interval that decrements the countdown
+  // When countdown reaches 0, automatically closes both modals
   useEffect(() => {
     if (favorVictimModalOpen || stealCardVictimModalOpen) {
       const interval = setInterval(() => {
@@ -148,8 +245,9 @@ export default function GameScreen() {
     }
   }, [favorVictimModalOpen, stealCardVictimModalOpen]);
 
-  const gameStateRef = useRef(gameState);
-
+  // Detect when this player becomes the game owner (host promotion)
+  // Compares previous and current gameState to detect ownership change
+  // Shows a modal congratulating the player on their promotion
   useEffect(() => {
     const prevGameState = gameStateRef.current;
     if (prevGameState && gameState) {
@@ -163,14 +261,21 @@ export default function GameScreen() {
     }
   }, [gameState, playerId]);
 
+  // Keep gameStateRef in sync with gameState
+  // This ensures event handlers always have access to the latest game state
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
+  // Redirect to home page if game state is lost (e.g., server disconnected, game ended)
+  // Only redirects if not loading and not showing game end data
   useEffect(() => {
     if (!gameState && !isLoading && !gameEndData) {
       router.push('/');
     }
   }, [gameState, isLoading, router, gameEndData, myHand, playerId, gameCode]);
 
+  // Show/hide the "reinsert exploding cluster" modal based on game phase
+  // When it's this player's turn and the phase is ExplodingReinserting, opens the modal
+  // Closes the modal when phase changes or it's not this player's turn
   useEffect(() => {
     // Detect if we are in ExplodingReinserting phase and need to show Insertion Modal
     if (gameState?.turnPhase === TurnPhase.ExplodingReinserting) {
@@ -189,6 +294,9 @@ export default function GameScreen() {
     }
   }, [gameState, playerId, myHand, explodingReinsertModal, inspectCardOverlay]);
 
+  // Show/hide the "reinsert upgrade cluster" modal based on game phase
+  // When it's this player's turn and the phase is Upgrading, opens the modal
+  // Closes the modal when phase changes or it's not this player's turn
   useEffect(() => {
     // Detect if we are in Upgrading phase and need to show Insertion Modal
     if (gameState?.turnPhase === TurnPhase.Upgrading) {
@@ -216,6 +324,9 @@ export default function GameScreen() {
   //  }
   //}, [inspectCardOverlay]);
 
+  // Register Socket.IO event listeners for game events
+  // Sets up handlers for various game events (deck data, card choices, timers, etc.)
+  // Returns cleanup function that unregisters all listeners when socket or gameCode changes
   useEffect(() => {
     if (!socket) return;
 
@@ -312,6 +423,9 @@ export default function GameScreen() {
     };
   }, [socket, gameCode]);
 
+  // Callback to dismiss the "See The Future" overlay
+  // Emits a socket event to notify the server, then clears the local state
+  // useCallback memoizes this function so it doesn't change unless socket or gameCode changes
   const handleDismissSeeTheFuture = useCallback(() => {
     if (socket && gameCode) {
       socket.emit(SocketEvent.DismissSeeTheFuture, gameCode);
@@ -319,6 +433,9 @@ export default function GameScreen() {
     }
   }, [socket, gameCode]);
 
+  // Global Escape key handler to dismiss overlays
+  // Pressing Escape closes any open overlay (card inspection, deck view, etc.)
+  // Empty dependency array means this only runs once on mount
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -333,15 +450,20 @@ export default function GameScreen() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Auto-scroll message log to bottom when new messages arrive
+  // Ensures the latest game messages are always visible
   useEffect(() => {
     if (messageAreaRef.current) {
       messageAreaRef.current.scrollTop = messageAreaRef.current.scrollHeight;
     }
   }, [gameMessages]);
 
+  // Track window and table area dimensions for responsive layout
+  // Updates windowHeight and tableAreaSize when window is resized or game state changes
+  // Also measures table area size on initial load
   useEffect(() => {
     if (typeof window === 'undefined') return; // Early return for SSR
-    
+
     const handleResize = () => {
       setWindowHeight(window.innerHeight);
       if (tableAreaRef.current) {
@@ -356,6 +478,9 @@ export default function GameScreen() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isLoading, gameState]);
 
+  // Track hand area dimensions using ResizeObserver
+  // Updates handAreaWidth and handAreaHeight when the hand container is resized
+  // Skips updates during drag operations to prevent layout flicker
   useEffect(() => {
     if (handAreaRef.current) {
       setHandAreaWidth(handAreaRef.current.clientWidth);
@@ -380,7 +505,9 @@ export default function GameScreen() {
     }
   }, [gameState]);
 
-  // Resize handler for upper/lower half split
+  // Handle mouse drag for resizing the upper/lower half split
+  // Tracks mouse movement during resize drag and updates upperHalfHeight percentage
+  // Empty dependency array means this only runs once on mount
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizingHalfRef.current) return;
@@ -416,6 +543,9 @@ export default function GameScreen() {
     resizeHalfStartHeightRef.current = upperHalfHeight;
   };
 
+  // Callback to confirm reinserting an UPGRADE CLUSTER card
+  // Emits socket event with the chosen index position, then closes the modal
+  // useCallback memoizes this function so it doesn't change unless dependencies change
   const handleUpgradeInsertConfirm = useCallback(() => {
     if (!socket || !gameCode || !gameState) return;
     const index = typeof reinsertIndex === 'string' ? parseInt(reinsertIndex, 10) : reinsertIndex;
@@ -423,11 +553,16 @@ export default function GameScreen() {
     setUpgradeReinsertModal(null);
   }, [socket, gameCode, gameState, reinsertIndex]);
 
+  // Callback to handle game end modal confirmation
+  // Resets all game state and navigates back to the home page
   const handleGameEndConfirm = useCallback(() => {
     resetState();
     router.push('/');
   }, [resetState, router]);
 
+  // Callback to confirm reinserting an EXPLODING CLUSTER card
+  // Emits socket event with the chosen index position, then closes the modal
+  // useCallback memoizes this function so it doesn't change unless dependencies change
   const handleExplodingInsertConfirm = useCallback(() => {
     if (!socket || !gameCode || !gameState) return;
     const index = typeof reinsertIndex === 'string' ? parseInt(reinsertIndex, 10) : reinsertIndex;
@@ -435,6 +570,10 @@ export default function GameScreen() {
     setExplodingReinsertModal(null);
   }, [socket, gameCode, gameState, reinsertIndex]);
 
+  // Determines if a card can be played in the current game state
+  // Checks turn phase, player turn, card type, and special rules (e.g., Developer combos)
+  // Returns true if the card is playable, false otherwise
+  // useCallback memoizes this function to avoid recreating it on every render
   const isCardPlayable = useCallback((card: Card) => {
     if (!gameState || !playerId) return false;
     const currentPlayer = gameState.players[gameState.currentPlayer];
@@ -486,6 +625,10 @@ export default function GameScreen() {
     }
   }, [gameState, playerId, myHand, playerName]);
 
+  // Calculates the size (width/height) of cards based on available space
+  // If enlarged=true, calculates size for overlay/modal cards (70% of window height)
+  // Otherwise, calculates size for table cards based on tableAreaSize
+  // useCallback memoizes this function to avoid recalculating on every render
   const getCardSize = useCallback((enlarged: boolean = false) => {
     const aspectRatio = 5 / 7;
     if (enlarged) {
@@ -509,6 +652,10 @@ export default function GameScreen() {
     return { width: Math.floor(cardW), height: Math.floor(cardH) };
   }, [tableAreaSize, windowHeight]);
 
+  // Calculates optimal card layout for modals (e.g., "See The Future", card choice modals)
+  // Determines card width, height, and container width based on number of cards and viewport size
+  // Tries to fit cards without scrolling, but allows scrolling if cards would be too small
+  // useCallback memoizes this function to avoid recalculating on every render
   const calculateAdaptiveLayout = useCallback((count: number) => {
     // Default fallback
     const fallback = { cardWidth: 100, cardHeight: 140, containerWidth: 'auto' };
@@ -599,6 +746,8 @@ export default function GameScreen() {
     };
   }, [getCardSize]);
 
+  // Callback to handle leaving the game
+  // Emits socket event to notify server, closes modal, resets state, and navigates home
   const handleLeaveGame = useCallback(() => {
     if (socket && gameCode) {
       socket.emit(SocketEvent.LeaveGame, gameCode);
@@ -608,6 +757,10 @@ export default function GameScreen() {
     router.push('/');
   }, [socket, gameCode, resetState, router]);
 
+  // Handles clicking on a card in the hand
+  // Supports single selection and combo selection (Shift+click for Developer cards)
+  // Distinguishes clicks from drags by checking mouse movement distance
+  // useCallback memoizes this function to avoid recreating it on every render
   const handleCardClick = useCallback((card: Card, event: React.MouseEvent) => {
     event.stopPropagation();
 
@@ -661,6 +814,9 @@ export default function GameScreen() {
     }
   }, [selectedCards, isCardPlayable]);
 
+  // Handles double-clicking on a card to inspect it
+  // Opens the card inspection overlay showing an enlarged version
+  // Empty dependency array means this function never changes
   const handleCardDoubleClick = useCallback((card: Card) => {
     setInspectCardOverlay(card);
   }, []);
@@ -679,6 +835,11 @@ export default function GameScreen() {
   };
 
   // Helper function to calculate layout constraints
+  // Calculates the optimal layout for cards in the hand area
+  // Determines card width and how many cards per row based on available space
+  // Uses binary search to find the largest card size that fits without scrolling
+  // Returns card width and layout array (e.g., [10, 10, 5] means 10 cards in row 1, 10 in row 2, 5 in row 3)
+  // Empty dependency array means this function never changes
   const calculateHandLayout = useCallback((
     numCards: number,
     containerWidth: number,
@@ -827,6 +988,9 @@ export default function GameScreen() {
     }
   };
 
+  // Handles clicking the draw pile to draw a card
+  // Validates that it's the player's turn and the game is in Action phase
+  // Emits socket event to request drawing a card
   const handleDrawClick = useCallback(() => {
     if (!socket) {
       console.debug("Cannot draw: no socket");
@@ -837,13 +1001,18 @@ export default function GameScreen() {
       return;
     }
 
-    if (drawingAnimation) {
+    if (drawCardAnimation) {
       console.debug("Cannot draw: animation is active");
       return;
     }
 
     const currentPlayer = gameState.players[gameState.currentPlayer];
-    if (currentPlayer?.id !== playerId) {
+    if (!currentPlayer) {
+      console.log("Cannot draw: can't find current player");
+      return;
+    }
+
+    if (currentPlayer.id !== playerId) {
       console.log("Cannot draw: not your turn");
       return;
     }
@@ -854,8 +1023,11 @@ export default function GameScreen() {
     }
 
     socket.emit(SocketEvent.DrawCard, gameCode);
-  }, [socket, gameState, playerId, gameCode, drawingAnimation]);
+  }, [socket, gameState, playerId, gameCode, drawCardAnimation]);
 
+  // Register socket listener for card draw events
+  // When a card is drawn, starts the drawing animation and shows card overlay if it's an exploding cluster
+  // Uses gameStateRef.current to get latest game state without causing re-renders
   useEffect(() => {
     if (!socket) return;
 
@@ -864,11 +1036,11 @@ export default function GameScreen() {
       const currentPileImageUrl = gameStateRef.current?.drawPileImage || "/art/back.png";
 
       // Start the animation to run for duration
-      setDrawingAnimation({ card: data.card, playerId: data.drawingPlayerId, duration: data.duration, nextCardImageUrl: data.nextCardImageUrl, currentPileImageUrl });
+      setDrawCardAnimation({ card: data.card, playerId: data.drawingPlayerId, duration: data.duration, nextCardImageUrl: data.nextCardImageUrl, currentPileImageUrl });
 
       // Clear animation after duration
       setTimeout(() => {
-        setDrawingAnimation(null);
+        setDrawCardAnimation(null);
       }, data.duration);
 
       // If there is a card to overlay (e.g. EXPLODING CLUSTER), that starts
@@ -1087,7 +1259,7 @@ export default function GameScreen() {
           } else {
             opStartNonceRef.current = currentGameState.nonce;
             setFavorVictimModalOpen(true);
-            setChoiceCountdown(choiceTimeoutSeconds);
+            setChoiceCountdown(CHOICE_DISMISS_TIMEOUT_S);
             return;
           }
         }
@@ -1143,7 +1315,7 @@ export default function GameScreen() {
   };
 
   const onDragStart = (start: DragStart) => {
-    if (drawingAnimation) return;
+    if (drawCardAnimation) return;
 
     isDraggingRef.current = true;
     setIsDragging(true);
@@ -1186,6 +1358,10 @@ export default function GameScreen() {
   };
   const onDragUpdate = () => console.debug('onDragUpdate');
 
+  // Memoized rendering of the player's hand
+  // Calculates card layout, splits hand into rows, and renders draggable cards
+  // Only recalculates when hand, dimensions, selection, or other dependencies change
+  // This prevents expensive re-renders when unrelated state changes
   const renderedHand = useMemo(() => {
     const { cardWidth, layout } = calculateHandLayout(myHand.length, handAreaWidth, handAreaHeight);
 
@@ -1231,7 +1407,7 @@ export default function GameScreen() {
                 }}
               >
                 {rowCards.map((card, index) => (
-                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!!drawingAnimation}>
+                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!!drawCardAnimation}>
                     {(providedDraggable, snapshot) => {
                       const isSelected = selectedCards.some(sc => sc.id === card.id);
                       const shouldHide = isDragging && isSelected && !snapshot.isDragging;
@@ -1331,7 +1507,7 @@ export default function GameScreen() {
         ))}
       </div>
     );
-  }, [myHand, handAreaWidth, handAreaHeight, selectedCards, isDragging, drawingAnimation, isCardPlayable, handleCardClick, handleCardDoubleClick, calculateHandLayout]);
+  }, [myHand, handAreaWidth, handAreaHeight, selectedCards, isDragging, drawCardAnimation, isCardPlayable, handleCardClick, handleCardDoubleClick, calculateHandLayout]);
 
   if (!gameState || !socket) {
     return <div>Loading game...</div>;
@@ -1493,7 +1669,7 @@ export default function GameScreen() {
     if (gameState?.playBlockingCard) {
       // Only show persistent overlay for players who are NOT the current player
       // AND suppress it if animation is in progress (so they see the animation instead)
-      if (gameState.players[gameState.currentPlayer]?.id !== playerId && !drawingAnimation) {
+      if (gameState.players[gameState.currentPlayer]?.id !== playerId && !drawCardAnimation) {
         activeOverlayCard = gameState.playBlockingCard;
       }
     }
@@ -1513,7 +1689,7 @@ export default function GameScreen() {
               zIndex: 1000,
             }}
             onClick={() => {
-              if (drawingAnimation) return; // can't cancel the animation
+              if (drawCardAnimation) return; // can't cancel the animation
               //console.debug("inspect-card overlay dismissed by click");
               setInspectCardOverlay(null);
             }}
@@ -1669,38 +1845,38 @@ export default function GameScreen() {
                     onClick={handleDrawClick}
                   >
                     <Image
-                      src={drawingAnimation?.nextCardImageUrl || gameState?.drawPileImage || "/art/back.png"}
+                      src={drawCardAnimation?.nextCardImageUrl || gameState?.drawPileImage || "/art/back.png"}
                       alt={`Draw Pile: ${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
                       data-cardclass={gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'UNKNOWN'}
                       width={getCardSize().width}
                       height={getCardSize().height} />
 
-                    {drawingAnimation && (
-                      <div className="static-card-vanish" style={{ animationDuration: `${drawingAnimation.duration}ms` }}>
+                    {drawCardAnimation && (
+                      <div className="static-card-vanish" style={{ animationDuration: `${drawCardAnimation.duration}ms` }}>
                         <Image
-                          src={drawingAnimation.currentPileImageUrl || "/art/back.png"}
+                          src={drawCardAnimation.currentPileImageUrl || "/art/back.png"}
                           alt={`Draw Pile: next card'}`}
                           width={getCardSize().width}
                           height={getCardSize().height} />
                       </div>
                     )}
 
-                    {drawingAnimation && (
+                    {drawCardAnimation && (
                       <div className="hand-animation" style={{
-                        animation: `${drawingAnimation.card ? 'drawCardSelf' : 'drawCard'} ${drawingAnimation.duration ? drawingAnimation.duration/1000 : 4}s ease-in-out forwards`,
-                        transform: `translateX(-50%) ${drawingAnimation.card ? 'rotate(180deg)' : ''}`
+                        animation: `${drawCardAnimation.card ? 'drawCardSelf' : 'drawCard'} ${drawCardAnimation.duration ? drawCardAnimation.duration/1000 : 4}s ease-in-out forwards`,
+                        transform: `translateX(-50%) ${drawCardAnimation.card ? 'rotate(180deg)' : ''}`
                       }}>
-                        <div className="hand-open" style={{ animation: `handReachIn ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-end forwards` }}>
+                        <div className="hand-open" style={{ animation: `handReachIn ${drawCardAnimation.duration ? drawCardAnimation.duration*0.75/1000 : 2}s step-end forwards` }}>
                           <Image src="/art/hand_open.png" alt="Hand Open" width={250} height={500} />
                         </div>
-                        <div className="hand-closed" style={{ animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards` }}>
+                        <div className="hand-closed" style={{ animation: `handPullBack ${drawCardAnimation.duration ? drawCardAnimation.duration*0.75/1000 : 2}s step-start forwards` }}>
                           <Image src="/art/hand_closed.png" alt="Hand Closed" width={250} height={500} />
                         </div>
                         <div className="hand-card" style={{
-                          animation: `handPullBack ${drawingAnimation.duration ? drawingAnimation.duration*0.75/1000 : 2}s step-start forwards`
+                          animation: `handPullBack ${drawCardAnimation.duration ? drawCardAnimation.duration*0.75/1000 : 2}s step-start forwards`
                         }}>
                           <Image
-                            src={drawingAnimation.currentPileImageUrl || "/art/back.png"}
+                            src={drawCardAnimation.currentPileImageUrl || "/art/back.png"}
                             alt={`${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
                             width={getCardSize().width}
                             height={getCardSize().height}
@@ -1708,7 +1884,7 @@ export default function GameScreen() {
                               position: 'absolute',
                               left: `${(100 - getCardSize().width) / 2}px`,
                               top: `${(180 - getCardSize().height) / 2}px`,
-                              transform: drawingAnimation.card ? 'rotate(180deg)' : 'none'
+                              transform: drawCardAnimation.card ? 'rotate(180deg)' : 'none'
                             }} /* Centered within hand div */
                           />
                         </div>
