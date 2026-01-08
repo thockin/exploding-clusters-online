@@ -5,6 +5,8 @@ In progress:
   - make decks smaller
   - left-right between players and table
   - warning about aspect ratio
+* Bug: cursor does not auto-change from not-allowed to pointer if state changes
+  while hovering
 * Revist LLM critique notes
 * ipad support
   - shift-click?

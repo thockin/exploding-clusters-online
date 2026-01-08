@@ -238,6 +238,7 @@ function LobbyContent() {
         data-modalname="leave-game"
         show={showLeaveModal}
         onHide={() => setShowLeaveModal(false)}
+        backdrop="static"
       >
         <Modal.Header closeButton>
           <Modal.Title>Leave Game?</Modal.Title>

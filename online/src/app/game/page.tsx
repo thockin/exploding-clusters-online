@@ -1909,6 +1909,7 @@ export default function GameScreen() {
           data-modalname="leave-game"
           show={!!showLeaveGameModal}
           onHide={() => setShowLeaveGameModal(false)}
+          backdrop="static"
         >
           <Modal.Header closeButton>
             <Modal.Title>Leave Game?</Modal.Title>
