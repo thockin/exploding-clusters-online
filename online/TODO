@@ -1,4 +1,7 @@
 In progress:
+* BUG: Copy link doesn't work in prod
+* BUG: Scroll on log
+* BUG: Flicker on hand update
 * Make all areas resizable
   - bar between log and hand
   - make decks smaller
@@ -28,6 +31,7 @@ Before release:
 * license
 * `npm i baseline-browser-mapping@latest -D`
 * Copyright on SVGs
+* How to LB and auto-scale?
 
 Repeated:
 * `npm i baseline-browser-mapping@latest -D`

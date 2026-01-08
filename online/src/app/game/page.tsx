@@ -36,6 +36,36 @@ export default function GameScreen() {
   const router = useRouter();
   const { socket, gameCode, gameState, playerName, playerId, myHand, setMyHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
 
+  // Helper function to assert required values and log BUGs when they're missing
+  const assertDefined = <T,>(value: T | null | undefined, name: string, context?: string): T => {
+    if (value === null || value === undefined) {
+      const msg = `BUG: ${name} is ${value === null ? 'null' : 'undefined'}${context ? ` in ${context}` : ''}`;
+      console.error(msg);
+      // In production, you might want to show a user-visible error or send to error tracking
+      throw new Error(msg);
+    }
+    return value;
+  };
+
+  // Helper function to check if a given player is the current player
+  // Returns true if the playerId matches the current player's ID, false otherwise
+  // Logs an error if the current player index is invalid
+  // Accepts gameState (which may be null/undefined) and playerId (which may be null/undefined)
+  // This centralizes the logic and error checking for current player comparisons
+  const isCurrentPlayer = (gs: typeof gameState, pid: string | null | undefined): boolean => {
+    if (!gs || !pid) return false;
+    if (gs.currentPlayer < 0 || gs.currentPlayer >= gs.players.length) {
+      console.error(`BUG: Current player index ${gs.currentPlayer} is out of bounds`);
+      return false;
+    }
+    const currentPlayer = gs.players[gs.currentPlayer];
+    if (!currentPlayer) {
+      console.error(`BUG: Current player at index ${gs.currentPlayer} is null/undefined`);
+      return false;
+    }
+    return currentPlayer.id === pid;
+  };
+
   // Tracks the current window height for responsive card sizing
   // Updated on window resize to recalculate card dimensions
   const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
@@ -277,16 +307,21 @@ export default function GameScreen() {
   // When it's this player's turn and the phase is ExplodingReinserting, opens the modal
   // Closes the modal when phase changes or it's not this player's turn
   useEffect(() => {
+    if (!gameState) return; // Early return if gameState not loaded yet
+
     // Detect if we are in ExplodingReinserting phase and need to show Insertion Modal
-    if (gameState?.turnPhase === TurnPhase.ExplodingReinserting) {
-      const currentPlayer = gameState.players[gameState.currentPlayer];
-      if (currentPlayer?.id === playerId) {
+    if (gameState.turnPhase === TurnPhase.ExplodingReinserting) {
+      if (isCurrentPlayer(gameState, playerId)) {
         if (!explodingReinsertModal) {
+          const maxReinsert = gameState.maxReinsert;
+          if (maxReinsert === undefined || maxReinsert === null) {
+            console.error('BUG: maxReinsert is undefined in ExplodingReinserting phase');
+          }
           // I know we are not supposed to set state from an effect, but I
           // don't know enough to do this "right" and AIs have all failed to
           // help.
           // eslint-disable-next-line react-hooks/set-state-in-effect
-          setExplodingReinsertModal({ maxIndex: gameState.maxReinsert || 50 });
+          setExplodingReinsertModal({ maxIndex: maxReinsert ?? 50 });
         }
       }
     } else {
@@ -298,16 +333,21 @@ export default function GameScreen() {
   // When it's this player's turn and the phase is Upgrading, opens the modal
   // Closes the modal when phase changes or it's not this player's turn
   useEffect(() => {
+    if (!gameState) return; // Early return if gameState not loaded yet
+
     // Detect if we are in Upgrading phase and need to show Insertion Modal
-    if (gameState?.turnPhase === TurnPhase.Upgrading) {
-      const currentPlayer = gameState.players[gameState.currentPlayer];
-      if (currentPlayer?.id === playerId) {
+    if (gameState.turnPhase === TurnPhase.Upgrading) {
+      if (isCurrentPlayer(gameState, playerId)) {
         if (!upgradeReinsertModal) {
+          const maxReinsert = gameState.maxReinsert;
+          if (maxReinsert === undefined || maxReinsert === null) {
+            console.error('BUG: maxReinsert is undefined in Upgrading phase');
+          }
           // I know we are not supposed to set state from an effect, but I
           // don't know enough to do this "right" and AIs have all failed to
           // help.
           // eslint-disable-next-line react-hooks/set-state-in-effect
-          setUpgradeReinsertModal({ maxIndex: gameState.maxReinsert || 50 });
+          setUpgradeReinsertModal({ maxIndex: maxReinsert ?? 50 });
         }
       }
     } else {
@@ -575,9 +615,12 @@ export default function GameScreen() {
   // Returns true if the card is playable, false otherwise
   // useCallback memoizes this function to avoid recreating it on every render
   const isCardPlayable = useCallback((card: Card) => {
-    if (!gameState || !playerId) return false;
-    const currentPlayer = gameState.players[gameState.currentPlayer];
-    const isMyTurn = currentPlayer?.id === playerId;
+    if (!gameState || !playerId) {
+      if (!gameState) console.error('BUG: isCardPlayable called with null gameState');
+      if (!playerId) console.error('BUG: isCardPlayable called with null playerId');
+      return false;
+    }
+    const isMyTurn = isCurrentPlayer(gameState, playerId);
     const isNowCard = !!card.now;
 
     // Developer Card Logic: Must have at least 2 identical cards to be playable (as a pair)
@@ -993,11 +1036,19 @@ export default function GameScreen() {
   // Emits socket event to request drawing a card
   const handleDrawClick = useCallback(() => {
     if (!socket) {
-      console.debug("Cannot draw: no socket");
+      console.error("BUG: handleDrawClick called with no socket");
       return;
     }
     if (!gameState) {
-      console.debug("Cannot draw: no game state");
+      console.error("BUG: handleDrawClick called with no gameState");
+      return;
+    }
+    if (!gameCode) {
+      console.error("BUG: handleDrawClick called with no gameCode");
+      return;
+    }
+    if (!playerId) {
+      console.error("BUG: handleDrawClick called with no playerId");
       return;
     }
 
@@ -1008,17 +1059,17 @@ export default function GameScreen() {
 
     const currentPlayer = gameState.players[gameState.currentPlayer];
     if (!currentPlayer) {
-      console.log("Cannot draw: can't find current player");
+      console.error(`BUG: Current player index ${gameState.currentPlayer} is invalid in handleDrawClick`);
       return;
     }
 
     if (currentPlayer.id !== playerId) {
-      console.log("Cannot draw: not your turn");
+      console.debug("Cannot draw: not your turn");
       return;
     }
 
     if (gameState.turnPhase !== TurnPhase.Action) {
-      console.log("Cannot draw: not in action phase");
+      console.debug("Cannot draw: not in action phase");
       return;
     }
 
@@ -1033,7 +1084,11 @@ export default function GameScreen() {
 
     const onCardDrawn = (data: { drawingPlayerId: string, card?: Card, duration: number, nextCardImageUrl?: string }) => {
       console.debug(`received event: ${SocketEvent.CardDrawn}: ${data.card ? data.card.id : 'by another player'}`);
-      const currentPileImageUrl = gameStateRef.current?.drawPileImage || "/art/back.png";
+      const currentGameState = gameStateRef.current;
+      if (!currentGameState) {
+        console.error('BUG: gameStateRef.current is null in onCardDrawn');
+      }
+      const currentPileImageUrl = currentGameState?.drawPileImage || (() => { console.error('BUG: drawPileImage is missing in onCardDrawn'); return "/art/back.png"; })();
 
       // Start the animation to run for duration
       setDrawCardAnimation({ card: data.card, playerId: data.drawingPlayerId, duration: data.duration, nextCardImageUrl: data.nextCardImageUrl, currentPileImageUrl });
@@ -1175,7 +1230,15 @@ export default function GameScreen() {
       if (currentSelection.length > 0) {
         setSelectedCards(currentSelection);
       }
-      socket?.emit(SocketEvent.ReorderHand, { gameCode, newHand });
+      if (!socket) {
+        console.error('BUG: socket is null in onDragEnd');
+        return;
+      }
+      if (!gameCode) {
+        console.error('BUG: gameCode is null in onDragEnd');
+        return;
+      }
+      socket.emit(SocketEvent.ReorderHand, { gameCode, newHand });
       return;
     }
 
@@ -1243,7 +1306,11 @@ export default function GameScreen() {
       // Now handle the actual play
       if (cardsToPlay.length > 0) {
         const getValidVictims = () => {
-          return currentGameState?.players.filter(p => p.id !== playerId && !p.isOut && !p.isDisconnected && p.cards > 0) || [];
+          if (!currentGameState) {
+            console.error('BUG: currentGameState is null in getValidVictims');
+            return [];
+          }
+          return currentGameState.players.filter(p => p.id !== playerId && !p.isOut && !p.isDisconnected && p.cards > 0);
         };
         let victimIdToUse: string | undefined;
 
@@ -1293,17 +1360,20 @@ export default function GameScreen() {
         // library trying to restore focus to unmounted item.
         setTimeout(() => {
           // Emit the appropriate event to the server
-          if (gameCode) {
-            if (cardsToPlay.length === 1) {
-              console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
-              socket?.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id, nonce: opStartNonceRef.current, victimId: victimIdToUse });
-            } else if (cardsToPlay.length === 2) {
-              console.debug('Emitting playCombo for DEVELOPER cards');
-              socket?.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id), nonce: opStartNonceRef.current, victimId: victimIdToUse });
-            }
-          } else {
-            console.error("Game code not found, cannot play card.");
+          if (!gameCode) {
+            console.error("BUG: gameCode is null when trying to play card");
             return;
+          }
+          if (!socket) {
+            console.error("BUG: socket is null when trying to play card");
+            return;
+          }
+          if (cardsToPlay.length === 1) {
+            console.debug(`Emitting playCard: code=${gameCode}, card=${cardsToPlay[0].id}`);
+            socket.emit(SocketEvent.PlayCard, { gameCode, cardId: cardsToPlay[0].id, nonce: opStartNonceRef.current, victimId: victimIdToUse });
+          } else if (cardsToPlay.length === 2) {
+            console.debug('Emitting playCombo for DEVELOPER cards');
+            socket.emit(SocketEvent.PlayCombo, { gameCode, cardIds: cardsToPlay.map(c => c.id), nonce: opStartNonceRef.current, victimId: victimIdToUse });
           }
 
           setSelectedCards([]);
@@ -1367,7 +1437,11 @@ export default function GameScreen() {
 
     // Split hand into rows
     const rows: Card[][] = [];
-    const nRows = layout?.length ?? 0;
+    if (!layout) {
+      console.error('BUG: calculateHandLayout returned null/undefined layout');
+      return <div>BUG: Layout calculation failed</div>;
+    }
+    const nRows = layout.length;
     let longest = 0;
     for (let row = 0, i = 0; row < nRows; row++) {
       const cards = layout[row];
@@ -1509,12 +1583,27 @@ export default function GameScreen() {
     );
   }, [myHand, handAreaWidth, handAreaHeight, selectedCards, isDragging, drawCardAnimation, isCardPlayable, handleCardClick, handleCardDoubleClick, calculateHandLayout]);
 
-  if (!gameState || !socket) {
+  // During initial load or reconnection, some values may be null/undefined
+  // Only assert after we've confirmed the game is loaded
+  if (!gameState || !socket || !playerId || !playerName) {
     return <div>Loading game...</div>;
   }
 
-  const me = gameState.players.find(p => p.id === playerId);
-  const currentPlayer = gameState.players[gameState.currentPlayer];
+  // Assert that required values are defined - if we get here, these should never be null/undefined
+  // If they are, it's a serious bug that needs to be logged and fixed
+  const safeGameState = assertDefined(gameState, 'gameState', 'GameScreen render');
+  const safeSocket = assertDefined(socket, 'socket', 'GameScreen render');
+  const safePlayerId = assertDefined(playerId, 'playerId', 'GameScreen render');
+  const safePlayerName = assertDefined(playerName, 'playerName', 'GameScreen render');
+
+  const me = safeGameState.players.find(p => p.id === safePlayerId);
+  if (!me) {
+    console.error(`BUG: Player ${safePlayerId} not found in game state`);
+  }
+  const currentPlayer = safeGameState.players[safeGameState.currentPlayer];
+  if (!currentPlayer) {
+    console.error(`BUG: Current player index ${safeGameState.currentPlayer} is invalid`);
+  }
 
   const getEnlargedCardSize = () => {
     const maxHeight = windowHeight * 0.9;
@@ -1530,46 +1619,50 @@ export default function GameScreen() {
 
   const getPlayerClassName = (player: Player) => {
     let className = '';
-    if (player.id === currentPlayer?.id) className += 'bg-success-subtle';
+    if (currentPlayer && player.id === currentPlayer.id) className += 'bg-success-subtle';
     if (player.isOut) className += ' text-decoration-line-through text-muted';
     if (player.isDisconnected) className += ' text-muted opacity-50';
     return className.trim();
   };
 
-  const playersToDisplay = gameState.players;
+  const playersToDisplay = safeGameState.players;
 
   let turnStatus = '';
   let turnStatusBgColor = '';
   let turnStatusColor = 'black';
 
-  if (gameState && me && currentPlayer) {
+  if (!me || !currentPlayer) {
+    turnStatus = 'BUG: Invalid game state';
+    turnStatusBgColor = 'red';
+    turnStatusColor = 'white';
+  } else {
     if (me.isOut) {
       turnStatus = "You are OUT";
       turnStatusBgColor = 'lightcoral';
     } else {
       // Find the next VALID player (skip eliminated/disconnected)
-      let nextPlayerIndex = (gameState.currentPlayer + 1) % gameState.players.length;
-      let nextPlayer = gameState.players[nextPlayerIndex];
+      let nextPlayerIndex = (safeGameState.currentPlayer + 1) % safeGameState.players.length;
+      let nextPlayer = safeGameState.players[nextPlayerIndex];
 
       let attempts = 0;
-      while (attempts < gameState.players.length) {
+      while (attempts < safeGameState.players.length) {
         if (!nextPlayer.isOut && !nextPlayer.isDisconnected) {
           break;
         }
-        nextPlayerIndex = (nextPlayerIndex + 1) % gameState.players.length;
-        nextPlayer = gameState.players[nextPlayerIndex];
+        nextPlayerIndex = (nextPlayerIndex + 1) % safeGameState.players.length;
+        nextPlayer = safeGameState.players[nextPlayerIndex];
         attempts++;
       }
 
       if (me.id === currentPlayer.id) {
-        if (gameState.turnPhase === TurnPhase.Exploding || gameState.turnPhase === TurnPhase.ExplodingReinserting) {
+        if (safeGameState.turnPhase === TurnPhase.Exploding || safeGameState.turnPhase === TurnPhase.ExplodingReinserting) {
           turnStatus = `Your cluster is exploding - debug it!`;
           turnStatusBgColor = 'red';
           turnStatusColor = 'white';
-        } else if (gameState.attackTurns > 0) {
-          const turnsText = gameState.attackTurns === 1 ? 'turn' : 'turns';
-          const moreText = gameState.attackTurnsTaken > 0 ? ' more' : '';
-          turnStatus = `You have been attacked! You must take ${gameState.attackTurns}${moreText} ${turnsText}`;
+        } else if (safeGameState.attackTurns > 0) {
+          const turnsText = safeGameState.attackTurns === 1 ? 'turn' : 'turns';
+          const moreText = safeGameState.attackTurnsTaken > 0 ? ' more' : '';
+          turnStatus = `You have been attacked! You must take ${safeGameState.attackTurns}${moreText} ${turnsText}`;
           turnStatusBgColor = 'red';
           turnStatusColor = 'white';
         } else {
@@ -1600,7 +1693,7 @@ export default function GameScreen() {
       <Droppable droppableId="discard-pile" isDropDisabled={!isPlayable}>
         {(provided, snapshot) => {
           let border = '2px dashed #FFA500'; // Default orange
-          if (gameState?.topDiscardCard) {
+          if (safeGameState.topDiscardCard) {
             border = 'none';
           } else if (snapshot.isDraggingOver) {
             border = '2px dashed #00FF00';
@@ -1642,14 +1735,14 @@ export default function GameScreen() {
               }}
             >
               <h5 style={{ color: '#FFA500', position: 'absolute' }}>Discard Pile</h5>
-              {gameState && gameState.topDiscardCard && (
+              {safeGameState.topDiscardCard && (
                 <Image
-                  src={gameState.topDiscardCard.imageUrl}
-                  alt={`${gameState.topDiscardCard.class}: ${gameState.topDiscardCard.name}`}
+                  src={safeGameState.topDiscardCard.imageUrl}
+                  alt={`${safeGameState.topDiscardCard.class}: ${safeGameState.topDiscardCard.name}`}
                   fill
                   sizes="(max-width: 768px) 100px, 150px"
                   style={{ objectFit: 'contain', borderRadius: '10px' }}
-                  data-cardclass={gameState.topDiscardCard.class}
+                  data-cardclass={safeGameState.topDiscardCard.class}
                 />
               )}
               {provided.placeholder}
@@ -1660,17 +1753,17 @@ export default function GameScreen() {
     );
   };
 
-  const isSpectator = gameState && !gameState.players.some(p => p.id === playerId);
+  const isSpectator = !safeGameState.players.some(p => p.id === safePlayerId);
 
   // Determine which card to show in overlay
   let activeOverlayCard = inspectCardOverlay;
-  const turnPhase = gameState?.turnPhase;
-  if (turnPhase && (turnPhase === TurnPhase.Exploding || turnPhase === TurnPhase.ExplodingReinserting || turnPhase === TurnPhase.Upgrading)) {
-    if (gameState?.playBlockingCard) {
+  const turnPhase = safeGameState.turnPhase;
+  if (turnPhase === TurnPhase.Exploding || turnPhase === TurnPhase.ExplodingReinserting || turnPhase === TurnPhase.Upgrading) {
+    if (safeGameState.playBlockingCard) {
       // Only show persistent overlay for players who are NOT the current player
       // AND suppress it if animation is in progress (so they see the animation instead)
-      if (gameState.players[gameState.currentPlayer]?.id !== playerId && !drawCardAnimation) {
-        activeOverlayCard = gameState.playBlockingCard;
+      if (!isCurrentPlayer(safeGameState, safePlayerId) && !drawCardAnimation) {
+        activeOverlayCard = safeGameState.playBlockingCard;
       }
     }
   }
@@ -1781,17 +1874,29 @@ export default function GameScreen() {
                 ))}
               </ListGroup>
 
-              {gameState.devMode && !isSpectator && (
+              {safeGameState.devMode && !isSpectator && (
                 <div className="mt-3 d-grid gap-2">
                   <Button
                     variant="warning"
                     size="sm"
                     onClick={handleGiveDebugCard}
-                    disabled={(gameState.debugCardsCount ?? 0) === 0}
+                    disabled={(() => {
+                      const count = safeGameState.debugCardsCount;
+                      if (count === undefined || count === null) {
+                        console.error('BUG: debugCardsCount is missing');
+                      }
+                      return (count ?? 0) === 0;
+                    })()}
                   >
                     Give me a DEBUG card
                   </Button>
-                  <Button variant="warning" size="sm" onClick={handleDevDrawCard} disabled={(gameState.safeCardsCount ?? 0) === 0}>Give me a safe card</Button>
+                  <Button variant="warning" size="sm" onClick={handleDevDrawCard} disabled={(() => {
+                      const count = safeGameState.safeCardsCount;
+                      if (count === undefined || count === null) {
+                        console.error('BUG: safeCardsCount is missing');
+                      }
+                      return (count ?? 0) === 0;
+                    })()}>Give me a safe card</Button>
                   <Button variant="warning" size="sm" onClick={handlePutCardBack} disabled={myHand.length === 0}>Put a card back</Button>
                   <Button variant="info" size="sm" onClick={handleShowDeck}>Show the deck</Button>
                   <Button variant="info" size="sm" onClick={handleShowRemovedPile}>Show removed cards</Button>
@@ -1800,11 +1905,11 @@ export default function GameScreen() {
               {/* Timer Area */}
               <div className="timer-area mt-3 text-center"
                 data-areaname="timer"
-                data-turnphase={gameState.turnPhase}
+                data-turnphase={safeGameState.turnPhase}
               >
-                {(gameState.turnPhase === TurnPhase.Reaction) && reactionCountdown >= 0 && (
+                {(safeGameState.turnPhase === TurnPhase.Reaction) && reactionCountdown >= 0 && (
                   <>
-                    {(gameState.lastActorName && me?.name === gameState.lastActorName) ? (
+                    {(safeGameState.lastActorName && me && me.name === safeGameState.lastActorName) ? (
                       <h4 className="text-success">Waiting for other players to react</h4>
                     ) : (
                       <h4 className="text-warning">Want to react? Act fast!</h4>
@@ -1812,12 +1917,12 @@ export default function GameScreen() {
                     <h2 className="display-3">{reactionCountdown}</h2>
                   </>
                 )}
-                {(gameState.turnPhase === TurnPhase.Exploding) && (
+                {(safeGameState.turnPhase === TurnPhase.Exploding) && (
                   <>
-                    {playerId === gameState.players[gameState.currentPlayer]?.id ? (
+                    {isCurrentPlayer(safeGameState, safePlayerId) ? (
                       <h4 className="text-danger">PLAY A DEBUG CARD!</h4>
                     ) : (
-                      <h4 className="text-warning">Waiting for {gameState.players[gameState.currentPlayer]?.name} to debug their cluster...</h4>
+                      <h4 className="text-warning">Waiting for {safeGameState.players[safeGameState.currentPlayer]?.name || 'BUG: unknown player'} to debug their cluster...</h4>
                     )}
                   </>
                 )}
@@ -1831,30 +1936,30 @@ export default function GameScreen() {
                 {/* Draw Pile */}
                 <div className="d-flex flex-column align-items-center">
                   <div
-                    className={`draw-pile position-relative ${!draggedCard && gameState?.players[gameState.currentPlayer]?.id === playerId && gameState?.turnPhase === TurnPhase.Action ? 'draw-pile-clickable' : ''}`}
+                    className={`draw-pile position-relative ${!draggedCard && isCurrentPlayer(safeGameState, safePlayerId) && safeGameState.turnPhase === TurnPhase.Action ? 'draw-pile-clickable' : ''}`}
                     data-areaname="draw-pile"
-                    data-drawcount={gameState?.drawCount ?? 0}
+                    data-drawcount={safeGameState.drawCount ?? 0}
                     style={{
                       width: getCardSize().width,
                       height: getCardSize().height,
                       cursor: draggedCard ? 'not-allowed' : (
-                        (gameState?.players[gameState.currentPlayer]?.id === playerId && gameState?.turnPhase === TurnPhase.Action) ? 'pointer' : 'not-allowed'
+                        (isCurrentPlayer(safeGameState, safePlayerId) && safeGameState.turnPhase === TurnPhase.Action) ? 'pointer' : 'not-allowed'
                       ),
                       borderRadius: '5px'
                     }}
                     onClick={handleDrawClick}
                   >
                     <Image
-                      src={drawCardAnimation?.nextCardImageUrl || gameState?.drawPileImage || "/art/back.png"}
-                      alt={`Draw Pile: ${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
-                      data-cardclass={gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'UNKNOWN'}
+                      src={drawCardAnimation?.nextCardImageUrl || safeGameState.drawPileImage || (() => { console.error('BUG: drawPileImage is missing'); return "/art/back.png"; })()}
+                      alt={`Draw Pile: ${safeGameState.topDrawPileCard ? safeGameState.topDrawPileCard.class : 'Face-down card'}`}
+                      data-cardclass={safeGameState.topDrawPileCard ? safeGameState.topDrawPileCard.class : 'UNKNOWN'}
                       width={getCardSize().width}
                       height={getCardSize().height} />
 
                     {drawCardAnimation && (
                       <div className="static-card-vanish" style={{ animationDuration: `${drawCardAnimation.duration}ms` }}>
                         <Image
-                          src={drawCardAnimation.currentPileImageUrl || "/art/back.png"}
+                          src={drawCardAnimation.currentPileImageUrl || (() => { console.error('BUG: currentPileImageUrl is missing in drawCardAnimation'); return "/art/back.png"; })()}
                           alt={`Draw Pile: next card'}`}
                           width={getCardSize().width}
                           height={getCardSize().height} />
@@ -1876,8 +1981,8 @@ export default function GameScreen() {
                           animation: `handPullBack ${drawCardAnimation.duration ? drawCardAnimation.duration*0.75/1000 : 2}s step-start forwards`
                         }}>
                           <Image
-                            src={drawCardAnimation.currentPileImageUrl || "/art/back.png"}
-                            alt={`${gameState.topDrawPileCard ? gameState.topDrawPileCard.class : 'Face-down card'}`}
+                            src={drawCardAnimation.currentPileImageUrl || (() => { console.error('BUG: currentPileImageUrl is missing in drawCardAnimation'); return "/art/back.png"; })()}
+                            alt={`${safeGameState.topDrawPileCard ? safeGameState.topDrawPileCard.class : 'Face-down card'}`}
                             width={getCardSize().width}
                             height={getCardSize().height}
                             style={{
@@ -1890,7 +1995,7 @@ export default function GameScreen() {
                         </div>
                       </div>
                     )}
-                    {gameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x draw-pile-count" style={{ top: '100%' }}>({gameState.drawPileCount !== undefined ? gameState.drawPileCount : '??'} cards)</div>}
+                    {safeGameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x draw-pile-count" style={{ top: '100%' }}>({safeGameState.drawPileCount !== undefined ? safeGameState.drawPileCount : '??'} cards)</div>}
                   </div>
                 </div>
 
@@ -1898,7 +2003,7 @@ export default function GameScreen() {
                 <div className="d-flex flex-column align-items-center">
                   <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
                     {renderDiscardPile()}
-                    {gameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x discard-pile-count" style={{ top: '100%' }}>({gameState.discardPileCount !== undefined ? gameState.discardPileCount : '??'} cards)</div>}
+                    {safeGameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x discard-pile-count" style={{ top: '100%' }}>({safeGameState.discardPileCount !== undefined ? safeGameState.discardPileCount : '??'} cards)</div>}
                   </div>
                 </div>
               </div>
@@ -2093,7 +2198,7 @@ export default function GameScreen() {
             <Modal.Title>Game State Updated</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <p>{opConflictModal?.reason}</p>
+            <p>{opConflictModal ? opConflictModal.reason : 'BUG: opConflictModal is null'}</p>
           </Modal.Body>
           <Modal.Footer>
             <Button variant="primary" onClick={() => setOpConflictModal(null)}>OK</Button>
@@ -2244,7 +2349,7 @@ export default function GameScreen() {
           <Modal.Body>
             <p>Choose a player to ask for a favor:</p>
             <div className="list-group">
-              {gameState?.players.filter(p => p.id !== playerId && !p.isOut && p.cards > 0).map(p => (
+              {safeGameState.players.filter(p => p.id !== safePlayerId && !p.isOut && p.cards > 0).map(p => (
                 <button
                   key={p.id}
                   className={`list-group-item list-group-item-action ${favorVictimSelection === p.id ? 'active' : ''}`}
@@ -2341,7 +2446,7 @@ export default function GameScreen() {
           <Modal.Body>
             <p>Choose a player to steal from:</p>
             <div className="list-group">
-              {gameState?.players.filter(p => p.id !== playerId && !p.isOut && p.cards > 0).map(p => (
+              {safeGameState.players.filter(p => p.id !== safePlayerId && !p.isOut && p.cards > 0).map(p => (
                 <button
                   key={p.id}
                   className={`list-group-item list-group-item-action ${favorVictimSelection === p.id ? 'active' : ''}`}
@@ -2421,9 +2526,9 @@ export default function GameScreen() {
           >
             <h2>
               {
-                gameState?.players[gameState?.currentPlayer]?.id == playerId
+                isCurrentPlayer(safeGameState, safePlayerId)
                   ? "You stole:"
-                  : `${gameState?.lastActorName || "<BUG>"} stole your:`
+                  : `${safeGameState.lastActorName || "BUG: unknown actor"} stole your:`
               }
             </h2>
             <Image src={stealCardResultOverlay.imageUrl} alt={stealCardResultOverlay.name} width={getEnlargedCardSize().width} height={getEnlargedCardSize().height} />

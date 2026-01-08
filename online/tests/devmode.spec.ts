@@ -1423,7 +1423,7 @@ test.describe("Browser Tests (DEVMODE=1)", () => {
     await expect(page2.locator(".list-group-item:has-text('P3')")).not.toBeVisible();
     await expect(page4.locator(".list-group-item:has-text('P3')")).not.toBeVisible();
 
-    // Verify "abandoned turn" message
+    // Verify "disconnected" message
     await expect(utils.findLogArea(page2)).toContainText("P3 has disconnected");
     await expect(utils.findLogArea(page4)).toContainText("P3 has disconnected");
 
