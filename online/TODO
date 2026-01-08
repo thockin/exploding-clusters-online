@@ -10,7 +10,6 @@ In progress:
 
 Test improvments
 * s/'/" in test
-* use string URLs in test
 * Make tests fast
   - precompile so we don't need to wait so long at startup of each test
   - faster timeouts, move flaky tests to "slow" set
