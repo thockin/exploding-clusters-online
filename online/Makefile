@@ -4,6 +4,7 @@ all:
 	@echo "There is no 'all' target defined."
 
 test:
+	npm run build
 	npm test -- --silent
 	for cfg in playwright*.config.ts; do \
 		npx playwright test --config=$$cfg --workers 4; \

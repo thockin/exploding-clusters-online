@@ -2,12 +2,12 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useSocket } from '../contexts/SocketContext';
 import { Container, Button } from 'react-bootstrap';
 
-export default function WatchGamePage() {
+function WatchGameContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -72,5 +72,15 @@ export default function WatchGamePage() {
   }
 
   return null;
+}
+
+export const dynamic = 'force-dynamic';
+
+export default function WatchGamePage() {
+  return (
+    <Suspense fallback={<Container className="mt-5 text-center"><h2>Loading...</h2></Container>}>
+      <WatchGameContent />
+    </Suspense>
+  );
 }
 

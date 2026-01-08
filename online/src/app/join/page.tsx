@@ -2,11 +2,11 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useSocket } from '../contexts/SocketContext';
 
-export default function JoinGamePage() {
+function JoinGameContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -35,5 +35,15 @@ export default function JoinGamePage() {
   }, [router, pathname, searchParams, resetState]);
 
   return null;
+}
+
+export const dynamic = 'force-dynamic';
+
+export default function JoinGamePage() {
+  return (
+    <Suspense fallback={null}>
+      <JoinGameContent />
+    </Suspense>
+  );
 }
 

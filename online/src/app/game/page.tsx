@@ -1071,7 +1071,7 @@ export default function GameScreen() {
       // Now handle the actual play
       if (cardsToPlay.length > 0) {
         const getValidVictims = () => {
-          return gameState?.players.filter(p => p.id !== playerId && !p.isOut && !p.isDisconnected && p.cards > 0) || [];
+          return currentGameState?.players.filter(p => p.id !== playerId && !p.isOut && !p.isDisconnected && p.cards > 0) || [];
         };
         let victimIdToUse: string | undefined;
 
@@ -1085,7 +1085,7 @@ export default function GameScreen() {
           if (victims.length === 1) {
             victimIdToUse = victims[0].id;
           } else {
-            opStartNonceRef.current = gameState?.nonce;
+            opStartNonceRef.current = currentGameState.nonce;
             setFavorVictimModalOpen(true);
             setChoiceCountdown(choiceTimeoutSeconds);
             return;
@@ -1102,7 +1102,7 @@ export default function GameScreen() {
           if (victims.length === 1) {
             victimIdToUse = victims[0].id;
           } else {
-            opStartNonceRef.current = gameState?.nonce;
+            opStartNonceRef.current = currentGameState.nonce;
             setStealCardVictimModalOpen(true);
             return;
           }
@@ -1147,7 +1147,8 @@ export default function GameScreen() {
 
     isDraggingRef.current = true;
     setIsDragging(true);
-    if (gameState) opStartNonceRef.current = gameState.nonce;
+    const currentGameState = gameStateRef.current;
+    if (currentGameState) opStartNonceRef.current = currentGameState.nonce;
     console.debug('onDragStart', start, "nonce", opStartNonceRef.current);
 
     if (start.source.droppableId.startsWith('hand-row-')) {
