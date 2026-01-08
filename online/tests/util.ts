@@ -68,7 +68,7 @@ export async function watchGame(page: Page, code: string) {
 export async function leaveGame(page: Page) {
   await page.click(Buttons.LEAVE_GAME);
   const modal = findModal(page, "leave-game");
-  await expect(modal).toBeVisible({timeout: 30000});
+  await expect(modal).toBeVisible();
   const button = modal.locator(Buttons.LEAVE_GAME_CONFIRM);
   await expect(button).toBeVisible();
   await button.click();

@@ -9,8 +9,7 @@ In progress:
   - shift-click?
 
 Test improvments
-* s/'/" in test
-* Make tests fast
+* Make tests faster
   - precompile so we don't need to wait so long at startup of each test
   - faster timeouts, move flaky tests to "slow" set
 * more helper funcs (e.g. almostExplode)
