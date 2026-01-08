@@ -36,7 +36,6 @@ export default function GameScreen() {
   const [showLeaveGameModal, setShowLeaveGameModal] = useState(false);
   const [selectedCards, setSelectedCards] = useState<Card[]>([]); // For single or combo selection
   const [inspectCardOverlay, setInspectCardOverlay] = useState<Card | null>(null);
-  const [explodingCard, setExplodingCard] = useState<Card | null>(null);
   const [windowHeight, setWindowHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
   const [isClient, setIsClient] = useState(false); // Initialize as false
   const tableAreaRef = useRef<HTMLDivElement>(null);
@@ -227,7 +226,6 @@ export default function GameScreen() {
 
     const onDeckData = ({ deck }: { deck: Card[] }) => setDeckCardsOverlay(deck);
     const onRemovedData = ({ removedPile }: { removedPile: Card[] }) => setRemovedCardsOverlay(removedPile);
-    const onPlayerExploding = ({ card }: { card: Card }) => setExplodingCard(card);
     const onPlayError = (data: { reason: string, cardId?: string, cardIds?: string[] }) => {
       setOpConflictModal(data); // use data directly
     };
@@ -295,7 +293,6 @@ export default function GameScreen() {
     console.debug('Registering Socket event listeners.');
     socket.on(SocketEvent.DeckData, onDeckData);
     socket.on(SocketEvent.RemovedData, onRemovedData);
-    socket.on(SocketEvent.PlayerExploding, onPlayerExploding);
     socket.on(SocketEvent.PlayError, onPlayError);
     socket.on(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
     socket.on(SocketEvent.ChooseFavorCard, onChooseFavorCard);
@@ -307,7 +304,6 @@ export default function GameScreen() {
     return () => {
       socket.off(SocketEvent.DeckData, onDeckData);
       socket.off(SocketEvent.RemovedData, onRemovedData);
-      socket.off(SocketEvent.PlayerExploding, onPlayerExploding);
       socket.off(SocketEvent.PlayError, onPlayError);
       socket.off(SocketEvent.SeeTheFutureData, onSeeTheFutureData);
       socket.off(SocketEvent.ChooseFavorCard, onChooseFavorCard);
