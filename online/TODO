@@ -1,14 +1,11 @@
 In progress:
-* BUG: Flicker on hand update
-* BUG: Hand should allow rendering > 75% without resize
+* BUG: Hand should allow rendering 1 row at 75% height without resize
 * Make all areas resizable
-  - bar between log and hand
   - make decks smaller
   - left-right between players and table
-  - warning about aspect ratio
 * Revist LLM critique notes
 * ipad support
-  - shift-click?
+  - shift-click == long press?
 
 Test improvments
 * Make tests faster

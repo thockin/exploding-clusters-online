@@ -1598,11 +1598,10 @@ export default function GameScreen() {
                                   <Image
                                     src={sc.imageUrl}
                                     alt={`${sc.class}: ${sc.name}`}
-                                    width={cardWidth}
-                                    height={cardWidth / CARD_ASPECT_RATIO}
+                                    fill
+                                    sizes={`${cardWidth}px`}
                                     draggable={false}
                                     style={{
-                                      width: '100%', height: 'auto',
                                       objectFit: 'contain'
                                     }}
                                   />
@@ -1613,13 +1612,11 @@ export default function GameScreen() {
                           <Image
                             src={card.imageUrl}
                             alt={`${card.class}: ${card.name} (${playable ? 'playable' : 'not playable'})`}
-                            width={cardWidth}
-                            height={cardWidth / CARD_ASPECT_RATIO}
+                            fill
+                            sizes={`${cardWidth}px`}
                             draggable={false}
                             style={{
-                              width: '100%', height: 'auto',
                               zIndex: 1,
-                              position: 'relative',
                               backgroundColor: 'white',
                               borderRadius: '5px',
                               objectFit: 'contain'
