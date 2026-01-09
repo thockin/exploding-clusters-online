@@ -73,6 +73,9 @@ export default function GameScreen() {
   // User can drag the resize bar to adjust this between 20% and 80%
   // Lower half shows messages and hand
   const [upperHalfHeight, setUpperHalfHeight] = useState<number>(50);
+  // Percentage height of the log area within the lower half (rest is hand area)
+  // User can drag the resize bar to adjust this between 20% and 80% of the lower half
+  const [lowerHalfLogHeight, setLowerHalfLogHeight] = useState<number>(50);
   // Stores the dimensions of the table area (where draw/discard piles are displayed)
   // Used to calculate optimal card sizes for the table cards
   const [tableAreaSize, setTableAreaSize] = useState({ width: 0, height: 0 });
@@ -94,12 +97,18 @@ export default function GameScreen() {
   const handAreaRef = useRef<HTMLDivElement>(null);
 
   // Refs for resize drag tracking - these store values that don't need to trigger re-renders
-  // Tracks whether the user is currently dragging the resize bar
+  // Tracks whether the user is currently dragging the resize bar between upper and lower halves
   const isResizingHalfRef = useRef(false);
-  // Stores the mouse Y position when resize drag started
+  // Stores the mouse Y position when resize drag started (upper/lower split)
   const resizeHalfStartPosRef = useRef({ y: 0 });
   // Stores the upper half height percentage when resize drag started
   const resizeHalfStartHeightRef = useRef(50);
+  // Tracks whether the user is currently dragging the resize bar between log and hand areas
+  const isResizingLowerHalfRef = useRef(false);
+  // Stores the mouse Y position when resize drag started (log/hand split)
+  const resizeLowerHalfStartPosRef = useRef({ y: 0 });
+  // Stores the lower half log height percentage when resize drag started
+  const resizeLowerHalfStartHeightRef = useRef(50);
 
   // A ref that always holds the latest gameState value
   // Used in event handlers/callbacks to avoid stale closures (getting old gameState values)
@@ -571,27 +580,42 @@ export default function GameScreen() {
     }
   }, [gameState]);
 
-  // Handle mouse drag for resizing the upper/lower half split
-  // Tracks mouse movement during resize drag and updates upperHalfHeight percentage
+  // Handle mouse drag for resizing both the upper/lower half split and the log/hand split
+  // Tracks mouse movement during resize drag and updates the appropriate height percentage
   // Empty dependency array means this only runs once on mount
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingHalfRef.current) return;
-
-      const container = document.querySelector('.container-fluid');
-      if (container) {
-        const containerHeight = container.clientHeight;
-        const deltaY = e.clientY - resizeHalfStartPosRef.current.y;
-        const deltaPercent = (deltaY / containerHeight) * 100;
-        // Dragging down (positive deltaY) increases upper half, decreases lower half
-        // Dragging up (negative deltaY) decreases upper half, increases lower half
-        const newHeight = Math.max(20, Math.min(80, resizeHalfStartHeightRef.current + deltaPercent));
-        setUpperHalfHeight(newHeight);
+      if (isResizingHalfRef.current) {
+        const container = document.querySelector('.container-fluid');
+        if (container) {
+          const containerHeight = container.clientHeight;
+          const deltaY = e.clientY - resizeHalfStartPosRef.current.y;
+          const deltaPercent = (deltaY / containerHeight) * 100;
+          // Dragging down (positive deltaY) increases upper half, decreases lower half
+          // Dragging up (negative deltaY) decreases upper half, increases lower half
+          const newHeight = Math.max(20, Math.min(80, resizeHalfStartHeightRef.current + deltaPercent));
+          setUpperHalfHeight(newHeight);
+        }
+      }
+      
+      if (isResizingLowerHalfRef.current) {
+        // Get the lower half container to calculate relative position
+        const lowerHalfContainer = document.querySelector('[data-lower-half-container]') as HTMLElement;
+        if (lowerHalfContainer) {
+          const lowerHalfHeight = lowerHalfContainer.clientHeight;
+          const deltaY = e.clientY - resizeLowerHalfStartPosRef.current.y;
+          const deltaPercent = (deltaY / lowerHalfHeight) * 100;
+          // Dragging down (positive deltaY) increases log area, decreases hand area
+          // Dragging up (negative deltaY) decreases log area, increases hand area
+          const newHeight = Math.max(20, Math.min(80, resizeLowerHalfStartHeightRef.current + deltaPercent));
+          setLowerHalfLogHeight(newHeight);
+        }
       }
     };
 
     const handleMouseUp = () => {
       isResizingHalfRef.current = false;
+      isResizingLowerHalfRef.current = false;
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -607,6 +631,13 @@ export default function GameScreen() {
     isResizingHalfRef.current = true;
     resizeHalfStartPosRef.current = { y: e.clientY };
     resizeHalfStartHeightRef.current = upperHalfHeight;
+  };
+
+  const handleLowerHalfResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizingLowerHalfRef.current = true;
+    resizeLowerHalfStartPosRef.current = { y: e.clientY };
+    resizeLowerHalfStartHeightRef.current = lowerHalfLogHeight;
   };
 
   // Callback to confirm reinserting an UPGRADE CLUSTER card
@@ -2071,21 +2102,31 @@ export default function GameScreen() {
         </div>
 
         {/* Lower half */}
-        <div style={{
-          height: `${100 - upperHalfHeight}%`,
-          minHeight: '200px',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}>
-          <Row style={{ flex: '1 1 0', margin: 0, minHeight: 0, height: '100%' }}>
+        <div 
+          data-lower-half-container
+          style={{
+            height: `${100 - upperHalfHeight}%`,
+            minHeight: '200px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}
+        >
+          {/* Log area (upper part of lower half) */}
+          <Row style={{ 
+            flex: `0 0 ${lowerHalfLogHeight}%`, 
+            margin: 0, 
+            minHeight: 0, 
+            maxHeight: `${lowerHalfLogHeight}%`,
+            overflow: 'hidden'
+          }}>
             <Col className="d-flex flex-column" style={{ minHeight: 0, height: '100%' }}>
               <div
                 data-areaname="message"
                 style={{
                   backgroundColor: '#f0f0f0',
                   borderRadius: '5px', margin: '0.5rem 0', padding: '0.5rem',
-                  flex: '1 1 0',
+                  height: '100%',
                   display: 'flex', flexDirection: 'column',
                   minHeight: 0,
                   overflow: 'hidden', // Prevent parent from scrolling
@@ -2137,15 +2178,59 @@ export default function GameScreen() {
               </div>
             </Col>
           </Row>
+
+          {/* Resize bar between log and hand */}
           {!isSpectator && (
-            <Row style={{ margin: 0, flex: '1 1 0', minHeight: 0 }}>
-              <Col className="d-flex flex-column">
+            <div
+              onMouseDown={handleLowerHalfResizeStart}
+              style={{
+                width: '100%',
+                height: '6px',
+                cursor: 'row-resize',
+                backgroundColor: 'transparent',
+                zIndex: 100,
+                userSelect: 'none',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative'
+              }}
+            >
+              <div
+                style={{
+                  width: '100%',
+                  height: '3px',
+                  backgroundColor: 'rgba(150, 150, 150, 0.6)',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(100, 100, 100, 0.9)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(150, 150, 150, 0.6)';
+                }}
+              />
+            </div>
+          )}
+
+          {/* Hand area (lower part of lower half) */}
+          {!isSpectator && (
+            <Row style={{ 
+              margin: 0, 
+              flex: `0 0 ${100 - lowerHalfLogHeight}%`,
+              minHeight: 0,
+              maxHeight: `${100 - lowerHalfLogHeight}%`,
+              overflow: 'hidden',
+              height: `${100 - lowerHalfLogHeight}%`
+            }}>
+              <Col className="d-flex flex-column" style={{ minHeight: 0, height: '100%' }}>
                 <div className="bg-light p-3 d-flex flex-column position-relative"
                   style={{
                     borderRadius: '5px',
                     margin: '0.5rem 0',
-                    flex: '1 1 0',
-                    minHeight: '200px',
+                    height: '100%',
+                    minHeight: 0,
                     display: 'flex',
                     flexDirection: 'column',
                     overflow: 'hidden'
