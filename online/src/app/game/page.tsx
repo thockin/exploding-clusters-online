@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Container, Row, Col, ListGroup, Button, Modal, Form } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
-import { Card, Player, SocketEvent, CardClass, TurnPhase, WinType } from '../../api';
+import { Card, Player, SocketEvent, CardClass, TurnPhase, WinType, GameUpdatePayload } from '../../api';
 import { DragDropContext, Droppable, Draggable, DropResult, DragStart } from '@hello-pangea/dnd';
 import Image from 'next/image';
 
@@ -32,6 +32,25 @@ const CARD_DISMISS_TIMEOUT_MS = 2500;
 // How long before auto-dismiss for client-only choice dialogs (no server timer)
 const CHOICE_DISMISS_TIMEOUT_S = 15;
 
+// Helper function to check if a given player is the current player
+// Returns true if the playerId matches the current player's ID, false otherwise
+// Logs an error if the current player index is invalid
+// Accepts gameState (which may be null/undefined) and playerId (which may be null/undefined)
+// This centralizes the logic and error checking for current player comparisons
+const isCurrentPlayer = (gs: GameUpdatePayload | null | undefined, pid: string | null | undefined): boolean => {
+  if (!gs || !pid) return false;
+  if (gs.currentPlayer < 0 || gs.currentPlayer >= gs.players.length) {
+    console.error(`BUG: Current player index ${gs.currentPlayer} is out of bounds`);
+    return false;
+  }
+  const currentPlayer = gs.players[gs.currentPlayer];
+  if (!currentPlayer) {
+    console.error(`BUG: Current player at index ${gs.currentPlayer} is null/undefined`);
+    return false;
+  }
+  return currentPlayer.id === pid;
+};
+
 export default function GameScreen() {
   const router = useRouter();
   const { socket, gameCode, gameState, playerName, playerId, myHand, setMyHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
@@ -45,25 +64,6 @@ export default function GameScreen() {
       throw new Error(msg);
     }
     return value;
-  };
-
-  // Helper function to check if a given player is the current player
-  // Returns true if the playerId matches the current player's ID, false otherwise
-  // Logs an error if the current player index is invalid
-  // Accepts gameState (which may be null/undefined) and playerId (which may be null/undefined)
-  // This centralizes the logic and error checking for current player comparisons
-  const isCurrentPlayer = (gs: typeof gameState, pid: string | null | undefined): boolean => {
-    if (!gs || !pid) return false;
-    if (gs.currentPlayer < 0 || gs.currentPlayer >= gs.players.length) {
-      console.error(`BUG: Current player index ${gs.currentPlayer} is out of bounds`);
-      return false;
-    }
-    const currentPlayer = gs.players[gs.currentPlayer];
-    if (!currentPlayer) {
-      console.error(`BUG: Current player at index ${gs.currentPlayer} is null/undefined`);
-      return false;
-    }
-    return currentPlayer.id === pid;
   };
 
   // Tracks the current window height for responsive card sizing
