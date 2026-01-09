@@ -1645,9 +1645,7 @@ export default function GameScreen() {
   // Assert that required values are defined - if we get here, these should never be null/undefined
   // If they are, it's a serious bug that needs to be logged and fixed
   const safeGameState = assertDefined(gameState, 'gameState', 'GameScreen render');
-  const safeSocket = assertDefined(socket, 'socket', 'GameScreen render');
   const safePlayerId = assertDefined(playerId, 'playerId', 'GameScreen render');
-  const safePlayerName = assertDefined(playerName, 'playerName', 'GameScreen render');
 
   const me = safeGameState.players.find(p => p.id === safePlayerId);
   if (!me) {
@@ -1943,7 +1941,9 @@ export default function GameScreen() {
                   >
                     Give me a DEBUG card
                   </Button>
-                  <Button variant="warning" size="sm" onClick={handleDevDrawCard} disabled={(() => {
+                  <Button variant="warning" size="sm"
+                    onClick={handleDevDrawCard}
+                    disabled={(() => {
                       const count = safeGameState.safeCardsCount;
                       if (count === undefined || count === null) {
                         console.error('BUG: safeCardsCount is missing');
