@@ -1539,7 +1539,7 @@ export default function GameScreen() {
                 }}
               >
                 {rowCards.map((card, index) => (
-                  <Draggable key={card.id} draggableId={card.id} index={index} isDragDisabled={!!drawCardAnimation}>
+                  <Draggable key={card.id} draggableId={card.id} index={index}>
                     {(providedDraggable, snapshot) => {
                       const isSelected = selectedCards.some(sc => sc.id === card.id);
                       const shouldHide = isDragging && isSelected && !snapshot.isDragging;
@@ -1639,7 +1639,7 @@ export default function GameScreen() {
         ))}
       </div>
     );
-  }, [myHand, handAreaWidth, handAreaHeight, selectedCards, isDragging, drawCardAnimation, isCardPlayable, handleCardClick, handleCardDoubleClick, calculateHandLayout]);
+  }, [myHand, handAreaWidth, handAreaHeight, selectedCards, isDragging, isCardPlayable, handleCardClick, handleCardDoubleClick, calculateHandLayout]);
 
   // During initial load or reconnection, some values may be null/undefined
   // Only assert after we've confirmed the game is loaded
