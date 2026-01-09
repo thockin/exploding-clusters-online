@@ -3648,7 +3648,7 @@ test.describe("Browser Tests (DEVMODE=1)", () => {
     await expect(utils.findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test("DEVELOPER 2x combo: victim disconnects during reaction", async ({ browser }) => {
+  test("DEVELOPER 2x Combo: victim disconnects during reaction", async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3721,7 +3721,7 @@ test.describe("Browser Tests (DEVMODE=1)", () => {
     await expect(utils.findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test("DEVELOPER 2x combo: victim disconnects during card choice", async ({ browser }) => {
+  test("DEVELOPER 2x Combo: victim disconnects during card choice", async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3798,7 +3798,7 @@ test.describe("Browser Tests (DEVMODE=1)", () => {
     await expect(utils.findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test("DEVELOPER 2x combo: victim leaves during reaction", async ({ browser }) => {
+  test("DEVELOPER 2x Combo: victim leaves during reaction", async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
@@ -3871,7 +3871,7 @@ test.describe("Browser Tests (DEVMODE=1)", () => {
     await expect(utils.findTurnArea(page1)).toContainText("It's your turn");
   });
 
-  test("DEVELOPER 2x combo: victim leaves during card choice", async ({ browser }) => {
+  test("DEVELOPER 2x Combo: victim leaves during card choice", async ({ browser }) => {
     const ctx1 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx2 = await browser.newContext({ viewport: { width: 850, height: 1200 } });
     const ctx3 = await browser.newContext({ viewport: { width: 850, height: 1200 } });

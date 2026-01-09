@@ -366,13 +366,6 @@ export class GameManager {
     if (game.devMode) {
       this.log(game, `nonce updated to: ${game.nonce}`);
     }
-
-    // Send individual hand updates
-    for (const player of game.players) {
-      if (player.socketId) {
-        this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
-      }
-    }
   }
 
   private startReactionTimer(game: Game) {
@@ -606,11 +599,9 @@ export class GameManager {
     socket.join(gameCode);
 
     this.log(game, `player "${sanitizedName}" (${socket.id}) joined the game`);
-    this.updateGameNonce(game);
     // Notify all players in the game about the new player
     this.emitToGame(game.code, SocketEvent.PlayerJoined, { playerId: player.id, playerName: player.name });
-    // Emit game update to ensure all clients see the updated player and spectator counts
-    this.emitGameUpdate(game);
+    this.updateGameNonce(game);
     callback({ success: true, gameCode, uuid: game.uuid, nonce: game.nonce, playerId: player.id });
   }
 
@@ -818,6 +809,12 @@ export class GameManager {
     this.log(game, `game started`);
     this.msgToAllPlayers(game.code, `It's ${game.players[game.currentPlayer].name}'s turn first!`);
     this.updateGameNonce(game);
+    // Send players their hands
+    for (const player of game.players) {
+      if (player.socketId) {
+        this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
+      }
+    }
     this.emitToGame(game.code, SocketEvent.GameStarted);
     callback({ success: true });
   }
@@ -944,12 +941,12 @@ export class GameManager {
       const [debugCard] = game.drawPile.splice(debugCardIndex, 1);
       player.hand.push(debugCard);
       this.log(game, `DEVMODE: gave a DEBUG card to player "${player.name}"`);
-      this.updateGameNonce(game); // This triggers gameUpdate and handUpdate
+      this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
     } else {
       // Optionally create one if none exist?
       this.log(game, `DEVMODE: no DEBUG cards left in deck for player "${player.name}"`);
-      this.emitGameUpdate(game); // Ensure client knows count is 0
     }
+    this.updateGameNonce(game);
   }
 
   private giveSafeCard(socket: Socket, gameCode: string) {
@@ -969,11 +966,11 @@ export class GameManager {
       const [card] = game.drawPile.splice(cardIndex, 1);
       player.hand.push(card);
       this.log(game, `DEVMODE: gave a "${card.class}" card to player "${player.name}"`);
-      this.updateGameNonce(game);
+      this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
     } else {
       this.log(game, `DEVMODE: no safe cards left in deck for player "${player.name}"`);
-      this.emitGameUpdate(game);
     }
+    this.emitGameUpdate(game);
   }
 
   private putCardBack(socket: Socket, gameCode: string) {
@@ -993,6 +990,7 @@ export class GameManager {
       if (card) {
         game.drawPile.push(card); // Put back on top (end of array)
         this.log(game, `DEVMODE: player "${player.name}" put back card "${card.name}" (${card.class})`);
+        this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
         this.updateGameNonce(game);
       }
     }
@@ -1258,6 +1256,7 @@ export class GameManager {
               this.msgToAllPlayers(game.code, `${player.name} drew a card, it's ${nextPlayer?.name}'s turn.`);
             }
           }
+          this.emitToSocket(currentPlayer.socketId, SocketEvent.HandUpdate, { hand: currentPlayer.hand });
           this.updateGameNonce(currentGame, currentPlayer.name);
         } catch (error) {
           this.log(null, `finishDrawCard error: ${error}`);
@@ -1359,7 +1358,7 @@ export class GameManager {
         newHandIds.add(newCard.id);
       }
 
-      // Check 4: Ensure all cards from old hand exist in new hand (prevents card removal)
+      // Ensure all cards from old hand exist in new hand (prevents card removal)
       if (currentHandIds.size !== newHandIds.size) {
         this.log(game, `invalid hand reorder attempt by player "${player.name}": missing cards`);
         this.emitToSocket(socket.id, SocketEvent.HandUpdate, { hand: player.hand });
@@ -1521,6 +1520,7 @@ export class GameManager {
       if (game.devMode) {
         this.msgToAllPlayers(game.code, `DEV: ${player.name} played ${card.class}.`);
       }
+      this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
 
       let cb: ActionCallback | undefined;
 
@@ -1892,6 +1892,7 @@ export class GameManager {
       if (game.devMode) {
         this.msgToAllPlayers(game.code, `DEV: ${player.name} played ${card.class}.`);
       }
+      this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
 
       let cb: ActionCallback | undefined;
 
@@ -1939,6 +1940,7 @@ export class GameManager {
       this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
       return undefined;
     }
+    this.emitToSocket(player.socketId, SocketEvent.HandUpdate, { hand: player.hand });
     const card = cards[0];
 
     this.log(game, `player "${player.name}" played 2x combo "${card.class}: ${card.name}" targeting "${victim.name}"`);
