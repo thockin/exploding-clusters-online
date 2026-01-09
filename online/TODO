@@ -1,5 +1,6 @@
 In progress:
 * BUG: Flicker on hand update
+* BUG: Hand should allow rendering > 75% without resize
 * Make all areas resizable
   - bar between log and hand
   - make decks smaller

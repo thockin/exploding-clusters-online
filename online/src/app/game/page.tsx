@@ -1400,6 +1400,7 @@ export default function GameScreen() {
           } else {
             opStartNonceRef.current = currentGameState.nonce;
             setStealCardVictimModalOpen(true);
+            setChoiceCountdown(CHOICE_DISMISS_TIMEOUT_S);
             return;
           }
         }
