@@ -558,8 +558,6 @@ export default function GameScreen() {
   // Skips updates during drag operations to prevent layout flicker
   useEffect(() => {
     if (handAreaRef.current) {
-      setHandAreaWidth(handAreaRef.current.clientWidth);
-      setHandAreaHeight(handAreaRef.current.clientHeight);
       const observer = new ResizeObserver(entries => {
         if (entries[0] && !isDraggingRef.current) {
           const entry = entries[0];
@@ -569,7 +567,7 @@ export default function GameScreen() {
           if (entry.borderBoxSize && entry.borderBoxSize.length > 0) {
             const bs = entry.borderBoxSize[0];
             width = bs.inlineSize;
-            height = bs.blockSize;;
+            height = bs.blockSize;
           }
           setHandAreaWidth(width);
           setHandAreaHeight(height);
