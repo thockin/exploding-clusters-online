@@ -46,6 +46,32 @@
   50%, 100% { opacity: 0; }
 }
 
+/* Consistent scrollbar styling for scrollable areas (log and hand) */
+.scrollable-area {
+  /* Firefox */
+  scrollbar-width: auto;
+  scrollbar-color: #888 #f0f0f0;
+}
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+.scrollable-area::-webkit-scrollbar {
+  width: 17px; /* Standard scrollbar width */
+}
+
+.scrollable-area::-webkit-scrollbar-track {
+  background: #f0f0f0;
+}
+
+.scrollable-area::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+  border: 3px solid #f0f0f0; /* Creates padding effect */
+}
+
+.scrollable-area::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
 .static-card-vanish {
   position: absolute;
   top: 0; left: 0;

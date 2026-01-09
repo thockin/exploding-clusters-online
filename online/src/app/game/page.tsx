@@ -597,7 +597,7 @@ export default function GameScreen() {
           setUpperHalfHeight(newHeight);
         }
       }
-      
+
       if (isResizingLowerHalfRef.current) {
         // Get the lower half container to calculate relative position
         const lowerHalfContainer = document.querySelector('[data-lower-half-container]') as HTMLElement;
@@ -2082,7 +2082,8 @@ export default function GameScreen() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            position: 'relative'
+            position: 'relative',
+            paddingTop: '0.5rem'
           }}
         >
           <div
@@ -2102,7 +2103,7 @@ export default function GameScreen() {
         </div>
 
         {/* Lower half */}
-        <div 
+        <div
           data-lower-half-container
           style={{
             height: `${100 - upperHalfHeight}%`,
@@ -2113,21 +2114,24 @@ export default function GameScreen() {
           }}
         >
           {/* Log area (upper part of lower half) */}
-          <Row style={{ 
-            flex: `0 0 ${lowerHalfLogHeight}%`, 
-            margin: 0, 
-            minHeight: 0, 
+          <Row style={{
+            flex: `0 0 ${lowerHalfLogHeight}%`,
+            margin: 0,
+            minHeight: 0,
             maxHeight: `${lowerHalfLogHeight}%`,
             overflow: 'hidden'
           }}>
-            <Col className="d-flex flex-column" style={{ minHeight: 0, height: '100%' }}>
+            <Col className="d-flex flex-column" style={{ minHeight: 0, height: '100%', padding: '0' }}>
               <div
                 data-areaname="message"
                 style={{
                   backgroundColor: '#f0f0f0',
-                  borderRadius: '5px', margin: '0.5rem 0', padding: '0.5rem',
+                  borderRadius: '10px',
+                  margin: '0.5rem 0',
+                  padding: '0.5rem',
                   height: '100%',
-                  display: 'flex', flexDirection: 'column',
+                  display: 'flex',
+                  flexDirection: 'column',
                   minHeight: 0,
                   overflow: 'hidden', // Prevent parent from scrolling
                   position: 'relative'
@@ -2136,10 +2140,12 @@ export default function GameScreen() {
                 <div
                   data-areaname="turn"
                   style={{
-                    textAlign: 'center', padding: '0.25rem',
+                    textAlign: 'center',
+                    padding: '0.25rem',
                     backgroundColor: turnStatusBgColor,
                     color: turnStatusColor,
-                    borderRadius: '5px', flexShrink: 0,
+                    borderRadius: '5px',
+                    flexShrink: 0,
                   }}
                 >
                   <strong>{turnStatus}</strong>
@@ -2148,9 +2154,12 @@ export default function GameScreen() {
                 <div
                   ref={messageAreaRef}
                   data-areaname="log"
+                  className="scrollable-area"
                   style={{
-                    textAlign: 'left', padding: '0.25rem',
-                    overflowY: 'auto', 
+                    textAlign: 'left',
+                    padding: '0.25rem',
+                    paddingRight: '0.5rem', // Extra padding to move scrollbar further from edge
+                    overflowY: 'auto',
                     flexGrow: 1,
                     flexShrink: 1,
                     minHeight: 0, // Critical for flex scrolling
@@ -2185,7 +2194,7 @@ export default function GameScreen() {
               onMouseDown={handleLowerHalfResizeStart}
               style={{
                 width: '100%',
-                height: '6px',
+                height: '4px',
                 cursor: 'row-resize',
                 backgroundColor: 'transparent',
                 zIndex: 100,
@@ -2216,24 +2225,25 @@ export default function GameScreen() {
 
           {/* Hand area (lower part of lower half) */}
           {!isSpectator && (
-            <Row style={{ 
-              margin: 0, 
+            <Row style={{
+              margin: 0,
               flex: `0 0 ${100 - lowerHalfLogHeight}%`,
               minHeight: 0,
               maxHeight: `${100 - lowerHalfLogHeight}%`,
               overflow: 'hidden',
               height: `${100 - lowerHalfLogHeight}%`
             }}>
-              <Col className="d-flex flex-column" style={{ minHeight: 0, height: '100%' }}>
-                <div className="bg-light p-3 d-flex flex-column position-relative"
+              <Col className="d-flex flex-column" style={{ minHeight: 0, height: '100%', padding: '0' }}>
+                <div className="bg-light d-flex flex-column position-relative"
                   style={{
-                    borderRadius: '5px',
+                    borderRadius: '10px',
                     margin: '0.5rem 0',
                     height: '100%',
                     minHeight: 0,
                     display: 'flex',
                     flexDirection: 'column',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    padding: '0.5rem'
                   }}
                   onClick={() => {
                     if (isDraggingRef.current) return;
@@ -2243,8 +2253,13 @@ export default function GameScreen() {
                   <h5 className="text-start mb-2 flex-shrink-0">Your Hand</h5>
                   <div
                     ref={handAreaRef}
-                    className="flex-grow-1"
-                    style={{ overflowY: 'auto', width: '100%', minHeight: 0 }}
+                    className="flex-grow-1 scrollable-area"
+                    style={{
+                      overflowY: 'auto',
+                      width: '100%',
+                      minHeight: 0,
+                      paddingRight: '0.5rem' // Extra padding to move scrollbar further from edge (matches log area)
+                    }}
                   >
                     {renderedHand}
                   </div>

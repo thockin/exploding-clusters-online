@@ -900,26 +900,26 @@ test.describe("Browser Tests (DEVMODE=1)", () => {
     // Check rows: 8 cards should wrap to 2 rows
     const rows = handArea.locator(".d-flex.justify-content-center.flex-nowrap.w-100");
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator("img")).toHaveCount(6);
-    await expect(rows.nth(1).locator("img")).toHaveCount(2);
+    await expect(rows.nth(0).locator("img")).toHaveCount(7);
+    await expect(rows.nth(1).locator("img")).toHaveCount(1);
     await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "77px"); // empirical
 
     // Draw 9th card (using DEVMODE button)
     await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     await expect(handArea.locator("img")).toHaveCount(9);
-    // Verify layout: 2 rows (6, 3)
+    // Verify layout: 2 rows
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator("img")).toHaveCount(6);
-    await expect(rows.nth(1).locator("img")).toHaveCount(3);
+    await expect(rows.nth(0).locator("img")).toHaveCount(7);
+    await expect(rows.nth(1).locator("img")).toHaveCount(2);
     await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "77px"); // empirical
 
     // Draw 10th card
     await page.click(Buttons.DEV_GIVE_SAFE_CARD);
     await expect(handArea.locator("img")).toHaveCount(10);
-    // Verify layout: 2 rows (6, 4)
+    // Verify layout: 2 rows
     await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator("img")).toHaveCount(6);
-    await expect(rows.nth(1).locator("img")).toHaveCount(4);
+    await expect(rows.nth(0).locator("img")).toHaveCount(7);
+    await expect(rows.nth(1).locator("img")).toHaveCount(3);
     // Verify card size
     await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "77px"); // empirical
 
@@ -933,53 +933,50 @@ test.describe("Browser Tests (DEVMODE=1)", () => {
     // Verify card size
     await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "77px"); // empirical
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 7; i++) {
       await page.click(Buttons.DEV_PUT_CARD_BACK);
     }
-    await expect(handArea.locator("img")).toHaveCount(7);
+    await expect(handArea.locator("img")).toHaveCount(8);
 
-    // Verify layout: 2 rows
-    await expect(rows).toHaveCount(2);
-    await expect(rows.nth(0).locator("img")).toHaveCount(6);
-    await expect(rows.nth(1).locator("img")).toHaveCount(1);
-    // Verify card size
-    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "77px"); // empirical
+    // Verify layout: Should be 2 rows
+    await page.click(Buttons.DEV_PUT_CARD_BACK);
+    await expect(handArea.locator("img")).toHaveCount(7);
 
     await page.click(Buttons.DEV_PUT_CARD_BACK);
     await expect(handArea.locator("img")).toHaveCount(6);
     await expect(rows).toHaveCount(1);
     await expect(rows.nth(0).locator("img")).toHaveCount(6);
-    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "86px"); // empirical
+    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "92px"); // empirical
 
     await page.click(Buttons.DEV_PUT_CARD_BACK);
     await expect(handArea.locator("img")).toHaveCount(5);
     await expect(rows).toHaveCount(1);
     await expect(rows.nth(0).locator("img")).toHaveCount(5);
-    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "106px"); // empirical
+    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "114px"); // empirical
 
     await page.click(Buttons.DEV_PUT_CARD_BACK);
     await expect(handArea.locator("img")).toHaveCount(4);
     await expect(rows).toHaveCount(1);
     await expect(rows.nth(0).locator("img")).toHaveCount(4);
-    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "106px"); // empirical
+    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "117px"); // empirical
 
     await page.click(Buttons.DEV_PUT_CARD_BACK);
     await expect(handArea.locator("img")).toHaveCount(3);
     await expect(rows).toHaveCount(1);
     await expect(rows.nth(0).locator("img")).toHaveCount(3);
-    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "106px"); // empirical
+    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "117px"); // empirical
 
     await page.click(Buttons.DEV_PUT_CARD_BACK);
     await expect(handArea.locator("img")).toHaveCount(2);
     await expect(rows).toHaveCount(1);
     await expect(rows.nth(0).locator("img")).toHaveCount(2);
-    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "106px"); // empirical
+    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "117px"); // empirical
 
     await page.click(Buttons.DEV_PUT_CARD_BACK);
     await expect(handArea.locator("img")).toHaveCount(1);
     await expect(rows).toHaveCount(1);
     await expect(rows.nth(0).locator("img")).toHaveCount(1);
-    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "106px"); // empirical
+    await expect(rows.nth(0).locator(".m-1").first()).toHaveCSS("width", "117px"); // empirical
   });
 
   test("Hand: dismiss inspect-card overlay", async ({ browser }) => {
@@ -1167,8 +1164,8 @@ test.describe("Browser Tests (DEVMODE=1)", () => {
     const row2Cards = rows.nth(1).locator(".m-1");
 
     // Empirical values for for this viewport size
-    await expect(row1Cards).toHaveCount(6);
-    await expect(row2Cards).toHaveCount(2);
+    await expect(row1Cards).toHaveCount(7);
+    await expect(row2Cards).toHaveCount(1);
 
     // --- Drag and Drop Test ---
     // Drag from Row 1 Index 0 to Row 2 Index 0
