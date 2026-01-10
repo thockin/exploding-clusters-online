@@ -92,10 +92,6 @@ USER nextjs
 # Expose port
 EXPOSE 3000
 
-# Enable Node.js module debugging
-ENV NODE_OPTIONS="--trace-warnings"
-ENV NODE_DEBUG=module
-
 # Start the server
 # Use npm start which runs .next/server.js (matches package.json script)
 CMD ["npm", "run", "start"]
