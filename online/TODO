@@ -4,8 +4,16 @@ In progress:
   - make decks smaller
   - left-right between players and table
 * Revist LLM critique notes
-* ipad support
-  - shift-click == long press?
+
+Mobile support:
+* multi-select - how?
+* drag and drop hand reordering doesn't work well
+* hand animation does show when I draw
+* hand animation when someone else draws is not scaled with the draw pile size
+* screen lock killed the session pretty quickly
+* resize bars don't work
+* the log area took up too much screen space
+* hand cards could be smaller
 
 Test improvments
 * Make tests faster
