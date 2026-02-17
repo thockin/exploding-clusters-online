@@ -1,19 +1,48 @@
-In progress:
+To be improved:
 * BUG: Hand should allow rendering 1 row at 75% height without resize
 * Make all areas resizable
-  - make decks smaller
-  - left-right between players and table
-* Revist LLM critique notes
+  - make decks smaller when resizing into the table area
+  - make left-right resizable between players and table
+* Break up too-large files and functions (drawCard, playCard, etc)
+* Reduce redundant game updates (e.g. nonce update redundancy)
+* isPlaying lifecycle is not clean
+* Unify PlayCard and PlayCombo events
+* Move end-of-game checking into "departure" func
+* document the turn state-machine
+  * Rename TurnPhase to TurnState?
+  * Rename GameState Started -> Playing
+* Fix dumb LLM comments like "Maybe we should" and "design doc says..." and "phase X"
 
-Mobile support:
+UI:
+* Add more fanfare to a win - animation or overlay or something
+* Capitalization and grammar/style in all buttons and labels
+  - Modal dialog for "beat you to it"
+* Animations:
+  * Add a play-card animation (important when playing the same card)
+    - distinguish combo play from single-card
+  * Add a reinsert-card animation
+  * Current draw-card animation is ugly
+    - get rid of hand entirely?
+    - need configurable skin colors?
+    - scale hand animations with cards
+    - center hand on deck
+  * Add a shuffle-deck animation
+
+Feature ideas:
+* Maybe add a "chance of explosion"?
+  - would need to pass drawPile length in prod mode
+* Double-deck play
+* Reduced-deck play
+
+Mobile/tablet support:
 * multi-select - how?
 * drag and drop hand reordering doesn't work well
 * hand animation does show when I draw
 * hand animation when someone else draws is not scaled with the draw pile size
 * screen lock killed the session pretty quickly
 * resize bars don't work
-* the log area took up too much screen space
-* hand cards could be smaller
+* log area takes up too much screen space
+* hand cards could be smaller on smaller displays
 
 Test improvments
 * Make tests faster
@@ -29,37 +58,11 @@ Test improvments
 * A worker process has failed to exit gracefully and has been force exited. This is likely caused by tests leaking due to improper teardown. Try running with --detectOpenHandles to find leaks. Active timers can also cause this, ensure that .unref() was called on them.
 * simplify context + page -> browser.newPage
 
-Before release:
-* clean up notes and TODO files
-* How to LB and auto-scale?
+Productionization:
+* Game code is locked to server, can't scale out
+  - Could add LB which uses two-level game code (e.g. ABCDE-FGHIJ), send to
+    backend ABCDE, game FGHIJ.  Need each backend to know its own prefix.
+* Hide infoz
 
-Repeated:
+Periodic tasks:
 * `npm i baseline-browser-mapping@latest -D`
-
-Cleanup:
-* Unify PlayCard and PlayCombo events
-* Move end-of-game checking into "departure" func
-* document the turn state-machine
-  * Rename TurnPhase to TurnState ?
-  * Rename GameStater Started -> Playing
-* Reduce redundant game updates?
-* Fix dumb LLM comments like "Maybe we should" and "design doc says..." and "phase X"
-
-UI:
-* Capitalization and grammar/style in all buttons and labels
-  - Modal dialog for "beat you to it"
-* Animations:
-  * Add a play-card animation (important when playing the same card)
-    - distinguish combo play from single-card
-  * Add a reinsert-card animation
-  * Current draw-card animation is ugly
-    - get rid of hand entirely?
-    - need configurable skin colors?
-    - scale hand animations with cards
-    - center hand on deck
-  * Add a shuffle-deck animation
-* Scale cards up in size as they get dragged to the discard pile
-* Make it mobile compatible?
-* Add more fanfare to a win - animation or overlay or something
-* Maybe add a "chance of explosion"?
-  - would need to pass drawPile length in prod mode
