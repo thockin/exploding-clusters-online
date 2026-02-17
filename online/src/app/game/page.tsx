@@ -2180,7 +2180,7 @@ export default function GameScreen() {
                     {(safeGameState.lastActorName && me && me.name === safeGameState.lastActorName) ? (
                       <h4 className="text-success">Waiting for other players to react</h4>
                     ) : (
-                      <h4 className="text-warning">Want to react? Act fast!</h4>
+                      <h4 className="text-success">Want to react? Act fast!</h4>
                     )}
                     <h2 className="display-3">{reactionCountdown}</h2>
                   </>
@@ -2190,7 +2190,7 @@ export default function GameScreen() {
                     {isCurrentPlayer(safeGameState, safePlayerId) ? (
                       <h4 className="text-danger">PLAY A DEBUG CARD!</h4>
                     ) : (
-                      <h4 className="text-warning">Waiting for {safeGameState.players[safeGameState.currentPlayer]?.name || 'BUG: unknown player'} to debug their cluster...</h4>
+                      <h4 className="text-danger">Waiting for {safeGameState.players[safeGameState.currentPlayer]?.name || 'BUG: unknown player'} to debug their cluster...</h4>
                     )}
                   </>
                 )}

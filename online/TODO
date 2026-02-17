@@ -51,7 +51,6 @@ Cleanup:
 UI:
 * Capitalization and grammar/style in all buttons and labels
   - Modal dialog for "beat you to it"
-* Colors for reaction timer text
 * Animations:
   * Add a play-card animation (important when playing the same card)
     - distinguish combo play from single-card
