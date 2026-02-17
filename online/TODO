@@ -30,7 +30,6 @@ Test improvments
 * simplify context + page -> browser.newPage
 
 Before release:
-* edit README
 * license
 * `npm i baseline-browser-mapping@latest -D`
 * Copyright on SVGs
