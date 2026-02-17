@@ -1821,6 +1821,12 @@ implemented, or which was not thought of during the design phase, but is
 actually needed.
 
 ## Part 3: Things not yet integrated in this doc
- - Game modifiers (less cards, more/less debug, exploding, upgrade cards, etc)
+ - Game modifier ideas:
+   - double deck'
+   - half deck
+   - more debug cards
+   - more exploding cards
+   - more upgrade cards
+   - a "dead hand" of removed cards
  - 3 card combos
  - Game PIN required to join
