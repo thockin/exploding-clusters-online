@@ -735,7 +735,7 @@ EXPLODING CLUSTERS cards in. If there are 5 players, put 4 in.  Any extra
 EXPLODING CLUSTER cards are removed from the game.
 
 If there are 3 or 4 players put 1 UPGRADE CLUSTER card into the deck. If there
-are players, put 2 UPGRADE CLUSTER cards in.  Any extra UPGRADE CLUSTER cards
+are 5 players, put 2 UPGRADE CLUSTER cards in.  Any extra UPGRADE CLUSTER cards
 are removed from the game.
 
 Shuffle the deck.
