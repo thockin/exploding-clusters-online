@@ -52,9 +52,6 @@ notes.txt
 GEMINI.md
 design_doc.md
 
-# Vercel
-.vercel
-
 # TypeScript build info
 *.tsbuildinfo
 next-env.d.ts
