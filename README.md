@@ -50,7 +50,13 @@ To run the full test suite (unit tests and browser tests via Playwright):
 make test
 ```
 
-## Technologies
+## Contributions are welcome!
+
+I freely admit that I leaned on AI tools to build this.  That was part of the
+experiment - low risk, high reward.  I accept that it probably generated
+terrible code, and I am willing to accept PRs to make it better.  Before this
+project, I did not know ANY of these technologies.  Now I can at least look at
+them and not be lost.
 
 Built with:
 *   Node.js
