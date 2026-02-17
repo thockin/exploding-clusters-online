@@ -222,7 +222,7 @@ export default function GameScreen() {
   }, [helpOverlayOpen, windowHeight, upperHalfHeight, tableAreaSize]);
 
   useEffect(() => {
-    if (helpOverlayOpen && drawPileRef.current) {
+    if (helpOverlayOpen && discardPileRef.current) {
       const rect = discardPileRef.current.getBoundingClientRect();
       setHelpDiscardPilePos({
         top: rect.top,

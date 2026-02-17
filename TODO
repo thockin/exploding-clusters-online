@@ -30,7 +30,9 @@ Test improvments
 * simplify context + page -> browser.newPage
 
 Before release:
+* npm audit
 * license
+* clean up notes and TODO files
 * `npm i baseline-browser-mapping@latest -D`
 * Copyright on SVGs
 * How to LB and auto-scale?
