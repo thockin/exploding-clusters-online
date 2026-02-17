@@ -95,6 +95,10 @@ export default function GameScreen() {
   const isUserScrolledUpRef = useRef(false);
   // Reference to the hand container, used to measure its size for card layout calculations
   const handAreaRef = useRef<HTMLDivElement>(null);
+  // Reference to the draw pile, used for help overlay positioning
+  const drawPileRef = useRef<HTMLDivElement>(null);
+  // Reference to the discard pile, used for help overlay positioning
+  const discardPileRef = useRef<HTMLDivElement>(null);
 
   // Refs for resize drag tracking - these store values that don't need to trigger re-renders
   // Tracks whether the user is currently dragging the resize bar between upper and lower halves
@@ -200,6 +204,34 @@ export default function GameScreen() {
   // Used to change cursor style and show visual feedback for valid/invalid drop targets
   const [isHoveringDiscard, setIsHoveringDiscard] = useState(false);
 
+  // Help overlay state
+  const [helpOverlayOpen, setHelpOverlayOpen] = useState(false);
+  const [helpScreenIndex, setHelpScreenIndex] = useState(0);
+  const [helpDrawPilePos, setHelpDrawPilePos] = useState({ top: 0, left: 0, width: 0 });
+  const [helpDiscardPilePos, setHelpDiscardPilePos] = useState({ top: 0, left: 0, width: 0 });
+
+  useEffect(() => {
+    if (helpOverlayOpen && drawPileRef.current) {
+      const rect = drawPileRef.current.getBoundingClientRect();
+      setHelpDrawPilePos({
+        top: rect.top,
+        left: rect.left,
+        width: rect.right - rect.left
+      });
+    }
+  }, [helpOverlayOpen, windowHeight, upperHalfHeight, tableAreaSize]);
+
+  useEffect(() => {
+    if (helpOverlayOpen && drawPileRef.current) {
+      const rect = discardPileRef.current.getBoundingClientRect();
+      setHelpDiscardPilePos({
+        top: rect.top,
+        left: rect.left,
+        width: rect.right - rect.left
+      });
+    }
+  }, [helpOverlayOpen, windowHeight, upperHalfHeight, tableAreaSize]);
+
   // DEVMODE state
   // Stores all cards in the draw pile (dev mode only)
   // When set, shows an overlay displaying all cards in the deck in order
@@ -214,6 +246,13 @@ export default function GameScreen() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Shift') isShiftKeyPressed.current = true;
+      if (e.key === '?') {
+        e.preventDefault();
+        setHelpOverlayOpen(prev => {
+          if (!prev) setHelpScreenIndex(0); // Reset to first screen when opening
+          return !prev;
+        });
+      }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') isShiftKeyPressed.current = false;
@@ -489,17 +528,26 @@ export default function GameScreen() {
   // Empty dependency array means this only runs once on mount
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (helpOverlayOpen) {
+        if (event.key === 'ArrowLeft') {
+          setHelpScreenIndex(prev => Math.max(0, prev - 1));
+        } else if (event.key === 'ArrowRight') {
+          setHelpScreenIndex(prev => Math.min(6, prev + 1));
+        }
+      }
+
       if (event.key === 'Escape') {
         //console.debug("inspect-card overlay dismissed by escape");
         setInspectCardOverlay(null);
         setDeckCardsOverlay(null);
         setRemovedCardsOverlay(null);
         setSeeTheFutureCards(null);
+        setHelpOverlayOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [helpOverlayOpen]);
 
   // Auto-scroll message log to bottom when new messages arrive
   // Only auto-scrolls if the user is already at or near the bottom (hasn't scrolled up)
@@ -1901,6 +1949,173 @@ export default function GameScreen() {
           </div>
         )}
 
+        {helpOverlayOpen && (
+          <div
+            data-overlayname="help"
+            style={{
+              position: 'fixed',
+              top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex', justifyContent: 'center', alignItems: 'center',
+              zIndex: 2000,
+            }}
+            onClick={() => setHelpOverlayOpen(false)}
+          >
+            {/* Help Content */}
+            {helpScreenIndex === 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '20%', // Adjusted to move it down slightly
+                  left: '15%',
+                  textAlign: 'center',
+                }}
+              >
+                <h2 style={{ width: '600px',  fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  This is your hand. You can drag cards to reorder them. Cards which are not playable right now are faded.
+                </h2>
+                <h2 style={{ fontWeight: 'bold', fontSize: '4rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  ↓
+                </h2>
+              </div>
+            )}
+
+            {helpScreenIndex === 1 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '70%',
+                  left: '15%',
+                  textAlign: 'center',
+                }}
+              >
+                <h2 style={{ width: '500px', fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  Double click any card to get a better look.
+                </h2>
+              </div>
+            )}
+
+            {helpScreenIndex === 2 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '70%',
+                  left: '15%',
+                  textAlign: 'center',
+                }}
+              >
+                <h2 style={{ width: '600px', fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  Click a developer card, then shift-click an identical card to form a combo.
+                </h2>
+              </div>
+            )}
+
+            {helpScreenIndex === 3 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: helpDiscardPilePos.top,
+                  left: helpDiscardPilePos.left,
+                  width: helpDiscardPilePos.width,
+                  textAlign: 'center',
+                }}
+              >
+                <h2 style={{ fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  This is the discard pile.
+                </h2>
+              </div>
+            )}
+
+            {helpScreenIndex === 4 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: helpDiscardPilePos.top,
+                  left: helpDiscardPilePos.left,
+                  width: helpDiscardPilePos.width,
+                  textAlign: 'center',
+                }}
+              >
+                <h2 style={{ fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  Drag a card or combo from your hand to the discard pile to play it.
+                </h2>
+              </div>
+            )}
+
+            {helpScreenIndex === 5 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '45%',
+                  left: '15%',
+                  textAlign: 'center',
+                }}
+              >
+                <h2 style={{ width: '600px', fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  After a card is played, other players have time to react (by playing another card).
+                </h2>
+              </div>
+            )}
+
+            {helpScreenIndex === 6 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: helpDrawPilePos.top,
+                  left: helpDrawPilePos.left,
+                  width: helpDrawPilePos.width,
+                  textAlign: 'center',
+                }}
+              >
+                <h2 style={{ fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  This is the draw pile. Click here to draw a card and end your turn.
+                </h2>
+              </div>
+            )}
+
+            {/* Navigation Buttons */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                gap: '20px',
+                pointerEvents: 'auto',
+              }}
+              onClick={(e) => e.stopPropagation()} // Prevent closing overlay when clicking buttons
+            >
+              <Button
+                variant="primary"
+                size="lg"
+                disabled={helpScreenIndex === 0}
+                onClick={() => setHelpScreenIndex(prev => Math.max(0, prev - 1))}
+                style={{
+                  fontSize: '2.5rem', // Even larger font size
+                  padding: '0.5rem 1.5rem',
+                  border: '2px solid white',
+                }}
+              >
+                ←
+              </Button>
+              <Button
+                variant="primary"
+                size="lg"
+                disabled={helpScreenIndex === 6} // Disable if it's the last screen
+                onClick={() => setHelpScreenIndex(prev => prev + 1)}
+                style={{
+                  fontSize: '2.5rem', // Even larger font size
+                  padding: '0.5rem 1.5rem',
+                  border: '2px solid white',
+                }}
+              >
+                →
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Upper half */}
         <div style={{
           height: `${upperHalfHeight}%`,
@@ -1989,6 +2204,7 @@ export default function GameScreen() {
                 {/* Draw Pile */}
                 <div className="d-flex flex-column align-items-center">
                   <div
+                    ref={drawPileRef}
                     className={`draw-pile position-relative ${!draggedCard && isCurrentPlayer(safeGameState, safePlayerId) && safeGameState.turnPhase === TurnPhase.Action ? 'draw-pile-clickable' : ''}`}
                     data-areaname="draw-pile"
                     data-drawcount={safeGameState.drawCount ?? 0}
@@ -2054,7 +2270,14 @@ export default function GameScreen() {
 
                 {/* Discard Pile */}
                 <div className="d-flex flex-column align-items-center">
-                  <div style={{ width: getCardSize().width, height: getCardSize().height, position: 'relative' }}>
+                  <div
+                    style={{
+                      width: getCardSize().width,
+                      height: getCardSize().height,
+                      position: 'relative'
+                    }}
+                    ref={discardPileRef}
+                  >
                     {renderDiscardPile()}
                     {safeGameState.devMode && <div className="text-white position-absolute start-50 translate-middle-x discard-pile-count" style={{ top: '100%' }}>({safeGameState.discardPileCount !== undefined ? safeGameState.discardPileCount : '??'} cards)</div>}
                   </div>
@@ -2258,6 +2481,31 @@ export default function GameScreen() {
                     }}
                   >
                     {renderedHand}
+                    <Button
+                      variant="secondary"
+                      className="position-absolute"
+                      size="sm"
+                      onClick={() => {
+                        setHelpScreenIndex(0);
+                        setHelpOverlayOpen(true);
+                      }}
+                      style={{
+                        bottom: '1rem',
+                        right: 'calc(1rem + 12px)', // Offset for scrollbar width
+                        zIndex: 100,
+                        borderRadius: '50%',
+                        width: '35px',
+                        height: '35px',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        fontWeight: 'bold',
+                        fontSize: '1rem',
+                        padding: '0',
+                      }}
+                    >
+                      ?
+                    </Button>
                   </div>
                 </div>
               </Col>
