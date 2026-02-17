@@ -24,7 +24,7 @@ app.prepare().then(() => {
     const parsedUrl = parse(req.url!, true);
     const { pathname } = parsedUrl;
 
-    if (pathname === '/infoz' || pathname?.startsWith('/infoz/game/')) {
+    if (config.enableInfoz && (pathname === '/infoz' || pathname?.startsWith('/infoz/game/'))) {
         gameManager.handleInfozRequest(req, res);
         return;
     }

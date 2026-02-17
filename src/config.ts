@@ -56,6 +56,12 @@ const envVars: EnvVarDefinition[] = [
     defaultValue: 'development',
     type: 'string',
   },
+  {
+    name: 'ENABLE_INFOZ',
+    description: 'If "1", enables the /infoz endpoint.',
+    defaultValue: false,
+    type: 'boolean',
+  },
 ];
 
 export const config = {
@@ -103,7 +109,10 @@ export const config = {
   },
   get isDev(): boolean {
     return this.nodeEnv !== 'production';
-  }
+  },
+  get enableInfoz(): boolean {
+    return process.env.ENABLE_INFOZ === '1';
+  },
 };
 
 export function printHelp() {

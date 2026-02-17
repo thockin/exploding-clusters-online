@@ -4,19 +4,11 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Set DEVMODE so that testing-related features are enabled.
 process.env.DEVMODE = '1';
-
-// Set "fast" mode for tests.
-process.env.GO_FAST = '1';
-
-// Set reaction timer for tests to speed them up.
-process.env.REACTION_TIMER = '3';
-
-// Set max spectators for tests to speed them up.
-process.env.MAX_SPECTATORS = '5';
+process.env.ENABLE_INFOZ = '1';
 
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['**/devmode.spec.ts', '**/infoz_disabled.spec.ts'],
+  testMatch: '**/infoz_enabled.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
