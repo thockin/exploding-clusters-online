@@ -62,7 +62,6 @@ Productionization:
 * Game code is locked to server, can't scale out
   - Could add LB which uses two-level game code (e.g. ABCDE-FGHIJ), send to
     backend ABCDE, game FGHIJ.  Need each backend to know its own prefix.
-* Hide infoz
 
 Periodic tasks:
 * `npm i baseline-browser-mapping@latest -D`
