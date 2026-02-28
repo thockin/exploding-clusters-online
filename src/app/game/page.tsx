@@ -532,7 +532,7 @@ export default function GameScreen() {
         if (event.key === 'ArrowLeft') {
           setHelpScreenIndex(prev => Math.max(0, prev - 1));
         } else if (event.key === 'ArrowRight') {
-          setHelpScreenIndex(prev => Math.min(6, prev + 1));
+          setHelpScreenIndex(prev => Math.min(9, prev + 1));
         }
       }
 
@@ -1966,6 +1966,76 @@ export default function GameScreen() {
               <div
                 style={{
                   position: 'absolute',
+                  top: '25%',
+                  left: '10%',
+                  textAlign: 'center',
+                }}
+              >
+                <h2 style={{ width: '80%', fontWeight: 'bold', fontSize: '3rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  TUTORIAL:
+                </h2>
+                <p/>
+                <h2 style={{ width: '80%', fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  This will show you how to play the game. Click the arrows or use LEFT and RIGHT arrows on your keyboard.  Hit ESC to exit at any time.
+                </h2>
+              </div>
+            )}
+            {helpScreenIndex === 1 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '25%',
+                  left: '10%',
+                  textAlign: 'center',
+                }}
+              >
+                <h2 style={{ width: '80%', fontWeight: 'bold', fontSize: '3rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  HOW TO PLAY:
+                </h2>
+                <p/>
+                <h2 style={{ width: '80%', fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  The goal of the game is to be the last player with a functioning cluster.
+                </h2>
+                <p/>
+                <h2 style={{ width: '80%', fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  On your turn, you can play cards from your hand, and then draw a card to end your turn.
+                </h2>
+                <p/>
+                <h2 style={{ width: '80%', fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  After you play a card, other players have a chance to react by playing cards of their own.
+                </h2>
+              </div>
+            )}
+            {helpScreenIndex === 2 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '25%',
+                  left: '10%',
+                  textAlign: 'center',
+                }}
+              >
+                <h2 style={{ width: '80%', fontWeight: 'bold', fontSize: '3rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  HOW TO PLAY:
+                </h2>
+                <p/>
+                <h2 style={{ width: '80%', fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  If you draw an EXPLODING CLUSTER card, you must play a DEBUG card, or else you are out.
+                </h2>
+                <p/>
+                <h2 style={{ width: '80%', fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  If you draw a face-up UPGRADE CLUSTER card, you are out of the game.
+                </h2>
+                <p/>
+                <h2 style={{ width: '80%', fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
+                  The objective is to force other players to draw those cards while protecting yourself.
+                </h2>
+              </div>
+            )}
+            {helpScreenIndex === 3 && (
+              <div
+                style={{
+                  position: 'absolute',
                   bottom: '20%', // Adjusted to move it down slightly
                   left: '15%',
                   textAlign: 'center',
@@ -1974,13 +2044,14 @@ export default function GameScreen() {
                 <h2 style={{ width: '600px',  fontWeight: 'bold', fontSize: '2.5rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
                   This is your hand. You can drag cards to reorder them. Cards which are not playable right now are faded.
                 </h2>
+                <p/>
                 <h2 style={{ fontWeight: 'bold', fontSize: '4rem', color: 'yellow', textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}>
                   ↓
                 </h2>
               </div>
             )}
 
-            {helpScreenIndex === 1 && (
+            {helpScreenIndex === 4 && (
               <div
                 style={{
                   position: 'absolute',
@@ -1995,7 +2066,7 @@ export default function GameScreen() {
               </div>
             )}
 
-            {helpScreenIndex === 2 && (
+            {helpScreenIndex === 5 && (
               <div
                 style={{
                   position: 'absolute',
@@ -2010,7 +2081,7 @@ export default function GameScreen() {
               </div>
             )}
 
-            {helpScreenIndex === 3 && (
+            {helpScreenIndex === 6 && (
               <div
                 style={{
                   position: 'absolute',
@@ -2026,7 +2097,7 @@ export default function GameScreen() {
               </div>
             )}
 
-            {helpScreenIndex === 4 && (
+            {helpScreenIndex === 7 && (
               <div
                 style={{
                   position: 'absolute',
@@ -2042,7 +2113,7 @@ export default function GameScreen() {
               </div>
             )}
 
-            {helpScreenIndex === 5 && (
+            {helpScreenIndex === 8 && (
               <div
                 style={{
                   position: 'absolute',
@@ -2057,7 +2128,7 @@ export default function GameScreen() {
               </div>
             )}
 
-            {helpScreenIndex === 6 && (
+            {helpScreenIndex === 9 && (
               <div
                 style={{
                   position: 'absolute',
@@ -2072,6 +2143,7 @@ export default function GameScreen() {
                 </h2>
               </div>
             )}
+
 
             {/* Navigation Buttons */}
             <div
@@ -2102,7 +2174,7 @@ export default function GameScreen() {
               <Button
                 variant="primary"
                 size="lg"
-                disabled={helpScreenIndex === 6} // Disable if it's the last screen
+                disabled={helpScreenIndex === 9} // Disable if it's the last screen
                 onClick={() => setHelpScreenIndex(prev => prev + 1)}
                 style={{
                   fontSize: '2.5rem', // Even larger font size
