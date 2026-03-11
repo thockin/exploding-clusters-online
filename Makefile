@@ -1,5 +1,7 @@
 # Copyright 2025 Tim Hockin
 
+VERSION ?= $(shell git describe --tags --always --dirty)
+
 all:
 	@echo "There is no 'all' target defined."
 
@@ -13,12 +15,14 @@ test:
 lint:
 	npm run lint
 
+TAG := $(VERSION)
+REGISTRY := ghcr.io/thockin
 container:
 	docker build \
 	    -f Dockerfile \
-	    -t gcr.io/thockin-joonix-dev/xco:latest \
+	    -t $(REGISTRY)/xco:$(TAG) \
 	    .
 
 push:
-	docker push gcr.io/thockin-joonix-dev/xco:latest
+	docker push $(REGISTRY)/xco:$(TAG)
 
