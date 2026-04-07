@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
+    "@hiseb/confetti": "^2.1.0",
     "@types/uuid": "^9.0.8",
     "bootstrap": "^5.3.8",
     "next": "^16.0.7",
