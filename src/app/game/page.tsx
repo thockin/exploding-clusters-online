@@ -3,6 +3,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import confetti from '@hiseb/confetti';
 import { useRouter } from 'next/navigation';
 import { Container, Row, Col, ListGroup, Button, Modal, Form } from 'react-bootstrap';
 import { useSocket } from '../contexts/SocketContext';
@@ -51,9 +52,24 @@ const isCurrentPlayer = (gs: GameUpdatePayload | null | undefined, pid: string |
   return currentPlayer.id === pid;
 };
 
+
 export default function GameScreen() {
   const router = useRouter();
   const { socket, gameCode, gameState, playerName, playerId, myHand, setMyHand, resetState, isLoading, gameEndData, gameMessages } = useSocket();
+
+  // Track if confetti has been fired for this win
+  const confettiFiredRef = useRef(false);
+
+  // Fire confetti when the win modal appears
+  useEffect(() => {
+    if (gameEndData && gameEndData.winner === playerName && !confettiFiredRef.current) {
+      confetti();
+      confettiFiredRef.current = true;
+    }
+    if (!gameEndData || gameEndData.winner !== playerName) {
+      confettiFiredRef.current = false;
+    }
+  }, [gameEndData, playerName]);
 
   // Helper function to assert required values and log BUGs when they're missing
   const assertDefined = <T,>(value: T | null | undefined, name: string, context?: string): T => {
